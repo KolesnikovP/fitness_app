@@ -26,7 +26,7 @@ The app calls the backend at `EXPO_PUBLIC_API_URL` if that's set. Otherwise, in 
 | `src/app` | Expo Router routes only. Each file renders a screen from `src/screens`. The root `_layout.tsx` decides which route group is reachable: logged out → `(auth)`, server unreachable → `unavailable`, no unit preference yet → `onboarding`, otherwise `(tabs)` |
 | `src/screens` | Full screens |
 | `src/features` | User actions: `auth-by-email`, `set-unit-preference`, `log-out` |
-| `src/entities` | Domain data and API calls: `session` (login state, token in `expo-secure-store`), `user` |
+| `src/entities` | Domain data and API calls: `auth` (login state, token in `expo-secure-store`), `user` |
 | `src/shared` | `api` (HTTP client) and `ui` (Button, TextField, Screen) |
 
 Layers only import from layers below them, through each slice's `index.ts`.

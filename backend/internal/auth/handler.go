@@ -12,7 +12,7 @@ type credentials struct {
 	Password string `json:"password"`
 }
 
-type sessionResponse struct {
+type authResponse struct {
 	Token   string  `json:"token"`
 	Account Account `json:"account"`
 }
@@ -39,7 +39,7 @@ func (s *Service) handleSignUp(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		httpx.WriteInternalError(w, r, err)
 	default:
-		httpx.WriteJSON(w, http.StatusCreated, sessionResponse{Token: token, Account: account})
+		httpx.WriteJSON(w, http.StatusCreated, authResponse{Token: token, Account: account})
 	}
 }
 
@@ -56,6 +56,6 @@ func (s *Service) handleLogIn(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		httpx.WriteInternalError(w, r, err)
 	default:
-		httpx.WriteJSON(w, http.StatusOK, sessionResponse{Token: token, Account: account})
+		httpx.WriteJSON(w, http.StatusOK, authResponse{Token: token, Account: account})
 	}
 }

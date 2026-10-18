@@ -1,11 +1,11 @@
 import { router } from 'expo-router';
 
-import { useSession } from '@/entities/session';
+import { useAuth } from '@/entities/auth';
 import { AuthForm } from '@/features/auth-by-email';
 import { Button, Screen } from '@/shared/ui';
 
 export function LogInScreen() {
-  const { logIn } = useSession();
+  const { logIn } = useAuth();
 
   return (
     <Screen title="Log in">

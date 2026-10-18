@@ -82,8 +82,8 @@ describe('auth flow', () => {
   });
 });
 
-describe('stored session', () => {
-  it('restores a stored session on launch without asking to log in', async () => {
+describe('stored login', () => {
+  it('restores a stored login on launch without asking to log in', async () => {
     const account = fakeApi.addAccount('lifter@example.com', PASSWORD, 'kg');
     secureStore.set(TOKEN_KEY, fakeApi.issueToken(account.id));
 
