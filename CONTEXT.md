@@ -1,11 +1,33 @@
-# Fitness App: Domain Glossary
+# Fitness App
 
-Terms as the code and tickets use them. Add to this as terms get settled.
+A workout tracker for lifters: logging workouts, building reusable programs, browsing an exercise library, and sharing progress on a social feed.
 
-## Accounts and users
+## Language
 
-- **Account**: a login identity, made up of an email and a password. Owned by the backend `auth` module, which creates accounts and issues tokens for them. Emails are unique regardless of case.
-- **Profile**: a user's settings, one per account and created with it at sign-up. Owned by the backend `user` module.
-- **Unit preference**: whether weights display in `kg` or `lb`. Stored on the profile. Empty (null) until the user picks one.
-- **Onboarding**: the steps a new user completes after sign-up. Today that is only choosing a unit preference. A user whose unit preference is null has not finished onboarding.
-- **Token**: the JWT bearer token returned by sign-up and login, and sent as `Authorization: Bearer <token>`. It expires after 30 days by default. Logging out deletes it on the client; the server keeps no session list.
+### People and identity
+
+**User**:
+A person using the app. Every User has exactly one Account and one Profile.
+_Avoid_: Member, customer, lifter (as a system term)
+
+**Account**:
+A User's login identity: an email and password. Emails are unique regardless of case.
+_Avoid_: Login, credentials, user (when you mean the identity)
+
+**Profile**:
+A User's settings and the face they show to other Users. Created together with the Account.
+_Avoid_: Settings, preferences (as the container), user record
+
+**Unit preference**:
+Whether a User sees weights in kilograms or pounds. Unset until the User chooses during Onboarding.
+_Avoid_: Units, unit system, weight unit
+
+**Onboarding**:
+The steps a new User completes after signing up, before reaching the app. A User whose Unit preference is unset has not finished Onboarding.
+_Avoid_: Setup, first run, welcome flow
+
+### Training
+
+**Session**:
+One workout a User logs, from start to finish. The word is reserved for this; being logged in is never called a session.
+_Avoid_: Training session, workout log, login session
