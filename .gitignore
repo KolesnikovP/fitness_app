@@ -1,2 +1,6 @@
 # macOS
 .DS_Store
+
+# Go build output
+/backend/api
+/backend/bin/
