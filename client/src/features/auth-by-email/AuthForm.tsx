@@ -27,7 +27,7 @@ export function AuthForm({ submitLabel, onSubmit, passwordAutoComplete }: AuthFo
       setError(errorMessage(e));
       setSubmitting(false);
     }
-    // On success the session changes and this screen unmounts, so
+    // On success the login state changes and this screen unmounts, so
     // `submitting` is intentionally left on.
   }
 

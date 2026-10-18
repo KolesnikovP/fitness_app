@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 
-import { useSession } from '@/entities/session';
+import { useAuth } from '@/entities/auth';
 import { Button, colors, Screen } from '@/shared/ui';
 
-/** Shown on launch when a session is stored but the server can't be reached. */
+/** Shown on launch when a login is stored but the server can't be reached. */
 export function ServerUnavailableScreen() {
-  const { retry } = useSession();
+  const { retry } = useAuth();
   const [retrying, setRetrying] = useState(false);
 
   async function handleRetry() {

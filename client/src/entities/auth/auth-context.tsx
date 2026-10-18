@@ -6,27 +6,27 @@ import { ApiError } from '@/shared/api';
 import { logInRequest, signUpRequest } from './api';
 import { tokenStorage } from './token-storage';
 
-export type SessionState =
+export type AuthState =
   | { status: 'loading' }
   | { status: 'signedOut' }
   /** A token is stored but the server can't be reached to check it. */
   | { status: 'unreachable' }
   | { status: 'signedIn'; token: string; me: Me };
 
-type SessionContextValue = {
-  state: SessionState;
+type AuthContextValue = {
+  state: AuthState;
   signUp: (email: string, password: string) => Promise<void>;
   logIn: (email: string, password: string) => Promise<void>;
   logOut: () => Promise<void>;
   setUnitPreference: (unit: UnitPreference) => Promise<void>;
-  /** Try restoring the stored session again, after 'unreachable'. */
+  /** Try restoring the stored login again, after 'unreachable'. */
   retry: () => Promise<void>;
 };
 
-const SessionContext = createContext<SessionContextValue | null>(null);
+const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function SessionProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<SessionState>({ status: 'loading' });
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [state, setState] = useState<AuthState>({ status: 'loading' });
 
   const restore = useCallback(async () => {
     const token = await tokenStorage.get();
@@ -52,22 +52,22 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     restore();
   }, [restore]);
 
-  const startSession = useCallback(async (token: string) => {
+  const finishLogIn = useCallback(async (token: string) => {
     const me = await getMe(token);
     await tokenStorage.set(token);
     setState({ status: 'signedIn', token, me });
   }, []);
 
-  const value = useMemo<SessionContextValue>(
+  const value = useMemo<AuthContextValue>(
     () => ({
       state,
       signUp: async (email, password) => {
         const { token } = await signUpRequest(email, password);
-        await startSession(token);
+        await finishLogIn(token);
       },
       logIn: async (email, password) => {
         const { token } = await logInRequest(email, password);
-        await startSession(token);
+        await finishLogIn(token);
       },
       logOut: async () => {
         await tokenStorage.clear();
@@ -83,14 +83,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         await restore();
       },
     }),
-    [state, startSession, restore],
+    [state, finishLogIn, restore],
   );
 
-  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useSession(): SessionContextValue {
-  const value = useContext(SessionContext);
-  if (!value) throw new Error('useSession must be used inside <SessionProvider>');
+export function useAuth(): AuthContextValue {
+  const value = useContext(AuthContext);
+  if (!value) throw new Error('useAuth must be used inside <AuthProvider>');
   return value;
 }

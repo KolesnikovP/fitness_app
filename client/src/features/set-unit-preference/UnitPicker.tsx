@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { useSession } from '@/entities/session';
+import { useAuth } from '@/entities/auth';
 import type { UnitPreference } from '@/entities/user';
 import { colors, spacing } from '@/shared/ui';
 
@@ -12,7 +12,7 @@ const OPTIONS: { value: UnitPreference; title: string; detail: string }[] = [
 
 /** Saves the unit preference as soon as an option is tapped. */
 export function UnitPicker() {
-  const { setUnitPreference } = useSession();
+  const { setUnitPreference } = useAuth();
   const [saving, setSaving] = useState<UnitPreference | null>(null);
   const [error, setError] = useState<string | null>(null);
 

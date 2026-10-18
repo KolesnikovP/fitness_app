@@ -2,22 +2,22 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
-import { SessionProvider, useSession } from '@/entities/session';
+import { AuthProvider, useAuth } from '@/entities/auth';
 
-// Keep the splash screen up until the stored session has been checked, so a
+// Keep the splash screen up until the stored login has been checked, so a
 // signed-in user never sees the login screen flash.
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   return (
-    <SessionProvider>
+    <AuthProvider>
       <RootNavigator />
-    </SessionProvider>
+    </AuthProvider>
   );
 }
 
 function RootNavigator() {
-  const { state } = useSession();
+  const { state } = useAuth();
 
   useEffect(() => {
     if (state.status !== 'loading') SplashScreen.hide();

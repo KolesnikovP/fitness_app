@@ -1,11 +1,11 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { useSession } from '@/entities/session';
+import { useAuth } from '@/entities/auth';
 import { LogOutButton } from '@/features/log-out';
 import { colors, Screen, spacing } from '@/shared/ui';
 
 export function ProfileScreen() {
-  const { state } = useSession();
+  const { state } = useAuth();
   if (state.status !== 'signedIn') return null;
 
   return (
