@@ -31,3 +31,25 @@ _Avoid_: Setup, first run, welcome flow
 **Session**:
 One workout a User logs, from start to finish. The word is reserved for this; being logged in is never called a session.
 _Avoid_: Training session, workout log, login session
+
+### Exercise library
+
+**Exercise**:
+A movement a User can log, such as Bench Press. Every Exercise has a name, one Muscle group and one Equipment type, and may have an image and an animated demo.
+_Avoid_: Movement, lift, move
+
+**Canonical exercise**:
+An Exercise that ships with the app. Every User sees it, and no User can change it.
+_Avoid_: Built-in, default, stock exercise
+
+**Custom exercise**:
+An Exercise a User created. Only that User sees it, and it can be used anywhere a Canonical exercise can.
+_Avoid_: User exercise, personal exercise
+
+**Muscle group**:
+The main muscles an Exercise trains, from a fixed list (chest, back, quads, ...). An Exercise has exactly one.
+_Avoid_: Body part, target, primary muscle
+
+**Equipment type**:
+What an Exercise is done with, from a fixed list (barbell, dumbbell, machine, ...). Used to suggest substitutes, so an Exercise has exactly one.
+_Avoid_: Equipment (as a count noun), gear, implement

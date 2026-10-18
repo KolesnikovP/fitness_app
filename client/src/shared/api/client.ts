@@ -12,6 +12,11 @@ function resolveBaseUrl(): string {
   return `http://${metroHost ?? 'localhost'}:8080`;
 }
 
+/** The absolute URL of an API path, e.g. a media URL the API returned. */
+export function apiUrl(path: string): string {
+  return `${resolveBaseUrl()}${path}`;
+}
+
 /** The server answered with an error response. */
 export class ApiError extends Error {
   constructor(
@@ -32,8 +37,16 @@ export class NetworkError extends Error {
   }
 }
 
+/** A message to show the user for a failed request. */
+export function errorMessage(e: unknown): string {
+  // The API's messages are written for people ("Email or password is incorrect.").
+  if (e instanceof ApiError || e instanceof NetworkError) return e.message;
+  return 'Something went wrong. Please try again.';
+}
+
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  /** Sent as JSON, or as a multipart form when it's FormData. */
   body?: unknown;
   /** Sent as "Authorization: Bearer <token>". */
   token?: string;
@@ -41,16 +54,18 @@ type RequestOptions = {
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, token } = options;
+  const isForm = body instanceof FormData;
   const headers: Record<string, string> = { Accept: 'application/json' };
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  // fetch sets a multipart Content-Type, with its boundary, for FormData.
+  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
   if (token) headers.Authorization = `Bearer ${token}`;
 
   let response: Response;
   try {
-    response = await fetch(`${resolveBaseUrl()}${path}`, {
+    response = await fetch(apiUrl(path), {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
     });
   } catch (cause) {
     throw new NetworkError(cause);

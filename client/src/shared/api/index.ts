@@ -1,2 +1,2 @@
 // HTTP client for the backend API
-export { apiRequest, ApiError, NetworkError } from './client';
+export { apiRequest, apiUrl, ApiError, errorMessage, NetworkError } from './client';
