@@ -14,5 +14,6 @@ afterEach(() => {
   fakeApi.reset();
   secureStore.clear();
   imagePicker.nextPick = null;
+  imagePicker.lastOptions = null;
 });
 afterAll(() => server.close());

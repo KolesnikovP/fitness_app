@@ -1,15 +1,15 @@
 import { View, StyleSheet } from 'react-native';
 
-import { EQUIPMENT_TYPES, MUSCLE_GROUPS, type ExerciseFilters as Filters } from '@/entities/exercise';
+import { EQUIPMENT_TYPES, MUSCLE_GROUPS, type ExerciseFilters } from '@/entities/exercise';
 import { ChipGroup, spacing, TextField } from '@/shared/ui';
 
-type ExerciseFiltersProps = {
-  filters: Filters;
-  onChange: (filters: Filters) => void;
+type ExerciseSearchProps = {
+  filters: ExerciseFilters;
+  onChange: (filters: ExerciseFilters) => void;
 };
 
 /** Search box plus optional muscle group and equipment filters. */
-export function ExerciseFilters({ filters, onChange }: ExerciseFiltersProps) {
+export function ExerciseSearch({ filters, onChange }: ExerciseSearchProps) {
   return (
     <View style={styles.container}>
       <TextField

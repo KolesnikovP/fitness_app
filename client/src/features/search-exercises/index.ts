@@ -1,1 +1,1 @@
-export { ExerciseFilters } from './ExerciseFilters';
+export { ExerciseSearch } from './ExerciseSearch';

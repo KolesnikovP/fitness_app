@@ -3,8 +3,8 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
-import { ExerciseListItem, listExercises, type Exercise, type ExerciseFilters as Filters } from '@/entities/exercise';
-import { ExerciseFilters } from '@/features/search-exercises';
+import { ExerciseListItem, listExercises, type Exercise, type ExerciseFilters } from '@/entities/exercise';
+import { ExerciseSearch } from '@/features/search-exercises';
 import { errorMessage } from '@/shared/api';
 import { useDebouncedValue } from '@/shared/hooks';
 import { Button, colors, Screen } from '@/shared/ui';
@@ -14,7 +14,7 @@ const SEARCH_DELAY_MS = 250;
 export function ExerciseLibraryScreen() {
   const { state } = useAuth();
   const token = state.status === 'signedIn' ? state.token : null;
-  const [filters, setFilters] = useState<Filters>({ query: '', muscleGroup: null, equipment: null });
+  const [filters, setFilters] = useState<ExerciseFilters>({ query: '', muscleGroup: null, equipment: null });
   const query = useDebouncedValue(filters.query, SEARCH_DELAY_MS);
   const { muscleGroup, equipment } = filters;
   const [exercises, setExercises] = useState<Exercise[] | null>(null);
@@ -42,7 +42,7 @@ export function ExerciseLibraryScreen() {
   return (
     <Screen title="Exercises">
       <Button label="New exercise" variant="secondary" onPress={() => router.push('/exercises/new')} />
-      <ExerciseFilters filters={filters} onChange={setFilters} />
+      <ExerciseSearch filters={filters} onChange={setFilters} />
       {error ? (
         <Text accessibilityRole="alert" style={styles.error}>
           {error}

@@ -24,7 +24,11 @@ export function UploadMediaButton({ exercise, onUploaded }: UploadMediaButtonPro
   async function pickAndUpload() {
     if (state.status !== 'signedIn') return;
     setError(null);
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'] });
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      // Without this, iOS may hand back a GIF converted to a still JPEG.
+      preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
+    });
     if (result.canceled) return;
 
     const asset = result.assets[0];

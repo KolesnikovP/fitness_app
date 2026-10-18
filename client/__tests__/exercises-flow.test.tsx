@@ -95,6 +95,8 @@ describe('exercise library', () => {
 
     expect(await screen.findByLabelText('Sled Push animation')).toBeVisible();
     expect(fakeApi.uploads).toEqual([{ exerciseId: exercise.id, fileName: 'sled.gif', type: 'image/gif' }]);
+    // iOS must hand back the original file, or a GIF arrives as a still JPEG.
+    expect(imagePicker.lastOptions).toMatchObject({ preferredAssetRepresentationMode: 'current' });
   });
 
   it('shows the API error when an upload is rejected', async () => {

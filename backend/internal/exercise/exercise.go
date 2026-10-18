@@ -46,15 +46,17 @@ type Exercise struct {
 	AnimationURL *string   `json:"animationUrl"`
 }
 
-func newExercise(id uuid.UUID, name, muscleGroup, equipment string, isCustom bool, image, animation pgtype.Timestamptz) Exercise {
+// newExercise builds the API shape from a query row. ListExercisesRow has
+// the same fields, so list rows convert to this type.
+func newExercise(row store.GetVisibleExerciseRow) Exercise {
 	return Exercise{
-		ID:           id,
-		Name:         name,
-		MuscleGroup:  muscleGroup,
-		Equipment:    equipment,
-		IsCustom:     isCustom,
-		ImageURL:     mediaURL(id, kindImage, image),
-		AnimationURL: mediaURL(id, kindAnimation, animation),
+		ID:           row.ID,
+		Name:         row.Name,
+		MuscleGroup:  row.MuscleGroup,
+		Equipment:    row.Equipment,
+		IsCustom:     row.IsCustom,
+		ImageURL:     mediaURL(row.ID, kindImage, row.ImageUpdatedAt),
+		AnimationURL: mediaURL(row.ID, kindAnimation, row.AnimationUpdatedAt),
 	}
 }
 
@@ -146,7 +148,7 @@ func (h handlers) list(w http.ResponseWriter, r *http.Request) {
 
 	out := make([]Exercise, len(rows))
 	for i, row := range rows {
-		out[i] = newExercise(row.ID, row.Name, row.MuscleGroup, row.Equipment, row.IsCustom, row.ImageUpdatedAt, row.AnimationUpdatedAt)
+		out[i] = newExercise(store.GetVisibleExerciseRow(row))
 	}
 	httpx.WriteJSON(w, http.StatusOK, listResponse{Exercises: out})
 }
@@ -156,8 +158,7 @@ func (h handlers) get(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK,
-		newExercise(row.ID, row.Name, row.MuscleGroup, row.Equipment, row.IsCustom, row.ImageUpdatedAt, row.AnimationUpdatedAt))
+	httpx.WriteJSON(w, http.StatusOK, newExercise(row))
 }
 
 // loadVisible loads the {id} exercise if the caller may see it. Otherwise it
@@ -230,8 +231,14 @@ func (h handlers) create(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteInternalError(w, r, fmt.Errorf("create exercise: %w", err))
 		return
 	}
-	httpx.WriteJSON(w, http.StatusCreated,
-		newExercise(row.ID, row.Name, row.MuscleGroup, row.Equipment, row.IsCustom, pgtype.Timestamptz{}, pgtype.Timestamptz{}))
+	// A new exercise has no media yet.
+	httpx.WriteJSON(w, http.StatusCreated, newExercise(store.GetVisibleExerciseRow{
+		ID:          row.ID,
+		Name:        row.Name,
+		MuscleGroup: row.MuscleGroup,
+		Equipment:   row.Equipment,
+		IsCustom:    row.IsCustom,
+	}))
 }
 
 func isForeignKeyViolation(err error) bool {
