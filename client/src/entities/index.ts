@@ -1,4 +1,2 @@
 // Domain entities: User, Workout, Exercise, etc.
-export * from './workout';
-export * from './user';
-export * from './exercise';
+// Import each entity through its own public API, e.g. '@/entities/session'.
