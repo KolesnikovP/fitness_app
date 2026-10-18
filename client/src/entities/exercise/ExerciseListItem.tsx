@@ -15,7 +15,7 @@ export function ExerciseListItem({ exercise, onPress }: { exercise: Exercise; on
       <View style={styles.text}>
         <Text style={styles.name}>{exercise.name}</Text>
         <Text style={styles.detail}>
-          {muscleGroupLabel(exercise.muscleGroup)} · {equipmentLabel(exercise.equipment)}
+          {muscleGroupLabel(exercise.muscleGroup)} · {equipmentLabel(exercise.equipmentType)}
         </Text>
       </View>
       {exercise.isCustom ? <Text style={styles.badge}>Custom</Text> : null}

@@ -14,9 +14,9 @@ const SEARCH_DELAY_MS = 250;
 export function ExerciseLibraryScreen() {
   const { state } = useAuth();
   const token = state.status === 'signedIn' ? state.token : null;
-  const [filters, setFilters] = useState<ExerciseFilters>({ query: '', muscleGroup: null, equipment: null });
+  const [filters, setFilters] = useState<ExerciseFilters>({ query: '', muscleGroup: null, equipmentType: null });
   const query = useDebouncedValue(filters.query, SEARCH_DELAY_MS);
-  const { muscleGroup, equipment } = filters;
+  const { muscleGroup, equipmentType } = filters;
   const [exercises, setExercises] = useState<Exercise[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,7 +25,7 @@ export function ExerciseLibraryScreen() {
     useCallback(() => {
       if (!token) return;
       let current = true;
-      listExercises(token, { query, muscleGroup, equipment })
+      listExercises(token, { query, muscleGroup, equipmentType })
         .then((found) => {
           if (!current) return;
           setExercises(found);
@@ -36,7 +36,7 @@ export function ExerciseLibraryScreen() {
       return () => {
         current = false;
       };
-    }, [token, query, muscleGroup, equipment]),
+    }, [token, query, muscleGroup, equipmentType]),
   );
 
   return (

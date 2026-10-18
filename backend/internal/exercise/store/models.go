@@ -17,13 +17,13 @@ type Account struct {
 }
 
 type Exercise struct {
-	ID          uuid.UUID
-	Name        string
-	MuscleGroup string
-	Equipment   string
-	IsCustom    bool
-	OwnerID     pgtype.UUID
-	CreatedAt   pgtype.Timestamptz
+	ID            uuid.UUID
+	Name          string
+	MuscleGroup   string
+	EquipmentType string
+	IsCustom      bool
+	OwnerID       pgtype.UUID
+	CreatedAt     pgtype.Timestamptz
 }
 
 type ExerciseMedium struct {

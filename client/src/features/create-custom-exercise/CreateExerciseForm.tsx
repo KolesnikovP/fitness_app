@@ -13,23 +13,23 @@ import {
 import { errorMessage } from '@/shared/api';
 import { Button, ChipGroup, colors, TextField } from '@/shared/ui';
 
-/** Creates a custom exercise; name, muscle group and equipment are required. */
+/** Creates a custom exercise; name, muscle group and equipment type are required. */
 export function CreateExerciseForm({ onCreated }: { onCreated: (exercise: Exercise) => void }) {
   const { state } = useAuth();
   const [name, setName] = useState('');
   const [muscleGroup, setMuscleGroup] = useState<MuscleGroup | null>(null);
-  const [equipment, setEquipment] = useState<EquipmentType | null>(null);
+  const [equipmentType, setEquipment] = useState<EquipmentType | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const complete = name.trim() !== '' && muscleGroup !== null && equipment !== null;
+  const complete = name.trim() !== '' && muscleGroup !== null && equipmentType !== null;
 
   async function save() {
     if (state.status !== 'signedIn' || !complete) return;
     setError(null);
     setSaving(true);
     try {
-      onCreated(await createExercise(state.token, { name: name.trim(), muscleGroup, equipment }));
+      onCreated(await createExercise(state.token, { name: name.trim(), muscleGroup, equipmentType }));
     } catch (e) {
       setError(errorMessage(e));
       setSaving(false);
@@ -40,7 +40,7 @@ export function CreateExerciseForm({ onCreated }: { onCreated: (exercise: Exerci
     <>
       <TextField label="Name" value={name} onChangeText={setName} maxLength={100} returnKeyType="done" />
       <ChipGroup label="Muscle group" options={MUSCLE_GROUPS} value={muscleGroup} onChange={setMuscleGroup} />
-      <ChipGroup label="Equipment" options={EQUIPMENT_TYPES} value={equipment} onChange={setEquipment} />
+      <ChipGroup label="Equipment" options={EQUIPMENT_TYPES} value={equipmentType} onChange={setEquipment} />
       {error ? (
         <Text accessibilityRole="alert" style={styles.error}>
           {error}

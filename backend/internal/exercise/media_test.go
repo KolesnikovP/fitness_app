@@ -104,7 +104,7 @@ func TestExerciseMedia(t *testing.T) {
 			t.Fatalf("upload: status %d, body %v", res.Status, res.Body)
 		}
 		url, _ := res.Body["imageUrl"].(string)
-		if url == "" || res.Body["animationUrl"] != nil {
+		if url == "" || res.Body["animatedDemoUrl"] != nil {
 			t.Fatalf("after upload: %v, want imageUrl only", res.Body)
 		}
 		status, contentType, data := fetch(t, srv, token, url)
@@ -121,18 +121,18 @@ func TestExerciseMedia(t *testing.T) {
 
 		res := upload(t, srv, token, id, anim)
 
-		url, _ := res.Body["animationUrl"].(string)
+		url, _ := res.Body["animatedDemoUrl"].(string)
 		if res.Status != http.StatusOK || url == "" || res.Body["imageUrl"] != withImage.Body["imageUrl"] {
 			t.Fatalf("after GIF upload: %d %v", res.Status, res.Body)
 		}
 		status, contentType, data := fetch(t, srv, token, url)
 		if status != http.StatusOK || contentType != "image/gif" || !bytes.Equal(data, anim) {
-			t.Fatalf("GET animationUrl: %d %q, %d bytes", status, contentType, len(data))
+			t.Fatalf("GET animatedDemoUrl: %d %q, %d bytes", status, contentType, len(data))
 		}
 
 		detail := testutil.Do(t, srv, http.MethodGet, "/exercises/"+id, token, nil)
-		if detail.Body["animationUrl"] != url {
-			t.Errorf("detail animationUrl = %v, want %q", detail.Body["animationUrl"], url)
+		if detail.Body["animatedDemoUrl"] != url {
+			t.Errorf("detail animatedDemoUrl = %v, want %q", detail.Body["animatedDemoUrl"], url)
 		}
 	})
 

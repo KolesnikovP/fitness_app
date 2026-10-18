@@ -35,28 +35,28 @@ func NewService(pool *pgxpool.Pool) *Service {
 }
 
 // Exercise is one entry in the library as the API returns it. ImageURL and
-// AnimationURL are API paths, null when the exercise has no such media.
+// AnimatedDemoURL are API paths, null when the exercise has no such media.
 type Exercise struct {
-	ID           uuid.UUID `json:"id"`
-	Name         string    `json:"name"`
-	MuscleGroup  string    `json:"muscleGroup"`
-	Equipment    string    `json:"equipment"`
-	IsCustom     bool      `json:"isCustom"`
-	ImageURL     *string   `json:"imageUrl"`
-	AnimationURL *string   `json:"animationUrl"`
+	ID              uuid.UUID `json:"id"`
+	Name            string    `json:"name"`
+	MuscleGroup     string    `json:"muscleGroup"`
+	EquipmentType   string    `json:"equipmentType"`
+	IsCustom        bool      `json:"isCustom"`
+	ImageURL        *string   `json:"imageUrl"`
+	AnimatedDemoURL *string   `json:"animatedDemoUrl"`
 }
 
 // newExercise builds the API shape from a query row. ListExercisesRow has
 // the same fields, so list rows convert to this type.
 func newExercise(row store.GetVisibleExerciseRow) Exercise {
 	return Exercise{
-		ID:           row.ID,
-		Name:         row.Name,
-		MuscleGroup:  row.MuscleGroup,
-		Equipment:    row.Equipment,
-		IsCustom:     row.IsCustom,
-		ImageURL:     mediaURL(row.ID, kindImage, row.ImageUpdatedAt),
-		AnimationURL: mediaURL(row.ID, kindAnimation, row.AnimationUpdatedAt),
+		ID:              row.ID,
+		Name:            row.Name,
+		MuscleGroup:     row.MuscleGroup,
+		EquipmentType:   row.EquipmentType,
+		IsCustom:        row.IsCustom,
+		ImageURL:        mediaURL(row.ID, kindImage, row.ImageUpdatedAt),
+		AnimatedDemoURL: mediaURL(row.ID, kindAnimatedDemo, row.AnimatedDemoUpdatedAt),
 	}
 }
 
@@ -78,14 +78,14 @@ func writeInvalidMuscleGroup(w http.ResponseWriter) {
 		"muscleGroup must be one of: "+strings.Join(muscleGroups, ", ")+".")
 }
 
-func writeInvalidEquipment(w http.ResponseWriter) {
-	httpx.WriteError(w, http.StatusBadRequest, "invalid_equipment",
-		"equipment must be one of: "+strings.Join(equipmentTypes, ", ")+".")
+func writeInvalidEquipmentType(w http.ResponseWriter) {
+	httpx.WriteError(w, http.StatusBadRequest, "invalid_equipment_type",
+		"equipment type must be one of: "+strings.Join(equipmentTypes, ", ")+".")
 }
 
 const (
-	kindImage     = "image"
-	kindAnimation = "animation"
+	kindImage        = "image"
+	kindAnimatedDemo = "animated_demo"
 )
 
 // mediaURL carries the upload time, so a replaced image gets a new URL and
@@ -105,7 +105,7 @@ func (s *Service) Routes(mux *http.ServeMux, accounts Accounts) {
 	mux.Handle("GET /exercises/{id}", accounts.RequireAuth(http.HandlerFunc(h.get)))
 	mux.Handle("POST /exercises/{id}/media", accounts.RequireAuth(http.HandlerFunc(h.uploadMedia)))
 	mux.Handle("GET /exercises/{id}/image", accounts.RequireAuth(h.serveMedia(kindImage)))
-	mux.Handle("GET /exercises/{id}/animation", accounts.RequireAuth(h.serveMedia(kindAnimation)))
+	mux.Handle("GET /exercises/{id}/animated_demo", accounts.RequireAuth(h.serveMedia(kindAnimatedDemo)))
 }
 
 type handlers struct {
@@ -132,12 +132,12 @@ func (h handlers) list(w http.ResponseWriter, r *http.Request) {
 		}
 		params.MuscleGroup = &v
 	}
-	if v := r.URL.Query().Get("equipment"); v != "" {
+	if v := r.URL.Query().Get("equipmentType"); v != "" {
 		if !slices.Contains(equipmentTypes, v) {
-			writeInvalidEquipment(w)
+			writeInvalidEquipmentType(w)
 			return
 		}
-		params.Equipment = &v
+		params.EquipmentType = &v
 	}
 
 	rows, err := h.queries.ListExercises(r.Context(), params)
@@ -188,9 +188,9 @@ func writeNotFound(w http.ResponseWriter) {
 }
 
 type createBody struct {
-	Name        string `json:"name"`
-	MuscleGroup string `json:"muscleGroup"`
-	Equipment   string `json:"equipment"`
+	Name          string `json:"name"`
+	MuscleGroup   string `json:"muscleGroup"`
+	EquipmentType string `json:"equipmentType"`
 }
 
 const maxNameLength = 100
@@ -210,17 +210,17 @@ func (h handlers) create(w http.ResponseWriter, r *http.Request) {
 		writeInvalidMuscleGroup(w)
 		return
 	}
-	if !slices.Contains(equipmentTypes, body.Equipment) {
-		writeInvalidEquipment(w)
+	if !slices.Contains(equipmentTypes, body.EquipmentType) {
+		writeInvalidEquipmentType(w)
 		return
 	}
 
 	caller, _ := auth.AccountID(r.Context())
 	row, err := h.queries.CreateCustomExercise(r.Context(), store.CreateCustomExerciseParams{
-		Name:        name,
-		MuscleGroup: body.MuscleGroup,
-		Equipment:   body.Equipment,
-		OwnerID:     caller,
+		Name:          name,
+		MuscleGroup:   body.MuscleGroup,
+		EquipmentType: body.EquipmentType,
+		OwnerID:       caller,
 	})
 	if isForeignKeyViolation(err) {
 		// The token is valid but its account is gone.
@@ -233,11 +233,11 @@ func (h handlers) create(w http.ResponseWriter, r *http.Request) {
 	}
 	// A new exercise has no media yet.
 	httpx.WriteJSON(w, http.StatusCreated, newExercise(store.GetVisibleExerciseRow{
-		ID:          row.ID,
-		Name:        row.Name,
-		MuscleGroup: row.MuscleGroup,
-		Equipment:   row.Equipment,
-		IsCustom:    row.IsCustom,
+		ID:            row.ID,
+		Name:          row.Name,
+		MuscleGroup:   row.MuscleGroup,
+		EquipmentType: row.EquipmentType,
+		IsCustom:      row.IsCustom,
 	}))
 }
 

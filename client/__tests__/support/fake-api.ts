@@ -18,15 +18,15 @@ type FakeExercise = {
   id: string;
   name: string;
   muscleGroup: string;
-  equipment: string;
+  equipmentType: string;
   isCustom: boolean;
   imageUrl: string | null;
-  animationUrl: string | null;
+  animatedDemoUrl: string | null;
   ownerId: string | null;
 };
 
 /** A slice of the real seeded library, enough to search and filter. */
-const CANONICAL: [name: string, muscleGroup: string, equipment: string][] = [
+const CANONICAL: [name: string, muscleGroup: string, equipmentType: string][] = [
   ['Back Squat', 'quads', 'barbell'],
   ['Bench Press', 'chest', 'barbell'],
   ['Deadlift', 'back', 'barbell'],
@@ -36,11 +36,11 @@ const CANONICAL: [name: string, muscleGroup: string, equipment: string][] = [
   ['Plank', 'abs', 'bodyweight'],
 ];
 
-const MEDIA_KINDS: Record<string, 'image' | 'animation'> = {
+const MEDIA_KINDS: Record<string, 'image' | 'animated_demo'> = {
   'image/png': 'image',
   'image/jpeg': 'image',
   'image/webp': 'image',
-  'image/gif': 'animation',
+  'image/gif': 'animated_demo',
 };
 
 let accounts: FakeAccount[] = [];
@@ -49,14 +49,14 @@ let exercises: FakeExercise[] = [];
 let nextId = 1;
 
 function seedExercises() {
-  exercises = CANONICAL.map(([name, muscleGroup, equipment], i) => ({
+  exercises = CANONICAL.map(([name, muscleGroup, equipmentType], i) => ({
     id: `canonical-${i + 1}`,
     name,
     muscleGroup,
-    equipment,
+    equipmentType,
     isCustom: false,
     imageUrl: null,
-    animationUrl: null,
+    animatedDemoUrl: null,
     ownerId: null,
   }));
 }
@@ -93,15 +93,15 @@ export const fakeApi = {
     return accounts.find((a) => a.email.toLowerCase() === email.toLowerCase());
   },
 
-  addCustomExercise(ownerId: string, name: string, muscleGroup: string, equipment: string) {
+  addCustomExercise(ownerId: string, name: string, muscleGroup: string, equipmentType: string) {
     const exercise: FakeExercise = {
       id: `exercise-${nextId++}`,
       name,
       muscleGroup,
-      equipment,
+      equipmentType,
       isCustom: true,
       imageUrl: null,
-      animationUrl: null,
+      animatedDemoUrl: null,
       ownerId,
     };
     exercises.push(exercise);
@@ -186,12 +186,12 @@ const handlers = [
     const params = new URL(request.url).searchParams;
     const q = params.get('q')?.trim().toLowerCase();
     const muscleGroup = params.get('muscleGroup');
-    const equipment = params.get('equipment');
+    const equipmentType = params.get('equipmentType');
     const found = exercises
       .filter((e) => e.ownerId === null || e.ownerId === account.id)
       .filter((e) => !q || e.name.toLowerCase().includes(q))
       .filter((e) => !muscleGroup || e.muscleGroup === muscleGroup)
-      .filter((e) => !equipment || e.equipment === equipment)
+      .filter((e) => !equipmentType || e.equipmentType === equipmentType)
       .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
     return HttpResponse.json({ exercises: found.map(exerciseJson) });
   }),
@@ -199,9 +199,9 @@ const handlers = [
   http.post('*/exercises', async ({ request }) => {
     const account = caller(request);
     if (!account) return unauthorized();
-    const { name, muscleGroup, equipment } = (await request.json()) as Record<string, string>;
+    const { name, muscleGroup, equipmentType } = (await request.json()) as Record<string, string>;
     if (!name?.trim()) return error(400, 'invalid_name', 'Name must be 1 to 100 characters.');
-    const exercise = fakeApi.addCustomExercise(account.id, name.trim(), muscleGroup, equipment);
+    const exercise = fakeApi.addCustomExercise(account.id, name.trim(), muscleGroup, equipmentType);
     return HttpResponse.json(exerciseJson(exercise), { status: 201 });
   }),
 
@@ -234,7 +234,7 @@ const handlers = [
     fakeApi.uploads.push({ exerciseId: exercise.id, fileName: file.name, type: file.type });
     const url = `/exercises/${exercise.id}/${kind}?v=${fakeApi.uploads.length}`;
     if (kind === 'image') exercise.imageUrl = url;
-    else exercise.animationUrl = url;
+    else exercise.animatedDemoUrl = url;
     return HttpResponse.json(exerciseJson(exercise));
   }),
 ];

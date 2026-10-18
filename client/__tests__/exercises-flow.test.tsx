@@ -29,7 +29,7 @@ function chip(group: string, label: string) {
 }
 
 describe('exercise library', () => {
-  it('lists the library and narrows it by name, muscle group and equipment', async () => {
+  it('lists the library and narrows it by name, muscle group and equipment type', async () => {
     await openExercisesTab();
     expect(await screen.findByRole('button', { name: 'Bench Press' })).toBeVisible();
 
@@ -89,11 +89,11 @@ describe('exercise library', () => {
 
     await act(async () => router.navigate(`/exercises/${exercise.id}`));
     await screen.findByRole('header', { name: 'Sled Push' });
-    expect(screen.queryByLabelText('Sled Push animation')).toBeNull();
+    expect(screen.queryByLabelText('Sled Push animated demo')).toBeNull();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Add image or GIF' }));
 
-    expect(await screen.findByLabelText('Sled Push animation')).toBeVisible();
+    expect(await screen.findByLabelText('Sled Push animated demo')).toBeVisible();
     expect(fakeApi.uploads).toEqual([{ exerciseId: exercise.id, fileName: 'sled.gif', type: 'image/gif' }]);
     // iOS must hand back the original file, or a GIF arrives as a still JPEG.
     expect(imagePicker.lastOptions).toMatchObject({ preferredAssetRepresentationMode: 'current' });

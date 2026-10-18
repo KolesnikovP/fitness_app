@@ -50,10 +50,10 @@ export function ExerciseDetailScreen() {
       </View>
       <View accessibilityLabel="Equipment" style={styles.row}>
         <Text style={styles.label}>Equipment</Text>
-        <Text style={styles.value}>{equipmentLabel(exercise.equipment)}</Text>
+        <Text style={styles.value}>{equipmentLabel(exercise.equipmentType)}</Text>
       </View>
-      {exercise.animationUrl ? (
-        <ExerciseMedia path={exercise.animationUrl} token={token} accessibilityLabel={`${exercise.name} animation`} />
+      {exercise.animatedDemoUrl ? (
+        <ExerciseMedia path={exercise.animatedDemoUrl} token={token} accessibilityLabel={`${exercise.name} animated demo`} />
       ) : null}
       {exercise.imageUrl ? (
         <ExerciseMedia path={exercise.imageUrl} token={token} accessibilityLabel={`${exercise.name} image`} />

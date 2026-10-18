@@ -13,31 +13,31 @@ import (
 )
 
 const createCustomExercise = `-- name: CreateCustomExercise :one
-INSERT INTO exercises (name, muscle_group, equipment, is_custom, owner_id)
+INSERT INTO exercises (name, muscle_group, equipment_type, is_custom, owner_id)
 VALUES ($1, $2, $3, true, $4::uuid)
-RETURNING id, name, muscle_group, equipment, is_custom
+RETURNING id, name, muscle_group, equipment_type, is_custom
 `
 
 type CreateCustomExerciseParams struct {
-	Name        string
-	MuscleGroup string
-	Equipment   string
-	OwnerID     uuid.UUID
+	Name          string
+	MuscleGroup   string
+	EquipmentType string
+	OwnerID       uuid.UUID
 }
 
 type CreateCustomExerciseRow struct {
-	ID          uuid.UUID
-	Name        string
-	MuscleGroup string
-	Equipment   string
-	IsCustom    bool
+	ID            uuid.UUID
+	Name          string
+	MuscleGroup   string
+	EquipmentType string
+	IsCustom      bool
 }
 
 func (q *Queries) CreateCustomExercise(ctx context.Context, arg CreateCustomExerciseParams) (CreateCustomExerciseRow, error) {
 	row := q.db.QueryRow(ctx, createCustomExercise,
 		arg.Name,
 		arg.MuscleGroup,
-		arg.Equipment,
+		arg.EquipmentType,
 		arg.OwnerID,
 	)
 	var i CreateCustomExerciseRow
@@ -45,7 +45,7 @@ func (q *Queries) CreateCustomExercise(ctx context.Context, arg CreateCustomExer
 		&i.ID,
 		&i.Name,
 		&i.MuscleGroup,
-		&i.Equipment,
+		&i.EquipmentType,
 		&i.IsCustom,
 	)
 	return i, err
@@ -75,12 +75,12 @@ func (q *Queries) GetMedia(ctx context.Context, arg GetMediaParams) (GetMediaRow
 }
 
 const getVisibleExercise = `-- name: GetVisibleExercise :one
-SELECT e.id, e.name, e.muscle_group, e.equipment, e.is_custom,
+SELECT e.id, e.name, e.muscle_group, e.equipment_type, e.is_custom,
        img.updated_at AS image_updated_at,
-       anim.updated_at AS animation_updated_at
+       anim.updated_at AS animated_demo_updated_at
 FROM exercises e
 LEFT JOIN exercise_media img ON img.exercise_id = e.id AND img.kind = 'image'
-LEFT JOIN exercise_media anim ON anim.exercise_id = e.id AND anim.kind = 'animation'
+LEFT JOIN exercise_media anim ON anim.exercise_id = e.id AND anim.kind = 'animated_demo'
 WHERE e.id = $1::uuid
   AND (e.owner_id IS NULL OR e.owner_id = $2::uuid)
 `
@@ -91,13 +91,13 @@ type GetVisibleExerciseParams struct {
 }
 
 type GetVisibleExerciseRow struct {
-	ID                 uuid.UUID
-	Name               string
-	MuscleGroup        string
-	Equipment          string
-	IsCustom           bool
-	ImageUpdatedAt     pgtype.Timestamptz
-	AnimationUpdatedAt pgtype.Timestamptz
+	ID                    uuid.UUID
+	Name                  string
+	MuscleGroup           string
+	EquipmentType         string
+	IsCustom              bool
+	ImageUpdatedAt        pgtype.Timestamptz
+	AnimatedDemoUpdatedAt pgtype.Timestamptz
 }
 
 // An exercise the caller may see: canonical, or one of their own.
@@ -108,43 +108,43 @@ func (q *Queries) GetVisibleExercise(ctx context.Context, arg GetVisibleExercise
 		&i.ID,
 		&i.Name,
 		&i.MuscleGroup,
-		&i.Equipment,
+		&i.EquipmentType,
 		&i.IsCustom,
 		&i.ImageUpdatedAt,
-		&i.AnimationUpdatedAt,
+		&i.AnimatedDemoUpdatedAt,
 	)
 	return i, err
 }
 
 const listExercises = `-- name: ListExercises :many
-SELECT e.id, e.name, e.muscle_group, e.equipment, e.is_custom,
+SELECT e.id, e.name, e.muscle_group, e.equipment_type, e.is_custom,
        img.updated_at AS image_updated_at,
-       anim.updated_at AS animation_updated_at
+       anim.updated_at AS animated_demo_updated_at
 FROM exercises e
 LEFT JOIN exercise_media img ON img.exercise_id = e.id AND img.kind = 'image'
-LEFT JOIN exercise_media anim ON anim.exercise_id = e.id AND anim.kind = 'animation'
+LEFT JOIN exercise_media anim ON anim.exercise_id = e.id AND anim.kind = 'animated_demo'
 WHERE (e.owner_id IS NULL OR e.owner_id = $1::uuid)
   AND ($2::text IS NULL OR e.name ILIKE $2)
   AND ($3::text IS NULL OR e.muscle_group = $3)
-  AND ($4::text IS NULL OR e.equipment = $4)
+  AND ($4::text IS NULL OR e.equipment_type = $4)
 ORDER BY lower(e.name) COLLATE "C", e.id
 `
 
 type ListExercisesParams struct {
-	CallerID    uuid.UUID
-	NamePattern *string
-	MuscleGroup *string
-	Equipment   *string
+	CallerID      uuid.UUID
+	NamePattern   *string
+	MuscleGroup   *string
+	EquipmentType *string
 }
 
 type ListExercisesRow struct {
-	ID                 uuid.UUID
-	Name               string
-	MuscleGroup        string
-	Equipment          string
-	IsCustom           bool
-	ImageUpdatedAt     pgtype.Timestamptz
-	AnimationUpdatedAt pgtype.Timestamptz
+	ID                    uuid.UUID
+	Name                  string
+	MuscleGroup           string
+	EquipmentType         string
+	IsCustom              bool
+	ImageUpdatedAt        pgtype.Timestamptz
+	AnimatedDemoUpdatedAt pgtype.Timestamptz
 }
 
 // Canonical exercises plus the caller's own custom ones. Each filter is
@@ -155,7 +155,7 @@ func (q *Queries) ListExercises(ctx context.Context, arg ListExercisesParams) ([
 		arg.CallerID,
 		arg.NamePattern,
 		arg.MuscleGroup,
-		arg.Equipment,
+		arg.EquipmentType,
 	)
 	if err != nil {
 		return nil, err
@@ -168,10 +168,10 @@ func (q *Queries) ListExercises(ctx context.Context, arg ListExercisesParams) ([
 			&i.ID,
 			&i.Name,
 			&i.MuscleGroup,
-			&i.Equipment,
+			&i.EquipmentType,
 			&i.IsCustom,
 			&i.ImageUpdatedAt,
-			&i.AnimationUpdatedAt,
+			&i.AnimatedDemoUpdatedAt,
 		); err != nil {
 			return nil, err
 		}

@@ -61,7 +61,7 @@ func TestListExercises(t *testing.T) {
 		if bench == nil {
 			t.Fatalf("Bench Press missing from %v", names(list))
 		}
-		if bench["muscleGroup"] != "chest" || bench["equipment"] != "barbell" || bench["isCustom"] != false {
+		if bench["muscleGroup"] != "chest" || bench["equipmentType"] != "barbell" || bench["isCustom"] != false {
 			t.Errorf("Bench Press = %v, want chest/barbell canonical", bench)
 		}
 		for i := 1; i < len(list); i++ {
@@ -93,10 +93,10 @@ func TestListExercises(t *testing.T) {
 		}
 	})
 
-	t.Run("filters by muscle group and equipment together", func(t *testing.T) {
+	t.Run("filters by muscle group and equipment type together", func(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
 
-		res := testutil.Do(t, srv, http.MethodGet, "/exercises?muscleGroup=back&equipment=cable", token, nil)
+		res := testutil.Do(t, srv, http.MethodGet, "/exercises?muscleGroup=back&equipmentType=cable", token, nil)
 
 		got := names(exercises(t, res))
 		want := []string{"Lat Pulldown", "Seated Cable Row"}
@@ -108,7 +108,7 @@ func TestListExercises(t *testing.T) {
 	t.Run("combines the name search with a filter", func(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
 
-		res := testutil.Do(t, srv, http.MethodGet, "/exercises?q=press&equipment=dumbbell", token, nil)
+		res := testutil.Do(t, srv, http.MethodGet, "/exercises?q=press&equipmentType=dumbbell", token, nil)
 
 		got := names(exercises(t, res))
 		want := []string{"Dumbbell Bench Press", "Dumbbell Shoulder Press", "Incline Dumbbell Press"}
@@ -119,7 +119,7 @@ func TestListExercises(t *testing.T) {
 
 	for _, tc := range []struct{ query, code string }{
 		{"muscleGroup=wings", "invalid_muscle_group"},
-		{"equipment=spaceship", "invalid_equipment"},
+		{"equipmentType=spaceship", "invalid_equipment_type"},
 	} {
 		t.Run("rejects an unknown filter value: "+tc.query, func(t *testing.T) {
 			_, _, token := testutil.SignUp(t, srv)
@@ -142,10 +142,10 @@ func TestListExercises(t *testing.T) {
 }
 
 // createExercise creates a custom exercise and returns it.
-func createExercise(t *testing.T, srv *httptest.Server, token, name, muscleGroup, equipment string) map[string]any {
+func createExercise(t *testing.T, srv *httptest.Server, token, name, muscleGroup, equipmentType string) map[string]any {
 	t.Helper()
 	res := testutil.Do(t, srv, http.MethodPost, "/exercises", token, map[string]string{
-		"name": name, "muscleGroup": muscleGroup, "equipment": equipment,
+		"name": name, "muscleGroup": muscleGroup, "equipmentType": equipmentType,
 	})
 	if res.Status != http.StatusCreated {
 		t.Fatalf("create %q: status %d, body %v", name, res.Status, res.Body)
@@ -162,10 +162,10 @@ func TestCreateCustomExercise(t *testing.T) {
 		created := createExercise(t, srv, token, "  Landmine Press  ", "shoulders", "barbell")
 
 		if created["name"] != "Landmine Press" || created["muscleGroup"] != "shoulders" ||
-			created["equipment"] != "barbell" || created["isCustom"] != true {
+			created["equipmentType"] != "barbell" || created["isCustom"] != true {
 			t.Errorf("created = %v, want trimmed custom Landmine Press, shoulders/barbell", created)
 		}
-		if created["id"] == "" || created["imageUrl"] != nil || created["animationUrl"] != nil {
+		if created["id"] == "" || created["imageUrl"] != nil || created["animatedDemoUrl"] != nil {
 			t.Errorf("created = %v, want an id and no media", created)
 		}
 	})
@@ -174,7 +174,7 @@ func TestCreateCustomExercise(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
 		createExercise(t, srv, token, "Belt Squat", "quads", "machine")
 
-		res := testutil.Do(t, srv, http.MethodGet, "/exercises?muscleGroup=quads&equipment=machine", token, nil)
+		res := testutil.Do(t, srv, http.MethodGet, "/exercises?muscleGroup=quads&equipmentType=machine", token, nil)
 
 		got := names(exercises(t, res))
 		want := []string{"Belt Squat", "Leg Extension", "Leg Press"}
@@ -211,10 +211,10 @@ func TestCreateCustomExercise(t *testing.T) {
 		body map[string]string
 		code string
 	}{
-		{"blank name", map[string]string{"name": "   ", "muscleGroup": "chest", "equipment": "barbell"}, "invalid_name"},
-		{"name over 100 characters", map[string]string{"name": strings.Repeat("a", 101), "muscleGroup": "chest", "equipment": "barbell"}, "invalid_name"},
-		{"missing muscle group", map[string]string{"name": "Thing", "equipment": "barbell"}, "invalid_muscle_group"},
-		{"unknown equipment", map[string]string{"name": "Thing", "muscleGroup": "chest", "equipment": "rock"}, "invalid_equipment"},
+		{"blank name", map[string]string{"name": "   ", "muscleGroup": "chest", "equipmentType": "barbell"}, "invalid_name"},
+		{"name over 100 characters", map[string]string{"name": strings.Repeat("a", 101), "muscleGroup": "chest", "equipmentType": "barbell"}, "invalid_name"},
+		{"missing muscle group", map[string]string{"name": "Thing", "equipmentType": "barbell"}, "invalid_muscle_group"},
+		{"unknown equipmentType", map[string]string{"name": "Thing", "muscleGroup": "chest", "equipmentType": "rock"}, "invalid_equipment_type"},
 	} {
 		t.Run("rejects "+tc.desc, func(t *testing.T) {
 			_, _, token := testutil.SignUp(t, srv)
@@ -234,7 +234,7 @@ func TestCreateCustomExercise(t *testing.T) {
 		}
 
 		res := testutil.Do(t, srv, http.MethodPost, "/exercises", token, map[string]string{
-			"name": "Orphan", "muscleGroup": "chest", "equipment": "barbell",
+			"name": "Orphan", "muscleGroup": "chest", "equipmentType": "barbell",
 		})
 
 		if res.Status != http.StatusUnauthorized {
@@ -244,7 +244,7 @@ func TestCreateCustomExercise(t *testing.T) {
 
 	t.Run("requires a token", func(t *testing.T) {
 		res := testutil.Do(t, srv, http.MethodPost, "/exercises", "", map[string]string{
-			"name": "Thing", "muscleGroup": "chest", "equipment": "barbell",
+			"name": "Thing", "muscleGroup": "chest", "equipmentType": "barbell",
 		})
 
 		if res.Status != http.StatusUnauthorized {
@@ -266,7 +266,7 @@ func TestGetExercise(t *testing.T) {
 			t.Fatalf("status = %d, want 200; body %v", res.Status, res.Body)
 		}
 		if res.Body["name"] != "Deadlift" || res.Body["muscleGroup"] != "back" ||
-			res.Body["equipment"] != "barbell" || res.Body["isCustom"] != false {
+			res.Body["equipmentType"] != "barbell" || res.Body["isCustom"] != false {
 			t.Errorf("got %v, want Deadlift back/barbell canonical", res.Body)
 		}
 	})

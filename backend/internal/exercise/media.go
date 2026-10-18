@@ -25,7 +25,7 @@ var mediaKinds = map[string]string{
 	"image/png":  kindImage,
 	"image/jpeg": kindImage,
 	"image/webp": kindImage,
-	"image/gif":  kindAnimation,
+	"image/gif":  kindAnimatedDemo,
 }
 
 // uploadMedia sets the static image or the animated demo of the caller's own

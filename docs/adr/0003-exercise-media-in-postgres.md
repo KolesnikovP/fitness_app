@@ -1,6 +1,6 @@
 # Exercise images and GIFs are stored in Postgres and served by the API
 
-An Exercise's image and animated demo are uploaded to the API and stored as bytes in the `exercise_media` table, at most 10 MB each. The API serves them back at `/exercises/{id}/image` and `/exercises/{id}/animation` to signed-in users who can see that Exercise. We chose this because it needs no extra infrastructure and keeps media under the same visibility rules as the Exercise itself, which is enough while only Custom exercises have uploaded media.
+An Exercise's image and animated demo are uploaded to the API and stored as bytes in the `exercise_media` table, at most 10 MB each. The API serves them back at `/exercises/{id}/image` and `/exercises/{id}/animated_demo` to signed-in users who can see that Exercise. We chose this because it needs no extra infrastructure and keeps media under the same visibility rules as the Exercise itself, which is enough while only Custom exercises have uploaded media.
 
 ## Consequences
 

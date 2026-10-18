@@ -16,24 +16,6 @@ type Account struct {
 	CreatedAt    pgtype.Timestamptz
 }
 
-type Exercise struct {
-	ID          uuid.UUID
-	Name        string
-	MuscleGroup string
-	Equipment   string
-	IsCustom    bool
-	OwnerID     pgtype.UUID
-	CreatedAt   pgtype.Timestamptz
-}
-
-type ExerciseMedium struct {
-	ExerciseID  uuid.UUID
-	Kind        string
-	ContentType string
-	Data        []byte
-	UpdatedAt   pgtype.Timestamptz
-}
-
 type Profile struct {
 	AccountID      uuid.UUID
 	UnitPreference *string

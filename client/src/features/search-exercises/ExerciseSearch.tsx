@@ -8,7 +8,7 @@ type ExerciseSearchProps = {
   onChange: (filters: ExerciseFilters) => void;
 };
 
-/** Search box plus optional muscle group and equipment filters. */
+/** Search box plus optional muscle group and equipment type filters. */
 export function ExerciseSearch({ filters, onChange }: ExerciseSearchProps) {
   return (
     <View style={styles.container}>
@@ -31,8 +31,8 @@ export function ExerciseSearch({ filters, onChange }: ExerciseSearchProps) {
       <ChipGroup
         label="Equipment"
         options={EQUIPMENT_TYPES}
-        value={filters.equipment}
-        onChange={(equipment) => onChange({ ...filters, equipment })}
+        value={filters.equipmentType}
+        onChange={(equipmentType) => onChange({ ...filters, equipmentType })}
         allowDeselect
       />
     </View>
