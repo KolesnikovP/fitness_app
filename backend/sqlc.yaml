@@ -1,7 +1,7 @@
 version: "2"
 sql:
   - engine: postgresql
-    schema: migrations
+    schema: migrations/00001_accounts.sql
     queries: internal/auth/queries.sql
     gen:
       go:
@@ -13,12 +13,27 @@ sql:
           - db_type: uuid
             go_type: github.com/google/uuid.UUID
   - engine: postgresql
-    schema: migrations
+    schema: migrations/00001_accounts.sql
     queries: internal/user/queries.sql
     gen:
       go:
         package: store
         out: internal/user/store
+        sql_package: pgx/v5
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: uuid
+            go_type: github.com/google/uuid.UUID
+  - engine: postgresql
+    schema:
+      - migrations/00001_accounts.sql
+      - migrations/00002_exercises.sql
+      - migrations/00003_exercise_glossary_names.sql
+    queries: internal/exercise/queries.sql
+    gen:
+      go:
+        package: store
+        out: internal/exercise/store
         sql_package: pgx/v5
         emit_pointers_for_null_types: true
         overrides:

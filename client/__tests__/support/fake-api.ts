@@ -3,8 +3,9 @@ import { setupServer } from 'msw/node';
 
 /**
  * An in-memory fake of the backend API, served at the network boundary with
- * MSW. It follows the real API's contract (see backend/internal/auth and
- * backend/internal/user): same paths, bodies, status codes and error shape.
+ * MSW. It follows the real API's contract (see backend/internal/auth,
+ * backend/internal/user and backend/internal/exercise): same paths, bodies,
+ * status codes and error shape.
  */
 type FakeAccount = {
   id: string;
@@ -13,19 +14,67 @@ type FakeAccount = {
   unitPreference: 'kg' | 'lb' | null;
 };
 
+type FakeExercise = {
+  id: string;
+  name: string;
+  muscleGroup: string;
+  equipmentType: string;
+  isCustom: boolean;
+  imageUrl: string | null;
+  animatedDemoUrl: string | null;
+  ownerId: string | null;
+};
+
+/** A slice of the real seeded library, enough to search and filter. */
+const CANONICAL: [name: string, muscleGroup: string, equipmentType: string][] = [
+  ['Back Squat', 'quads', 'barbell'],
+  ['Bench Press', 'chest', 'barbell'],
+  ['Deadlift', 'back', 'barbell'],
+  ['Dumbbell Bench Press', 'chest', 'dumbbell'],
+  ['Lat Pulldown', 'back', 'cable'],
+  ['Overhead Press', 'shoulders', 'barbell'],
+  ['Plank', 'abs', 'bodyweight'],
+];
+
+const MEDIA_KINDS: Record<string, 'image' | 'animated_demo'> = {
+  'image/png': 'image',
+  'image/jpeg': 'image',
+  'image/webp': 'image',
+  'image/gif': 'animated_demo',
+};
+
 let accounts: FakeAccount[] = [];
 let tokens = new Map<string, string>(); // token -> account id
+let exercises: FakeExercise[] = [];
 let nextId = 1;
+
+function seedExercises() {
+  exercises = CANONICAL.map(([name, muscleGroup, equipmentType], i) => ({
+    id: `canonical-${i + 1}`,
+    name,
+    muscleGroup,
+    equipmentType,
+    isCustom: false,
+    imageUrl: null,
+    animatedDemoUrl: null,
+    ownerId: null,
+  }));
+}
+seedExercises();
 
 export const fakeApi = {
   /** Every Authorization header the API received, in order. */
   authHeaders: [] as (string | null)[],
+  /** Every media upload the API accepted, in order. */
+  uploads: [] as { exerciseId: string; fileName: string; type: string }[],
 
   reset() {
     accounts = [];
     tokens = new Map();
+    seedExercises();
     nextId = 1;
     this.authHeaders = [];
+    this.uploads = [];
   },
 
   addAccount(email: string, password: string, unitPreference: FakeAccount['unitPreference']) {
@@ -43,6 +92,25 @@ export const fakeApi = {
   findAccount(email: string) {
     return accounts.find((a) => a.email.toLowerCase() === email.toLowerCase());
   },
+
+  addCustomExercise(ownerId: string, name: string, muscleGroup: string, equipmentType: string) {
+    const exercise: FakeExercise = {
+      id: `exercise-${nextId++}`,
+      name,
+      muscleGroup,
+      equipmentType,
+      isCustom: true,
+      imageUrl: null,
+      animatedDemoUrl: null,
+      ownerId,
+    };
+    exercises.push(exercise);
+    return exercise;
+  },
+
+  customExercises(ownerId: string) {
+    return exercises.filter((e) => e.ownerId === ownerId);
+  },
 };
 
 function error(status: number, code: string, message: string) {
@@ -54,6 +122,18 @@ function caller(request: Request) {
   fakeApi.authHeaders.push(header);
   const accountId = header?.startsWith('Bearer ') ? tokens.get(header.slice(7)) : undefined;
   return accounts.find((a) => a.id === accountId);
+}
+
+function unauthorized() {
+  return error(401, 'unauthorized', 'Log in to continue.');
+}
+
+function visibleExercise(account: FakeAccount, id: string | readonly string[] | undefined) {
+  return exercises.find((e) => e.id === id && (e.ownerId === null || e.ownerId === account.id));
+}
+
+function exerciseJson({ ownerId: _ownerId, ...exercise }: FakeExercise) {
+  return exercise;
 }
 
 function me(account: FakeAccount) {
@@ -98,6 +178,64 @@ const handlers = [
     }
     account.unitPreference = unitPreference;
     return HttpResponse.json(me(account));
+  }),
+
+  http.get('*/exercises', ({ request }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const params = new URL(request.url).searchParams;
+    const q = params.get('q')?.trim().toLowerCase();
+    const muscleGroup = params.get('muscleGroup');
+    const equipmentType = params.get('equipmentType');
+    const found = exercises
+      .filter((e) => e.ownerId === null || e.ownerId === account.id)
+      .filter((e) => !q || e.name.toLowerCase().includes(q))
+      .filter((e) => !muscleGroup || e.muscleGroup === muscleGroup)
+      .filter((e) => !equipmentType || e.equipmentType === equipmentType)
+      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+    return HttpResponse.json({ exercises: found.map(exerciseJson) });
+  }),
+
+  http.post('*/exercises', async ({ request }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const { name, muscleGroup, equipmentType } = (await request.json()) as Record<string, string>;
+    if (!name?.trim()) return error(400, 'invalid_name', 'Name must be 1 to 100 characters.');
+    const exercise = fakeApi.addCustomExercise(account.id, name.trim(), muscleGroup, equipmentType);
+    return HttpResponse.json(exerciseJson(exercise), { status: 201 });
+  }),
+
+  http.get('*/exercises/:id', ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const exercise = visibleExercise(account, params.id);
+    if (!exercise) return error(404, 'exercise_not_found', 'Exercise not found.');
+    return HttpResponse.json(exerciseJson(exercise));
+  }),
+
+  http.post('*/exercises/:id/media', async ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const exercise = visibleExercise(account, params.id);
+    if (!exercise) return error(404, 'exercise_not_found', 'Exercise not found.');
+    if (!exercise.isCustom) {
+      return error(403, 'exercise_not_editable', 'Only your own custom exercises can be changed.');
+    }
+    // MSW parses the body with Node's FormData; the global type is React Native's.
+    const form = (await request.formData()) as unknown as { get(name: string): unknown };
+    const file = form.get('file');
+    if (!(file instanceof File)) {
+      return error(400, 'missing_file', 'Send the file as the "file" field of a multipart form.');
+    }
+    // The real API sniffs the bytes; a fake file only has its declared type.
+    const kind = MEDIA_KINDS[file.type];
+    if (!kind) return error(415, 'unsupported_media_type', 'Upload a PNG, JPEG, WebP or GIF image.');
+
+    fakeApi.uploads.push({ exerciseId: exercise.id, fileName: file.name, type: file.type });
+    const url = `/exercises/${exercise.id}/${kind}?v=${fakeApi.uploads.length}`;
+    if (kind === 'image') exercise.imageUrl = url;
+    else exercise.animatedDemoUrl = url;
+    return HttpResponse.json(exerciseJson(exercise));
   }),
 ];
 

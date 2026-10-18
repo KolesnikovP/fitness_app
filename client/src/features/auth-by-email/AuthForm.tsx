@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 
-import { ApiError, NetworkError } from '@/shared/api';
+import { errorMessage } from '@/shared/api';
 import { Button, colors, TextField } from '@/shared/ui';
 
 type AuthFormProps = {
@@ -62,12 +62,6 @@ export function AuthForm({ submitLabel, onSubmit, passwordAutoComplete }: AuthFo
       <Button label={submitLabel} onPress={handleSubmit} loading={submitting} />
     </>
   );
-}
-
-function errorMessage(e: unknown): string {
-  // The API's messages are written for people ("Email or password is incorrect.").
-  if (e instanceof ApiError || e instanceof NetworkError) return e.message;
-  return 'Something went wrong. Please try again.';
 }
 
 const styles = StyleSheet.create({
