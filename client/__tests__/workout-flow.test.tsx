@@ -136,8 +136,10 @@ describe('freeform workout', () => {
     expect(scale.getByText('Max effort, no reps left')).toBeVisible();
     await fireEvent.press(scale.getByRole('radio', { name: '6' }));
 
+    // The meanings help pick a value; once picked, only the value is shown.
     expect(screen.queryByLabelText('RPE options')).toBeNull();
-    expect(card.getByText('6 · Could do 4 more reps')).toBeVisible();
+    expect(within(card.getByRole('button', { name: 'RPE' })).getByText('6')).toBeVisible();
+    expect(card.queryByText(/more reps/)).toBeNull();
     await fireEvent.press(card.getByRole('button', { name: 'Log set' }));
 
     expect(await card.findByText('140 kg × 5 @ RPE 6')).toBeVisible();
@@ -162,7 +164,7 @@ describe('freeform workout', () => {
 
     await fireEvent.press(card.getByRole('button', { name: 'RPE' }));
     await fireEvent.press(within(screen.getByLabelText('RPE options')).getByRole('radio', { name: '9' }));
-    expect(card.getByText('9 · Could do 1 more rep')).toBeVisible();
+    expect(within(card.getByRole('button', { name: 'RPE' })).getByText('9')).toBeVisible();
 
     await fireEvent.press(card.getByRole('button', { name: 'RPE' }));
     await fireEvent.press(within(screen.getByLabelText('RPE options')).getByRole('button', { name: 'No RPE' }));

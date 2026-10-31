@@ -19,12 +19,13 @@ type SelectProps<T> = {
 
 /**
  * A labelled field that opens a sheet of options, each with an optional line
- * saying what it means. The field shows the picked option and its meaning.
+ * saying what it means to help the User choose. Once picked, the field shows
+ * only the option's label.
  */
 export function Select<T>({ label, options, value, onChange, placeholder = 'Choose', clearLabel }: SelectProps<T>) {
   const [open, setOpen] = useState(false);
   const selected = options.find((o) => o.value === value) ?? null;
-  const shown = selected ? [selected.label, selected.description].filter(Boolean).join(' · ') : placeholder;
+  const shown = selected ? selected.label : placeholder;
 
   function pick(next: T | null) {
     onChange(next);
