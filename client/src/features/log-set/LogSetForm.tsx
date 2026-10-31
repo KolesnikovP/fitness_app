@@ -82,15 +82,17 @@ export function LogSetForm({ sessionId, sessionExerciseId, onLogged }: LogSetFor
             keyboardType="number-pad"
           />
         </View>
+        <View style={styles.field}>
+          <Select
+            label="RPE"
+            placeholder="–"
+            options={RPE_OPTIONS}
+            value={rpe}
+            onChange={setRpe}
+            clearLabel="No RPE"
+          />
+        </View>
       </View>
-      <Select
-        label="RPE"
-        placeholder="Optional"
-        options={RPE_OPTIONS}
-        value={rpe}
-        onChange={setRpe}
-        clearLabel="No RPE"
-      />
       <TextField label="Set note" placeholder="Optional" value={note} onChangeText={setNote} maxLength={500} />
       {error ? (
         <Text accessibilityRole="alert" style={styles.error}>

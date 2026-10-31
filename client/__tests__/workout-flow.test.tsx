@@ -144,7 +144,7 @@ describe('freeform workout', () => {
 
     expect(await card.findByText('140 kg × 5 @ RPE 6')).toBeVisible();
     // RPE resets for the next set; left unset, the set has none.
-    expect(card.getByText('Optional')).toBeVisible();
+    expect(within(card.getByRole('button', { name: 'RPE' })).getByText('–')).toBeVisible();
     await fireEvent.changeText(card.getByLabelText('Reps'), '4');
     await fireEvent.press(card.getByRole('button', { name: 'Log set' }));
     expect(await card.findByText('140 kg × 4')).toBeVisible();
@@ -169,7 +169,7 @@ describe('freeform workout', () => {
     await fireEvent.press(card.getByRole('button', { name: 'RPE' }));
     await fireEvent.press(within(screen.getByLabelText('RPE options')).getByRole('button', { name: 'No RPE' }));
 
-    expect(card.getByText('Optional')).toBeVisible();
+    expect(within(card.getByRole('button', { name: 'RPE' })).getByText('–')).toBeVisible();
   });
 
   it('groups exercises into a superset, logged back to back with rest after the round', async () => {
