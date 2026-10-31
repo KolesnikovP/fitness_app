@@ -18,6 +18,8 @@ export function ExerciseNoteField({ sessionId, sessionExercise, onSaved }: Exerc
   const [note, setNote] = useState(sessionExercise.note);
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [error, setError] = useState<string | null>(null);
+  // Hidden behind a link until asked for, unless there's already a note.
+  const [open, setOpen] = useState(sessionExercise.note !== '');
 
   if (state.status !== 'signedIn') return null;
   const { token } = state;
@@ -34,6 +36,8 @@ export function ExerciseNoteField({ sessionId, sessionExercise, onSaved }: Exerc
       setStatus('idle');
     }
   }
+
+  if (!open) return <Button label="Add exercise note" variant="link" onPress={() => setOpen(true)} />;
 
   return (
     <View style={styles.container}>

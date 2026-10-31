@@ -53,6 +53,10 @@ describe('freeform workout', () => {
     const card = exerciseCard('Dumbbell Bench Press');
     await fireEvent.changeText(card.getByLabelText('Weight (kg)'), '32,5');
     await fireEvent.changeText(card.getByLabelText('Reps'), '10');
+    // Notes stay out of the way until asked for.
+    expect(card.queryByLabelText('Set note')).toBeNull();
+    expect(card.queryByLabelText('Exercise note')).toBeNull();
+    await fireEvent.press(card.getByRole('button', { name: 'Add set note' }));
     await fireEvent.changeText(card.getByLabelText('Set note'), 'Slow negatives');
     await fireEvent.press(card.getByRole('button', { name: 'Log set' }));
 
@@ -60,7 +64,9 @@ describe('freeform workout', () => {
     expect(card.getByText('Slow negatives')).toBeVisible();
     // The form clears for the next set.
     expect(card.getByLabelText('Reps')).toHaveDisplayValue('');
+    expect(card.queryByLabelText('Set note')).toBeNull();
 
+    await fireEvent.press(card.getByRole('button', { name: 'Add exercise note' }));
     await fireEvent.changeText(card.getByLabelText('Exercise note'), 'Bench 3 was free');
     await fireEvent.press(card.getByRole('button', { name: 'Save note' }));
     expect(await card.findByText('Note saved.')).toBeVisible();
@@ -84,7 +90,9 @@ describe('freeform workout', () => {
   it('resumes the workout in progress after the app restarts', async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     const session = fakeApi.addSession(account.id, new Date(Date.now() - 20 * 60_000));
-    fakeApi.addSet(fakeApi.addSessionExercise(session, 'Deadlift'), 140, 'kg', 3);
+    const deadlift = fakeApi.addSessionExercise(session, 'Deadlift');
+    deadlift.note = 'Mixed grip';
+    fakeApi.addSet(deadlift, 140, 'kg', 3);
     secureStore.set('auth-token', fakeApi.issueToken(account.id));
     await renderRouter('./src/app', { initialUrl: '/' });
     await screen.findByRole('header', { name: 'Feed' });
@@ -94,6 +102,8 @@ describe('freeform workout', () => {
 
     await screen.findByRole('header', { name: 'Current workout' });
     expect(exerciseCard('Deadlift').getByText('140 kg × 3')).toBeVisible();
+    // A note already written is shown open.
+    expect(exerciseCard('Deadlift').getByLabelText('Exercise note')).toHaveDisplayValue('Mixed grip');
     expect(screen.getByRole('button', { name: 'Finish workout' })).toBeEnabled();
   });
 

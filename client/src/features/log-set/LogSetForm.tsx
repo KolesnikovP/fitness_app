@@ -29,6 +29,7 @@ export function LogSetForm({ sessionId, sessionExerciseId, onLogged }: LogSetFor
   const [reps, setReps] = useState('');
   const [rpe, setRpe] = useState<number | null>(null);
   const [note, setNote] = useState('');
+  const [showNote, setShowNote] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -55,6 +56,7 @@ export function LogSetForm({ sessionId, sessionExerciseId, onLogged }: LogSetFor
       setReps('');
       setRpe(null);
       setNote('');
+      setShowNote(false);
       onLogged(session);
     } catch (e) {
       setError(errorMessage(e));
@@ -94,7 +96,11 @@ export function LogSetForm({ sessionId, sessionExerciseId, onLogged }: LogSetFor
           />
         </View>
       </View>
-      <TextField label="Set note" placeholder="Optional" value={note} onChangeText={setNote} maxLength={500} />
+      {showNote ? (
+        <TextField label="Set note" placeholder="Optional" value={note} onChangeText={setNote} maxLength={500} />
+      ) : (
+        <Button label="Add set note" variant="link" onPress={() => setShowNote(true)} />
+      )}
       {error ? (
         <Text accessibilityRole="alert" style={styles.error}>
           {error}
@@ -108,8 +114,8 @@ export function LogSetForm({ sessionId, sessionExerciseId, onLogged }: LogSetFor
 const styles = StyleSheet.create({
   container: { gap: spacing.sm },
   row: { flexDirection: 'row', gap: spacing.sm },
-  // Reps and RPE are sized for their few digits; weight takes the rest.
-  weight: { flex: 1 },
+  // Each number field is sized for the digits it holds (weight up to 9999.99).
+  weight: { width: 120 },
   reps: { width: 76 },
   rpe: { width: 64 },
   error: { color: colors.danger, fontSize: 15 },
