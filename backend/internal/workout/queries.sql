@@ -94,3 +94,18 @@ WHERE session_id = sqlc.arg(session_id) AND id = ANY(sqlc.arg(ids)::uuid[]);
 UPDATE session_exercises
 SET superset_id = NULL
 WHERE session_id = $1 AND superset_id = $2;
+
+-- name: UpdateSet :execrows
+-- Corrects a set, provided it belongs to the session. It keeps its order and
+-- the superset it was logged in.
+UPDATE session_sets s
+SET weight = sqlc.arg(weight)::float8, weight_unit = sqlc.arg(weight_unit), reps = sqlc.arg(reps),
+    rpe = sqlc.narg(rpe), note = sqlc.arg(note)
+FROM session_exercises e
+WHERE s.id = sqlc.arg(id) AND e.id = s.session_exercise_id AND e.session_id = sqlc.arg(session_id);
+
+-- name: DeleteSet :execrows
+-- Deletes a set, provided it belongs to the session.
+DELETE FROM session_sets s
+USING session_exercises e
+WHERE s.id = sqlc.arg(id) AND e.id = s.session_exercise_id AND e.session_id = sqlc.arg(session_id);

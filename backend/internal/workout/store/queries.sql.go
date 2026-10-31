@@ -68,6 +68,26 @@ func (q *Queries) DeleteSession(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const deleteSet = `-- name: DeleteSet :execrows
+DELETE FROM session_sets s
+USING session_exercises e
+WHERE s.id = $1 AND e.id = s.session_exercise_id AND e.session_id = $2
+`
+
+type DeleteSetParams struct {
+	ID        uuid.UUID
+	SessionID uuid.UUID
+}
+
+// Deletes a set, provided it belongs to the session.
+func (q *Queries) DeleteSet(ctx context.Context, arg DeleteSetParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteSet, arg.ID, arg.SessionID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const finishSession = `-- name: FinishSession :exec
 UPDATE workout_sessions
 SET finished_at = now()
@@ -408,6 +428,42 @@ type UngroupSupersetParams struct {
 
 func (q *Queries) UngroupSuperset(ctx context.Context, arg UngroupSupersetParams) (int64, error) {
 	result, err := q.db.Exec(ctx, ungroupSuperset, arg.SessionID, arg.SupersetID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const updateSet = `-- name: UpdateSet :execrows
+UPDATE session_sets s
+SET weight = $1::float8, weight_unit = $2, reps = $3,
+    rpe = $4, note = $5
+FROM session_exercises e
+WHERE s.id = $6 AND e.id = s.session_exercise_id AND e.session_id = $7
+`
+
+type UpdateSetParams struct {
+	Weight     float64
+	WeightUnit string
+	Reps       int32
+	Rpe        *float64
+	Note       string
+	ID         uuid.UUID
+	SessionID  uuid.UUID
+}
+
+// Corrects a set, provided it belongs to the session. It keeps its order and
+// the superset it was logged in.
+func (q *Queries) UpdateSet(ctx context.Context, arg UpdateSetParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateSet,
+		arg.Weight,
+		arg.WeightUnit,
+		arg.Reps,
+		arg.Rpe,
+		arg.Note,
+		arg.ID,
+		arg.SessionID,
+	)
 	if err != nil {
 		return 0, err
 	}

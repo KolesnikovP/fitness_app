@@ -234,6 +234,98 @@ describe('freeform workout', () => {
     expect(fakeApi.sessions(account.id)[0].exercises.every((e) => e.supersetId === null)).toBe(true);
   });
 
+  it('corrects a logged set', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSet(fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat'), 140, 'kg', 5);
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Back Squat');
+
+    await fireEvent.press(card.getByRole('button', { name: 'Edit set 1' }));
+    const editing = within(card.getByLabelText('Editing set 1'));
+    expect(editing.getByLabelText('Weight (kg)')).toHaveDisplayValue('140');
+    await fireEvent.changeText(editing.getByLabelText('Reps'), '6');
+    await fireEvent.press(editing.getByRole('button', { name: 'RPE' }));
+    await fireEvent.press(within(screen.getByLabelText('RPE options')).getByRole('radio', { name: '8' }));
+    await fireEvent.press(editing.getByRole('button', { name: 'Save' }));
+
+    expect(await card.findByText('140 kg × 6 @ RPE 8')).toBeVisible();
+    expect(card.queryByLabelText('Editing set 1')).toBeNull();
+
+    // Cancelling leaves the set as it was.
+    await fireEvent.press(card.getByRole('button', { name: 'Edit set 1' }));
+    await fireEvent.changeText(within(card.getByLabelText('Editing set 1')).getByLabelText('Reps'), '9');
+    await fireEvent.press(within(card.getByLabelText('Editing set 1')).getByRole('button', { name: 'Cancel' }));
+    expect(card.getByText('140 kg × 6 @ RPE 8')).toBeVisible();
+
+    expect(fakeApi.sessions(account.id)[0].exercises[0].sets).toMatchObject([{ weight: 140, reps: 6, rpe: 8 }]);
+  });
+
+  it('deletes a set, with a moment to undo it', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
+    try {
+      const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+      const squat = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
+      fakeApi.addSet(squat, 140, 'kg', 5);
+      fakeApi.addSet(squat, 140, 'kg', 3);
+      await resumeWorkout(account.id);
+      const card = exerciseCard('Back Squat');
+
+      await fireEvent.press(card.getByRole('button', { name: 'Edit set 1' }));
+      await fireEvent.press(card.getByRole('button', { name: 'Delete set' }));
+
+      expect(card.queryByText('140 kg × 5')).toBeNull();
+      // The sets left are renumbered.
+      expect(card.getByRole('button', { name: 'Edit set 1' })).toHaveTextContent(/140 kg × 3/);
+      expect(screen.getByText('Set deleted.')).toBeVisible();
+
+      await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
+      expect(card.getByText('140 kg × 5')).toBeVisible();
+      expect(screen.queryByText('Set deleted.')).toBeNull();
+
+      await fireEvent.press(card.getByRole('button', { name: 'Edit set 1' }));
+      await fireEvent.press(card.getByRole('button', { name: 'Delete set' }));
+      // Nothing is deleted until the moment to undo has passed.
+      expect(squat.sets).toHaveLength(2);
+      await act(async () => jest.advanceTimersByTime(5_000));
+
+      await waitFor(() => expect(squat.sets).toHaveLength(1));
+      expect(squat.sets[0]).toMatchObject({ reps: 3 });
+      expect(screen.queryByText('Set deleted.')).toBeNull();
+      expect(card.queryByText('140 kg × 5')).toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('deletes a pending set before finishing the workout', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const squat = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
+    fakeApi.addSet(squat, 140, 'kg', 5);
+    fakeApi.addSet(squat, 140, 'kg', 3);
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Back Squat');
+
+    await fireEvent.press(card.getByRole('button', { name: 'Edit set 2' }));
+    await fireEvent.press(card.getByRole('button', { name: 'Delete set' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Finish workout' }));
+
+    await screen.findByRole('header', { name: 'Workout' });
+    const [saved] = fakeApi.sessions(account.id);
+    expect(saved.finishedAt).not.toBeNull();
+    expect(saved.exercises[0].sets).toMatchObject([{ reps: 5 }]);
+  });
+
+  it("can't finish a workout once its only set is deleted", async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSet(fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat'), 140, 'kg', 5);
+    await resumeWorkout(account.id);
+
+    await fireEvent.press(exerciseCard('Back Squat').getByRole('button', { name: 'Edit set 1' }));
+    await fireEvent.press(exerciseCard('Back Squat').getByRole('button', { name: 'Delete set' }));
+
+    expect(screen.getByRole('button', { name: 'Finish workout' })).toBeDisabled();
+  });
+
   it('counts down a rest timer between sets', async () => {
     jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
     try {

@@ -685,6 +685,179 @@ func TestSuperset(t *testing.T) {
 	})
 }
 
+func TestEditSet(t *testing.T) {
+	srv := testutil.NewServer(t)
+
+	t.Run("corrects a logged set in place, keeping its order and superset", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		bench, row := addExercise(t, srv, token, id, "Bench Press"), addExercise(t, srv, token, id, "Barbell Row")
+		superset := sessionExercises(t, createSuperset(t, srv, token, id, bench, row))[0]["supersetId"]
+		logSet(t, srv, token, id, bench, 100, 5)
+		logSet(t, srv, token, id, bench, 100, 5)
+		setID := objects(t, currentExercises(t, srv, token)[0], "sets")[0]["id"].(string)
+		testutil.Do(t, srv, http.MethodDelete, "/workouts/sessions/"+id+"/supersets/"+superset.(string), token, nil)
+
+		res := testutil.Do(t, srv, http.MethodPatch, "/workouts/sessions/"+id+"/sets/"+setID, token, map[string]any{
+			"weight": 105, "weightUnit": "lb", "reps": 4, "rpe": 9, "note": "  Fixed  ",
+		})
+
+		if res.Status != http.StatusOK {
+			t.Fatalf("status = %d, want 200; body %v", res.Status, res.Body)
+		}
+		sets := objects(t, sessionExercises(t, res)[0], "sets")
+		first := sets[0]
+		if first["id"] != setID || first["weight"] != 105.0 || first["weightUnit"] != "lb" || first["reps"] != 4.0 ||
+			first["rpe"] != 9.0 || first["note"] != "Fixed" {
+			t.Errorf("first set = %v, want it corrected to 105 lb x 4 @ 9, noted", first)
+		}
+		if first["supersetId"] != superset {
+			t.Errorf("supersetId = %v, want the superset it was logged in, %v", first["supersetId"], superset)
+		}
+		if len(sets) != 2 || sets[1]["reps"] != 5.0 {
+			t.Errorf("sets = %v, want the second left as it was", sets)
+		}
+	})
+
+	t.Run("clears the RPE when it's left blank", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		bench := addExercise(t, srv, token, id, "Bench Press")
+		res := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions/"+id+"/exercises/"+bench+"/sets", token,
+			map[string]any{"weight": 100, "weightUnit": "kg", "reps": 5, "rpe": 8})
+		setID := objects(t, sessionExercises(t, res)[0], "sets")[0]["id"].(string)
+
+		res = testutil.Do(t, srv, http.MethodPatch, "/workouts/sessions/"+id+"/sets/"+setID, token,
+			map[string]any{"weight": 100, "weightUnit": "kg", "reps": 5})
+
+		if got := objects(t, sessionExercises(t, res)[0], "sets")[0]["rpe"]; got != nil {
+			t.Fatalf("rpe = %v, want null", got)
+		}
+	})
+
+	t.Run("validates the set as logging does", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		setID := logOneSet(t, srv, token, id)
+
+		res := testutil.Do(t, srv, http.MethodPatch, "/workouts/sessions/"+id+"/sets/"+setID, token,
+			map[string]any{"weight": 100, "weightUnit": "kg", "reps": 0})
+
+		if res.Status != http.StatusBadRequest || res.ErrorCode() != "invalid_reps" {
+			t.Fatalf("got %d %q, want 400 invalid_reps", res.Status, res.ErrorCode())
+		}
+	})
+
+	t.Run("refuses a set from another session", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		first := startSession(t, srv, token)
+		setID := logOneSet(t, srv, token, first)
+		finishSession(t, srv, token, first)
+		second := startSession(t, srv, token)
+
+		res := testutil.Do(t, srv, http.MethodPatch, "/workouts/sessions/"+second+"/sets/"+setID, token,
+			map[string]any{"weight": 100, "weightUnit": "kg", "reps": 5})
+
+		if res.Status != http.StatusNotFound || res.ErrorCode() != "set_not_found" {
+			t.Fatalf("got %d %q, want 404 set_not_found", res.Status, res.ErrorCode())
+		}
+	})
+
+	t.Run("refuses changes to a finished session", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		setID := logOneSet(t, srv, token, id)
+		finishSession(t, srv, token, id)
+
+		res := testutil.Do(t, srv, http.MethodPatch, "/workouts/sessions/"+id+"/sets/"+setID, token,
+			map[string]any{"weight": 100, "weightUnit": "kg", "reps": 5})
+
+		if res.Status != http.StatusConflict || res.ErrorCode() != "session_finished" {
+			t.Fatalf("got %d %q, want 409 session_finished", res.Status, res.ErrorCode())
+		}
+	})
+}
+
+func TestDeleteSet(t *testing.T) {
+	srv := testutil.NewServer(t)
+
+	t.Run("deletes a set, leaving the others in order", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		bench := addExercise(t, srv, token, id, "Bench Press")
+		for _, reps := range []int{5, 4, 3} {
+			logSet(t, srv, token, id, bench, 100, reps)
+		}
+		middle := objects(t, currentExercises(t, srv, token)[0], "sets")[1]["id"].(string)
+
+		res := testutil.Do(t, srv, http.MethodDelete, "/workouts/sessions/"+id+"/sets/"+middle, token, nil)
+
+		if res.Status != http.StatusOK {
+			t.Fatalf("status = %d, want 200; body %v", res.Status, res.Body)
+		}
+		sets := objects(t, sessionExercises(t, res)[0], "sets")
+		if len(sets) != 2 || sets[0]["reps"] != 5.0 || sets[1]["reps"] != 3.0 {
+			t.Fatalf("sets = %v, want the 5 and the 3 left", sets)
+		}
+	})
+
+	t.Run("refuses an unknown set", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+
+		res := testutil.Do(t, srv, http.MethodDelete, "/workouts/sessions/"+id+"/sets/"+uuid.NewString(), token, nil)
+
+		if res.Status != http.StatusNotFound || res.ErrorCode() != "set_not_found" {
+			t.Fatalf("got %d %q, want 404 set_not_found", res.Status, res.ErrorCode())
+		}
+	})
+
+	t.Run("never deletes another user's set", func(t *testing.T) {
+		_, _, owner := testutil.SignUp(t, srv)
+		ownerSession := startSession(t, srv, owner)
+		setID := logOneSet(t, srv, owner, ownerSession)
+		_, _, other := testutil.SignUp(t, srv)
+		otherSession := startSession(t, srv, other)
+
+		res := testutil.Do(t, srv, http.MethodDelete, "/workouts/sessions/"+otherSession+"/sets/"+setID, other, nil)
+
+		if res.Status != http.StatusNotFound {
+			t.Fatalf("status = %d, want 404", res.Status)
+		}
+		if got := objects(t, currentExercises(t, srv, owner)[0], "sets"); len(got) != 1 {
+			t.Fatalf("owner's sets = %v, want theirs kept", got)
+		}
+	})
+
+	t.Run("refuses changes to a finished session", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		setID := logOneSet(t, srv, token, id)
+		finishSession(t, srv, token, id)
+
+		res := testutil.Do(t, srv, http.MethodDelete, "/workouts/sessions/"+id+"/sets/"+setID, token, nil)
+
+		if res.Status != http.StatusConflict || res.ErrorCode() != "session_finished" {
+			t.Fatalf("got %d %q, want 409 session_finished", res.Status, res.ErrorCode())
+		}
+	})
+}
+
+// logOneSet adds Bench Press to a session, logs 100 kg x 5 and returns the
+// set's id.
+func logOneSet(t *testing.T, srv *httptest.Server, token, sessionID string) string {
+	t.Helper()
+	bench := addExercise(t, srv, token, sessionID, "Bench Press")
+	res := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions/"+sessionID+"/exercises/"+bench+"/sets", token,
+		map[string]any{"weight": 100, "weightUnit": "kg", "reps": 5})
+	if res.Status != http.StatusCreated {
+		t.Fatalf("log set: status %d, body %v", res.Status, res.Body)
+	}
+	exercises := sessionExercises(t, res)
+	sets := objects(t, exercises[len(exercises)-1], "sets") // Bench Press, just added.
+	return sets[len(sets)-1]["id"].(string)
+}
+
 func createSuperset(t *testing.T, srv *httptest.Server, token, sessionID string, sessionExerciseIDs ...string) testutil.Response {
 	t.Helper()
 	res := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions/"+sessionID+"/supersets", token,

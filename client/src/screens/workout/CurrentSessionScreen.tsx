@@ -10,8 +10,10 @@ import {
   getCurrentSession,
   hasSets,
   sessionBlocks,
+  withoutSet,
   type Session,
 } from '@/entities/workout';
+import { SetDeletedBar, usePendingSetDeletion } from '@/features/delete-set';
 import { RestTimer } from '@/features/rest-timer';
 import { CreateSupersetForm } from '@/features/superset';
 import { errorMessage } from '@/shared/api';
@@ -29,6 +31,7 @@ export function CurrentSessionScreen() {
   const [error, setError] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [groupingSuperset, setGroupingSuperset] = useState(false);
+  const deletion = usePendingSetDeletion(token, session?.id ?? null, setSession, setError);
 
   // Reload on focus, so an exercise added on the picker screen shows up.
   useFocusEffect(
@@ -69,6 +72,8 @@ export function CurrentSessionScreen() {
     setError(null);
     setFinishing(true);
     try {
+      // A Set deleted just now goes before the workout is finished.
+      await deletion.flush();
       await finishSession(token, session.id);
       router.back();
     } catch (e) {
@@ -96,13 +101,18 @@ export function CurrentSessionScreen() {
     ]);
   }
 
-  const canFinish = hasSets(session);
-  const ungrouped = session.exercises.filter((e) => e.supersetId === null);
+  // A Set pending deletion is already gone, as far as the User can tell.
+  const shown = deletion.pendingSetId ? withoutSet(session, deletion.pendingSetId) : session;
+  const canFinish = hasSets(shown);
+  const ungrouped = shown.exercises.filter((e) => e.supersetId === null);
 
   return (
-    <Screen title="Current workout">
+    <Screen
+      title="Current workout"
+      footer={deletion.pendingSetId ? <SetDeletedBar onUndo={deletion.undo} /> : null}
+    >
       <Text style={styles.muted}>Started at {formatClockTime(session.startedAt)}</Text>
-      {sessionBlocks(session.exercises).map((block) =>
+      {sessionBlocks(shown.exercises).map((block) =>
         block.kind === 'superset' ? (
           <SupersetBlock
             key={block.supersetId}
@@ -110,6 +120,7 @@ export function CurrentSessionScreen() {
             supersetId={block.supersetId}
             exercises={block.exercises}
             onChange={setSession}
+            onDeleteSet={deletion.remove}
           />
         ) : (
           <SessionExerciseCard
@@ -117,6 +128,7 @@ export function CurrentSessionScreen() {
             sessionId={session.id}
             sessionExercise={block.exercise}
             onChange={setSession}
+            onDeleteSet={deletion.remove}
           />
         ),
       )}

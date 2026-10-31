@@ -97,6 +97,8 @@ func (s *Service) Routes(mux *http.ServeMux, accounts Accounts) {
 	mux.Handle("POST /workouts/sessions/{id}/exercises", accounts.RequireAuth(http.HandlerFunc(h.addExercise)))
 	mux.Handle("PATCH /workouts/sessions/{id}/exercises/{sessionExerciseId}", accounts.RequireAuth(http.HandlerFunc(h.setExerciseNote)))
 	mux.Handle("POST /workouts/sessions/{id}/exercises/{sessionExerciseId}/sets", accounts.RequireAuth(http.HandlerFunc(h.logSet)))
+	mux.Handle("PATCH /workouts/sessions/{id}/sets/{setId}", accounts.RequireAuth(http.HandlerFunc(h.editSet)))
+	mux.Handle("DELETE /workouts/sessions/{id}/sets/{setId}", accounts.RequireAuth(http.HandlerFunc(h.deleteSet)))
 	mux.Handle("POST /workouts/sessions/{id}/supersets", accounts.RequireAuth(http.HandlerFunc(h.createSuperset)))
 	mux.Handle("DELETE /workouts/sessions/{id}/supersets/{supersetId}", accounts.RequireAuth(http.HandlerFunc(h.ungroupSuperset)))
 	mux.Handle("POST /workouts/sessions/{id}/finish", accounts.RequireAuth(http.HandlerFunc(h.finish)))
@@ -272,7 +274,8 @@ func (h handlers) setExerciseNote(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-type logSetBody struct {
+// setBody is a Set as the client sends it, to log or to correct.
+type setBody struct {
 	Weight     *float64 `json:"weight"`
 	WeightUnit string   `json:"weightUnit"`
 	Reps       *int     `json:"reps"`
@@ -297,30 +300,51 @@ func validRPE(rpe *float64) bool {
 	return *rpe >= minRPE && *rpe <= maxRPE && *rpe*2 == math.Trunc(*rpe*2)
 }
 
-func (h handlers) logSet(w http.ResponseWriter, r *http.Request) {
-	var body logSetBody
+// setValues is a validated setBody.
+type setValues struct {
+	weight     float64
+	weightUnit string
+	reps       int32
+	rpe        *float64
+	note       string
+}
+
+// validSet decodes and validates a Set from the request body. If it's not
+// valid, it writes a 400 and returns false.
+func validSet(w http.ResponseWriter, r *http.Request) (setValues, bool) {
+	var body setBody
 	if !httpx.DecodeJSON(w, r, &body) {
-		return
+		return setValues{}, false
 	}
 	if body.Weight == nil || *body.Weight < 0 || *body.Weight > maxWeight {
 		httpx.WriteError(w, http.StatusBadRequest, "invalid_weight",
 			fmt.Sprintf("Weight must be from 0 to %g.", maxWeight))
-		return
+		return setValues{}, false
 	}
 	if body.WeightUnit != "kg" && body.WeightUnit != "lb" {
 		httpx.WriteError(w, http.StatusBadRequest, "invalid_weight_unit", `weightUnit must be "kg" or "lb".`)
-		return
+		return setValues{}, false
 	}
 	if body.Reps == nil || *body.Reps < 1 || *body.Reps > maxReps {
 		httpx.WriteError(w, http.StatusBadRequest, "invalid_reps", fmt.Sprintf("Reps must be from 1 to %d.", maxReps))
-		return
+		return setValues{}, false
 	}
 	if !validRPE(body.RPE) {
 		httpx.WriteError(w, http.StatusBadRequest, "invalid_rpe",
 			fmt.Sprintf("RPE must be from %d to %d in half steps, or left blank.", minRPE, maxRPE))
-		return
+		return setValues{}, false
 	}
 	note, ok := validNote(w, body.Note)
+	if !ok {
+		return setValues{}, false
+	}
+	return setValues{
+		weight: *body.Weight, weightUnit: body.WeightUnit, reps: int32(*body.Reps), rpe: body.RPE, note: note,
+	}, true
+}
+
+func (h handlers) logSet(w http.ResponseWriter, r *http.Request) {
+	set, ok := validSet(w, r)
 	if !ok {
 		return
 	}
@@ -332,11 +356,11 @@ func (h handlers) logSet(w http.ResponseWriter, r *http.Request) {
 
 	h.changeSession(w, r, http.StatusCreated, func(q *store.Queries, sessionID uuid.UUID) error {
 		logged, err := q.LogSet(r.Context(), store.LogSetParams{
-			Weight:            *body.Weight,
-			WeightUnit:        body.WeightUnit,
-			Reps:              int32(*body.Reps),
-			Note:              note,
-			Rpe:               body.RPE,
+			Weight:            set.weight,
+			WeightUnit:        set.weightUnit,
+			Reps:              set.reps,
+			Note:              set.note,
+			Rpe:               set.rpe,
 			SessionExerciseID: sessionExerciseID,
 			SessionID:         sessionID,
 		})
@@ -349,6 +373,60 @@ func (h handlers) logSet(w http.ResponseWriter, r *http.Request) {
 		}
 		return nil
 	})
+}
+
+// editSet corrects a logged Set. It keeps its place and the Superset it was
+// logged in.
+func (h handlers) editSet(w http.ResponseWriter, r *http.Request) {
+	set, ok := validSet(w, r)
+	if !ok {
+		return
+	}
+	setID, err := uuid.Parse(r.PathValue("setId"))
+	if err != nil {
+		writeSetNotFound(w)
+		return
+	}
+
+	h.changeSession(w, r, http.StatusOK, func(q *store.Queries, sessionID uuid.UUID) error {
+		updated, err := q.UpdateSet(r.Context(), store.UpdateSetParams{
+			Weight: set.weight, WeightUnit: set.weightUnit, Reps: set.reps, Rpe: set.rpe, Note: set.note,
+			ID: setID, SessionID: sessionID,
+		})
+		if err != nil {
+			return fmt.Errorf("update set: %w", err)
+		}
+		if updated == 0 {
+			writeSetNotFound(w)
+			return errResponseWritten
+		}
+		return nil
+	})
+}
+
+// deleteSet deletes a logged Set from a session in progress.
+func (h handlers) deleteSet(w http.ResponseWriter, r *http.Request) {
+	setID, err := uuid.Parse(r.PathValue("setId"))
+	if err != nil {
+		writeSetNotFound(w)
+		return
+	}
+
+	h.changeSession(w, r, http.StatusOK, func(q *store.Queries, sessionID uuid.UUID) error {
+		deleted, err := q.DeleteSet(r.Context(), store.DeleteSetParams{ID: setID, SessionID: sessionID})
+		if err != nil {
+			return fmt.Errorf("delete set: %w", err)
+		}
+		if deleted == 0 {
+			writeSetNotFound(w)
+			return errResponseWritten
+		}
+		return nil
+	})
+}
+
+func writeSetNotFound(w http.ResponseWriter) {
+	httpx.WriteError(w, http.StatusNotFound, "set_not_found", "That set isn't in this workout.")
 }
 
 // validNote trims a set or exercise note. If it's too long, it writes a 400

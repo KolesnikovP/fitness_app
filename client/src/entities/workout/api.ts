@@ -47,6 +47,16 @@ export function logSet(token: string, sessionId: string, sessionExerciseId: stri
   });
 }
 
+/** Corrects a logged Set. It keeps its place and the Superset it was logged in. */
+export function editSet(token: string, sessionId: string, setId: string, set: NewSet): Promise<Session> {
+  return apiRequest<Session>(path(sessionId, 'sets', setId), { method: 'PATCH', token, body: set });
+}
+
+/** Deletes a logged Set. */
+export function deleteSet(token: string, sessionId: string, setId: string): Promise<Session> {
+  return apiRequest<Session>(path(sessionId, 'sets', setId), { method: 'DELETE', token });
+}
+
 /** Groups two or more Session exercises, none already in one, into a new Superset. */
 export function createSuperset(token: string, sessionId: string, sessionExerciseIds: string[]): Promise<Session> {
   return apiRequest<Session>(path(sessionId, 'supersets'), {

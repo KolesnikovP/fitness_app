@@ -54,6 +54,35 @@ export function hasSets(session: Session): boolean {
   return session.exercises.some((e) => e.sets.length > 0);
 }
 
+/** The session as it looks once setId is deleted. */
+export function withoutSet(session: Session, setId: string): Session {
+  return {
+    ...session,
+    exercises: session.exercises.map((e) => ({ ...e, sets: e.sets.filter((s) => s.id !== setId) })),
+  };
+}
+
+/** A Set as the User is typing it, to log or to correct. */
+export type SetDraft = { weight: string; reps: string; rpe: number | null; note: string };
+
+export const emptySetDraft: SetDraft = { weight: '', reps: '', rpe: null, note: '' };
+
+/** A draft holding a logged Set, to correct it. */
+export function setDraftOf(set: SessionSet): SetDraft {
+  return { weight: String(set.weight), reps: String(set.reps), rpe: set.rpe, note: set.note };
+}
+
+/** The Set a draft describes, in weightUnit, or null while it's incomplete. */
+export function parseSetDraft(
+  draft: SetDraft,
+  weightUnit: WeightUnit,
+): { weight: number; weightUnit: WeightUnit; reps: number; rpe: number | null; note: string } | null {
+  const weight = parseWeight(draft.weight);
+  const reps = parseReps(draft.reps);
+  if (weight === null || reps === null) return null;
+  return { weight, weightUnit, reps, rpe: draft.rpe, note: draft.note.trim() };
+}
+
 /** "32.5 kg × 10", or "32.5 kg × 10 @ RPE 8.5" */
 export function formatSet(set: Pick<SessionSet, 'weight' | 'weightUnit' | 'reps' | 'rpe'>): string {
   const base = `${set.weight} ${set.weightUnit} × ${set.reps}`;

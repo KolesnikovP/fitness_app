@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, spacing } from './theme';
@@ -9,9 +9,11 @@ type ScreenProps = {
   children: ReactNode;
   /** Center the content vertically, for short placeholder screens. */
   centered?: boolean;
+  /** Pinned below the scrolling content, such as a message with an Undo button. */
+  footer?: ReactNode;
 };
 
-export function Screen({ title, children, centered }: ScreenProps) {
+export function Screen({ title, children, centered, footer }: ScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -26,6 +28,7 @@ export function Screen({ title, children, centered }: ScreenProps) {
           ) : null}
           {children}
         </ScrollView>
+        {footer ? <View style={styles.footer}>{footer}</View> : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -36,5 +39,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { flexGrow: 1, padding: spacing.lg, gap: spacing.md },
   centered: { justifyContent: 'center' },
+  footer: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
   title: { fontSize: 32, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
 });

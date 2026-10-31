@@ -248,6 +248,28 @@ function sessionExerciseNotFound() {
   return error(404, 'session_exercise_not_found', "That exercise isn't in this workout.");
 }
 
+function setNotFound() {
+  return error(404, 'set_not_found', "That set isn't in this workout.");
+}
+
+/** The 400 the real API sends for a Set it won't log or save, or null if it's valid. */
+function invalidSet({ weight, weightUnit, reps, rpe = null, note = '' }: Partial<Omit<FakeSet, 'id' | 'supersetId'>>) {
+  if (typeof weight !== 'number' || weight < 0 || weight > 9999.99) {
+    return error(400, 'invalid_weight', 'Weight must be from 0 to 9999.99.');
+  }
+  if (weightUnit !== 'kg' && weightUnit !== 'lb') {
+    return error(400, 'invalid_weight_unit', 'weightUnit must be "kg" or "lb".');
+  }
+  if (!Number.isInteger(reps) || reps! < 1 || reps! > 1000) {
+    return error(400, 'invalid_reps', 'Reps must be from 1 to 1000.');
+  }
+  if (rpe !== null && (typeof rpe !== 'number' || rpe < 1 || rpe > 10 || !Number.isInteger(rpe * 2))) {
+    return error(400, 'invalid_rpe', 'RPE must be from 1 to 10 in half steps, or left blank.');
+  }
+  if (note.trim().length > 500) return error(400, 'invalid_note', 'Notes can be at most 500 characters.');
+  return null;
+}
+
 function me(account: FakeAccount) {
   return { id: account.id, email: account.email, unitPreference: account.unitPreference };
 }
@@ -313,32 +335,47 @@ const handlers = [
   http.post('*/workouts/sessions/:id/exercises/:sessionExerciseId/sets', async ({ request, params }) => {
     const account = caller(request);
     if (!account) return unauthorized();
-    const {
-      weight,
-      weightUnit,
-      reps,
-      rpe = null,
-      note = '',
-    } = (await request.json()) as Omit<FakeSet, 'id' | 'supersetId'>;
-    if (typeof weight !== 'number' || weight < 0 || weight > 9999.99) {
-      return error(400, 'invalid_weight', 'Weight must be from 0 to 9999.99.');
-    }
-    if (weightUnit !== 'kg' && weightUnit !== 'lb') {
-      return error(400, 'invalid_weight_unit', 'weightUnit must be "kg" or "lb".');
-    }
-    if (!Number.isInteger(reps) || reps < 1 || reps > 1000) {
-      return error(400, 'invalid_reps', 'Reps must be from 1 to 1000.');
-    }
-    if (rpe !== null && (typeof rpe !== 'number' || rpe < 1 || rpe > 10 || !Number.isInteger(rpe * 2))) {
-      return error(400, 'invalid_rpe', 'RPE must be from 1 to 10 in half steps, or left blank.');
-    }
-    if (note.trim().length > 500) return error(400, 'invalid_note', 'Notes can be at most 500 characters.');
+    const body = (await request.json()) as Partial<Omit<FakeSet, 'id' | 'supersetId'>>;
+    const invalid = invalidSet(body);
+    if (invalid) return invalid;
     const { session, response } = sessionInProgress(account, params.id);
     if (!session) return response;
     const sessionExercise = session.exercises.find((e) => e.id === params.sessionExerciseId);
     if (!sessionExercise) return sessionExerciseNotFound();
+    const { weight, weightUnit, reps, rpe = null, note = '' } = body as Omit<FakeSet, 'id' | 'supersetId'>;
     fakeApi.addSet(sessionExercise, weight, weightUnit, reps, note.trim(), rpe);
     return HttpResponse.json(sessionJson(session), { status: 201 });
+  }),
+
+  http.patch('*/workouts/sessions/:id/sets/:setId', async ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const body = (await request.json()) as Partial<Omit<FakeSet, 'id' | 'supersetId'>>;
+    const invalid = invalidSet(body);
+    if (invalid) return invalid;
+    const { session, response } = sessionInProgress(account, params.id);
+    if (!session) return response;
+    const set = session.exercises.flatMap((e) => e.sets).find((s) => s.id === params.setId);
+    if (!set) return setNotFound();
+    Object.assign(set, {
+      weight: body.weight,
+      weightUnit: body.weightUnit,
+      reps: body.reps,
+      rpe: body.rpe ?? null,
+      note: (body.note ?? '').trim(),
+    });
+    return HttpResponse.json(sessionJson(session));
+  }),
+
+  http.delete('*/workouts/sessions/:id/sets/:setId', ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const { session, response } = sessionInProgress(account, params.id);
+    if (!session) return response;
+    const sessionExercise = session.exercises.find((e) => e.sets.some((s) => s.id === params.setId));
+    if (!sessionExercise) return setNotFound();
+    sessionExercise.sets = sessionExercise.sets.filter((s) => s.id !== params.setId);
+    return HttpResponse.json(sessionJson(session));
   }),
 
   http.post('*/workouts/sessions/:id/supersets', async ({ request, params }) => {
