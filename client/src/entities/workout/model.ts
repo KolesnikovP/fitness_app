@@ -125,14 +125,35 @@ export function parseWeight(text: string): number | null {
 }
 
 /**
- * An optional RPE typed by the user: blank is valid with no value, otherwise
- * it must be from 1 to 10 in half steps (a decimal comma is fine).
+ * The RPE values a User picks from, each with what it means in reps left in
+ * the tank. Below 5 is too easy to be worth rating.
  */
-export function parseOptionalRpe(text: string): { valid: true; rpe: number | null } | { valid: false } {
-  if (text.trim() === '') return { valid: true, rpe: null };
-  const rpe = parseWeight(text); // Same number format as a weight.
-  if (rpe === null || rpe < 1 || rpe > 10 || !Number.isInteger(rpe * 2)) return { valid: false };
-  return { valid: true, rpe };
+export const RPE_SCALE: readonly { rpe: number; meaning: string }[] = [
+  { rpe: 5, meaning: 'Could do 5 or more reps' },
+  { rpe: 6, meaning: 'Could do 4 more reps' },
+  { rpe: 7, meaning: 'Could do 3 more reps' },
+  { rpe: 8, meaning: 'Could do 2 more reps' },
+  { rpe: 9, meaning: 'Could do 1 more rep' },
+  { rpe: 10, meaning: 'Max effort, no reps left' },
+];
+
+/**
+ * Keeps only what a weight can be made of as the User types it: digits, one
+ * decimal point or comma, at most 2 decimals and 4 whole digits (the API
+ * takes up to 9999.99).
+ */
+export function weightInput(text: string): string {
+  const kept = text.replace(/[^\d.,]/g, '');
+  const separator = kept.search(/[.,]/);
+  if (separator === -1) return kept.slice(0, 4);
+  const whole = kept.slice(0, separator).slice(0, 4);
+  const decimals = kept.slice(separator + 1).replace(/[.,]/g, '').slice(0, 2);
+  return `${whole}${kept[separator]}${decimals}`;
+}
+
+/** Keeps only digits as the User types reps, at most 4 (the API takes up to 1000). */
+export function repsInput(text: string): string {
+  return text.replace(/\D/g, '').slice(0, 4);
 }
 
 /** A whole number of reps of at least 1; null otherwise. */

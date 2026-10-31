@@ -97,7 +97,23 @@ describe('freeform workout', () => {
     expect(screen.getByRole('button', { name: 'Finish workout' })).toBeEnabled();
   });
 
-  it('logs a set with an optional RPE', async () => {
+  it('accepts only numbers for weight and reps', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Back Squat');
+
+    await fireEvent.changeText(card.getByLabelText('Weight (kg)'), '1a4o0,5.2kg');
+    await fireEvent.changeText(card.getByLabelText('Reps'), '1x0.5');
+
+    // Letters are dropped, and so are a second decimal point and a third decimal.
+    expect(card.getByLabelText('Weight (kg)')).toHaveDisplayValue('140,52');
+    expect(card.getByLabelText('Reps')).toHaveDisplayValue('105');
+    await fireEvent.changeText(card.getByLabelText('Weight (kg)'), '12345');
+    expect(card.getByLabelText('Weight (kg)')).toHaveDisplayValue('1234');
+  });
+
+  it('logs a set with an optional RPE, picked from a scale that says what each value means', async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
     await resumeWorkout(account.id);
@@ -105,25 +121,53 @@ describe('freeform workout', () => {
 
     await fireEvent.changeText(card.getByLabelText('Weight (kg)'), '140');
     await fireEvent.changeText(card.getByLabelText('Reps'), '5');
-    await fireEvent.changeText(card.getByLabelText('RPE'), '11');
-    // RPE runs from 1 to 10.
-    expect(card.getByRole('button', { name: 'Log set' })).toBeDisabled();
-    await fireEvent.changeText(card.getByLabelText('RPE'), '8,5');
+    await fireEvent.press(card.getByRole('button', { name: 'RPE' }));
+
+    const scale = within(screen.getByLabelText('RPE options'));
+    expect(scale.getAllByRole('radio').map((option) => option.props.accessibilityLabel)).toEqual([
+      '5',
+      '6',
+      '7',
+      '8',
+      '9',
+      '10',
+    ]);
+    expect(scale.getByText('Could do 4 more reps')).toBeVisible();
+    expect(scale.getByText('Max effort, no reps left')).toBeVisible();
+    await fireEvent.press(scale.getByRole('radio', { name: '6' }));
+
+    expect(screen.queryByLabelText('RPE options')).toBeNull();
+    expect(card.getByText('6 · Could do 4 more reps')).toBeVisible();
     await fireEvent.press(card.getByRole('button', { name: 'Log set' }));
 
-    expect(await card.findByText('140 kg × 5 @ RPE 8.5')).toBeVisible();
-    expect(card.getByLabelText('RPE')).toHaveDisplayValue('');
-
-    // Left blank, the set has no RPE.
+    expect(await card.findByText('140 kg × 5 @ RPE 6')).toBeVisible();
+    // RPE resets for the next set; left unset, the set has none.
+    expect(card.getByText('Optional')).toBeVisible();
     await fireEvent.changeText(card.getByLabelText('Reps'), '4');
     await fireEvent.press(card.getByRole('button', { name: 'Log set' }));
     expect(await card.findByText('140 kg × 4')).toBeVisible();
 
     const [saved] = fakeApi.sessions(account.id);
     expect(saved.exercises[0].sets).toMatchObject([
-      { weight: 140, reps: 5, rpe: 8.5 },
+      { weight: 140, reps: 5, rpe: 6 },
       { weight: 140, reps: 4, rpe: null },
     ]);
+  });
+
+  it('clears an RPE picked by mistake', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Back Squat');
+
+    await fireEvent.press(card.getByRole('button', { name: 'RPE' }));
+    await fireEvent.press(within(screen.getByLabelText('RPE options')).getByRole('radio', { name: '9' }));
+    expect(card.getByText('9 · Could do 1 more rep')).toBeVisible();
+
+    await fireEvent.press(card.getByRole('button', { name: 'RPE' }));
+    await fireEvent.press(within(screen.getByLabelText('RPE options')).getByRole('button', { name: 'No RPE' }));
+
+    expect(card.getByText('Optional')).toBeVisible();
   });
 
   it('groups exercises into a superset, logged back to back with rest after the round', async () => {

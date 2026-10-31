@@ -6,8 +6,9 @@ export {
   formatSet,
   hasSets,
   parseReps,
-  parseOptionalRpe,
   parseWeight,
+  repsInput,
+  RPE_SCALE,
   sessionBlocks,
   supersetProgress,
   type Session,
@@ -17,6 +18,7 @@ export {
   type SessionSummary,
   type SupersetProgress,
   type WeightUnit,
+  weightInput,
 } from './model';
 export {
   addExerciseToSession,

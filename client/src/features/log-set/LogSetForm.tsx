@@ -2,9 +2,19 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
-import { logSet, parseOptionalRpe, parseReps, parseWeight, type Session } from '@/entities/workout';
+import {
+  logSet,
+  parseReps,
+  parseWeight,
+  repsInput,
+  RPE_SCALE,
+  weightInput,
+  type Session,
+} from '@/entities/workout';
 import { errorMessage } from '@/shared/api';
-import { Button, colors, spacing, TextField } from '@/shared/ui';
+import { Button, colors, Select, spacing, TextField } from '@/shared/ui';
+
+const RPE_OPTIONS = RPE_SCALE.map(({ rpe, meaning }) => ({ value: rpe, label: String(rpe), description: meaning }));
 
 type LogSetFormProps = {
   sessionId: string;
@@ -17,7 +27,7 @@ export function LogSetForm({ sessionId, sessionExerciseId, onLogged }: LogSetFor
   const { state } = useAuth();
   const [weight, setWeight] = useState('');
   const [reps, setReps] = useState('');
-  const [rpe, setRpe] = useState('');
+  const [rpe, setRpe] = useState<number | null>(null);
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -27,11 +37,10 @@ export function LogSetForm({ sessionId, sessionExerciseId, onLogged }: LogSetFor
   const unit = state.me.unitPreference ?? 'kg';
   const parsedWeight = parseWeight(weight);
   const parsedReps = parseReps(reps);
-  const parsedRpe = parseOptionalRpe(rpe);
-  const complete = parsedWeight !== null && parsedReps !== null && parsedRpe.valid;
+  const complete = parsedWeight !== null && parsedReps !== null;
 
   async function save() {
-    if (parsedWeight === null || parsedReps === null || !parsedRpe.valid) return;
+    if (parsedWeight === null || parsedReps === null) return;
     setError(null);
     setSaving(true);
     try {
@@ -39,12 +48,12 @@ export function LogSetForm({ sessionId, sessionExerciseId, onLogged }: LogSetFor
         weight: parsedWeight,
         weightUnit: unit,
         reps: parsedReps,
-        rpe: parsedRpe.rpe,
+        rpe,
         note: note.trim(),
       });
       // Keep the weight: the next set is usually at the same weight.
       setReps('');
-      setRpe('');
+      setRpe(null);
       setNote('');
       onLogged(session);
     } catch (e) {
@@ -58,16 +67,30 @@ export function LogSetForm({ sessionId, sessionExerciseId, onLogged }: LogSetFor
     <View style={styles.container}>
       <View style={styles.row}>
         <View style={styles.field}>
-          <TextField label={`Weight (${unit})`} value={weight} onChangeText={setWeight} keyboardType="decimal-pad" />
+          <TextField
+            label={`Weight (${unit})`}
+            value={weight}
+            onChangeText={(text) => setWeight(weightInput(text))}
+            keyboardType="decimal-pad"
+          />
         </View>
         <View style={styles.field}>
-          <TextField label="Reps" value={reps} onChangeText={setReps} keyboardType="number-pad" />
-        </View>
-        <View style={styles.field}>
-          <TextField label="RPE" placeholder="1–10" value={rpe} onChangeText={setRpe} keyboardType="decimal-pad" />
+          <TextField
+            label="Reps"
+            value={reps}
+            onChangeText={(text) => setReps(repsInput(text))}
+            keyboardType="number-pad"
+          />
         </View>
       </View>
-      {parsedRpe.valid ? null : <Text style={styles.error}>RPE is from 1 to 10, in half steps.</Text>}
+      <Select
+        label="RPE"
+        placeholder="Optional"
+        options={RPE_OPTIONS}
+        value={rpe}
+        onChange={setRpe}
+        clearLabel="No RPE"
+      />
       <TextField label="Set note" placeholder="Optional" value={note} onChangeText={setNote} maxLength={500} />
       {error ? (
         <Text accessibilityRole="alert" style={styles.error}>

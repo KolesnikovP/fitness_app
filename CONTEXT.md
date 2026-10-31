@@ -49,7 +49,7 @@ One round of a Session exercise: the weight and the number of reps, with an opti
 _Avoid_: Logged set (as a system term), entry
 
 **RPE**:
-Rate of perceived exertion: how hard a Set felt, from 1 to 10 in half steps. Optional; a Set logged without one has none.
+Rate of perceived exertion: how hard a Set felt, read as how many more reps the User could have done (10 is none left, 9 is one more, down to 5 for five or more). The app offers 5 to 10; the API takes 1 to 10 in half steps. Optional; a Set logged without one has none.
 _Avoid_: Effort, intensity, difficulty
 
 **Superset**:
