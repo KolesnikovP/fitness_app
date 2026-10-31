@@ -66,7 +66,7 @@ export function LogSetForm({ sessionId, sessionExerciseId, onLogged }: LogSetFor
   return (
     <View style={styles.container}>
       <View style={styles.row}>
-        <View style={styles.field}>
+        <View style={styles.weight}>
           <TextField
             label={`Weight (${unit})`}
             value={weight}
@@ -74,15 +74,16 @@ export function LogSetForm({ sessionId, sessionExerciseId, onLogged }: LogSetFor
             keyboardType="decimal-pad"
           />
         </View>
-        <View style={styles.field}>
+        <View style={styles.reps}>
           <TextField
             label="Reps"
             value={reps}
             onChangeText={(text) => setReps(repsInput(text))}
             keyboardType="number-pad"
+            textAlign="center"
           />
         </View>
-        <View style={styles.field}>
+        <View style={styles.rpe}>
           <Select
             label="RPE"
             placeholder="–"
@@ -107,6 +108,9 @@ export function LogSetForm({ sessionId, sessionExerciseId, onLogged }: LogSetFor
 const styles = StyleSheet.create({
   container: { gap: spacing.sm },
   row: { flexDirection: 'row', gap: spacing.sm },
-  field: { flex: 1 },
+  // Reps and RPE are sized for their few digits; weight takes the rest.
+  weight: { flex: 1 },
+  reps: { width: 76 },
+  rpe: { width: 64 },
   error: { color: colors.danger, fontSize: 15 },
 });
