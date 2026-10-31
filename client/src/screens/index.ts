@@ -7,5 +7,8 @@ export { ServerUnavailableScreen } from './server-unavailable/ServerUnavailableS
 export { ExerciseDetailScreen } from './exercises/ExerciseDetailScreen';
 export { ExerciseLibraryScreen } from './exercises/ExerciseLibraryScreen';
 export { NewExerciseScreen } from './exercises/NewExerciseScreen';
-export { FeedScreen, WorkoutScreen } from './tabs/PlaceholderTabScreen';
+export { FeedScreen } from './tabs/PlaceholderTabScreen';
 export { ProfileScreen } from './tabs/ProfileScreen';
+export { AddSessionExerciseScreen } from './workout/AddSessionExerciseScreen';
+export { CurrentSessionScreen } from './workout/CurrentSessionScreen';
+export { WorkoutHomeScreen } from './workout/WorkoutHomeScreen';

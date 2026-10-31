@@ -32,6 +32,26 @@ _Avoid_: Setup, first run, welcome flow
 One workout a User logs, from start to finish. The word is reserved for this; being logged in is never called a session.
 _Avoid_: Training session, workout log, login session
 
+**In progress** / **Finished**:
+A Session is in progress from when the User starts it until they finish it, and finished after. A User has at most one Session in progress. Only a Session with at least one Set can be finished; one in progress can instead be discarded, which deletes it.
+_Avoid_: Active, open, completed, saved
+
+**Freeform session**:
+A Session started empty, with Exercises added as the User goes, rather than from a planned routine.
+_Avoid_: Empty workout, quick start
+
+**Session exercise**:
+An Exercise added to one Session, holding the Sets logged for it there and an optional note.
+_Avoid_: Workout exercise, entry, slot (a slot belongs to a routine)
+
+**Set**:
+One round of a Session exercise: the weight and the number of reps, with an optional note. A Set keeps the unit (kg or lb) it was logged in.
+_Avoid_: Logged set (as a system term), round, entry
+
+**Rest timer**:
+An optional countdown a User starts between Sets. It lives only on the device and is not part of the Session.
+_Avoid_: Rest period (as a stored value), break
+
 ### Exercise library
 
 **Exercise**:

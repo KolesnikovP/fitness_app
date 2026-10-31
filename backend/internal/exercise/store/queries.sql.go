@@ -183,6 +183,44 @@ func (q *Queries) ListExercises(ctx context.Context, arg ListExercisesParams) ([
 	return items, nil
 }
 
+const listVisibleExerciseNames = `-- name: ListVisibleExerciseNames :many
+SELECT id, name
+FROM exercises
+WHERE id = ANY($1::uuid[])
+  AND (owner_id IS NULL OR owner_id = $2::uuid)
+`
+
+type ListVisibleExerciseNamesParams struct {
+	Ids      []uuid.UUID
+	CallerID uuid.UUID
+}
+
+type ListVisibleExerciseNamesRow struct {
+	ID   uuid.UUID
+	Name string
+}
+
+// The names of those ids the caller may see; others are left out.
+func (q *Queries) ListVisibleExerciseNames(ctx context.Context, arg ListVisibleExerciseNamesParams) ([]ListVisibleExerciseNamesRow, error) {
+	rows, err := q.db.Query(ctx, listVisibleExerciseNames, arg.Ids, arg.CallerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListVisibleExerciseNamesRow
+	for rows.Next() {
+		var i ListVisibleExerciseNamesRow
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertMedia = `-- name: UpsertMedia :exec
 INSERT INTO exercise_media (exercise_id, kind, content_type, data)
 VALUES ($1, $2, $3, $4)

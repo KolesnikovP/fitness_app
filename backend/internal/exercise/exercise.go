@@ -3,6 +3,7 @@
 package exercise
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -32,6 +33,21 @@ type Service struct {
 
 func NewService(pool *pgxpool.Pool) *Service {
 	return &Service{queries: store.New(pool)}
+}
+
+// ExerciseNames returns the names of the given exercises that callerID may
+// see, keyed by id. Ids the caller can't see, or that don't exist, are left
+// out. The workout module uses it through workout.Exercises.
+func (s *Service) ExerciseNames(ctx context.Context, callerID uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]string, error) {
+	rows, err := s.queries.ListVisibleExerciseNames(ctx, store.ListVisibleExerciseNamesParams{Ids: ids, CallerID: callerID})
+	if err != nil {
+		return nil, fmt.Errorf("list exercise names: %w", err)
+	}
+	names := make(map[uuid.UUID]string, len(rows))
+	for _, row := range rows {
+		names[row.ID] = row.Name
+	}
+	return names, nil
 }
 
 // Exercise is one entry in the library as the API returns it. ImageURL and

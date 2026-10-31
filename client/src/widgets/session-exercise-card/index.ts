@@ -1,0 +1,1 @@
+export { SessionExerciseCard } from './SessionExerciseCard';

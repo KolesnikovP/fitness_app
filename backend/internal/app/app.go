@@ -11,12 +11,14 @@ import (
 	"github.com/KolesnikovP/fitness_app/backend/internal/exercise"
 	"github.com/KolesnikovP/fitness_app/backend/internal/platform/httpx"
 	"github.com/KolesnikovP/fitness_app/backend/internal/user"
+	"github.com/KolesnikovP/fitness_app/backend/internal/workout"
 )
 
 func NewHandler(pool *pgxpool.Pool, tokens *auth.Tokens) http.Handler {
 	users := user.NewService(pool)
 	accounts := auth.NewService(pool, tokens, users)
 	exercises := exercise.NewService(pool)
+	workouts := workout.NewService(pool, exercises)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -25,5 +27,6 @@ func NewHandler(pool *pgxpool.Pool, tokens *auth.Tokens) http.Handler {
 	accounts.Routes(mux)
 	users.Routes(mux, accounts)
 	exercises.Routes(mux, accounts)
+	workouts.Routes(mux, accounts)
 	return mux
 }

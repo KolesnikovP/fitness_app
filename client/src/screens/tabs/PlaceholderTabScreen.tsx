@@ -11,7 +11,6 @@ function PlaceholderTabScreen({ title, comingIn }: { title: string; comingIn: st
 }
 
 export const FeedScreen = () => <PlaceholderTabScreen title="Feed" comingIn="#9" />;
-export const WorkoutScreen = () => <PlaceholderTabScreen title="Workout" comingIn="#4" />;
 
 const styles = StyleSheet.create({
   body: { fontSize: 17, color: colors.muted },

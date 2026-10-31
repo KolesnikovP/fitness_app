@@ -39,3 +39,26 @@ sql:
         overrides:
           - db_type: uuid
             go_type: github.com/google/uuid.UUID
+  - engine: postgresql
+    schema:
+      - migrations/00001_accounts.sql
+      - migrations/00002_exercises.sql
+      - migrations/00003_exercise_glossary_names.sql
+      - migrations/00004_workout_sessions.sql
+    queries: internal/workout/queries.sql
+    gen:
+      go:
+        package: store
+        out: internal/workout/store
+        sql_package: pgx/v5
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: uuid
+            go_type: github.com/google/uuid.UUID
+          - db_type: timestamptz
+            go_type: time.Time
+          - db_type: timestamptz
+            nullable: true
+            go_type:
+              type: time.Time
+              pointer: true

@@ -4,8 +4,8 @@ import { setupServer } from 'msw/node';
 /**
  * An in-memory fake of the backend API, served at the network boundary with
  * MSW. It follows the real API's contract (see backend/internal/auth,
- * backend/internal/user and backend/internal/exercise): same paths, bodies,
- * status codes and error shape.
+ * backend/internal/user, backend/internal/exercise and
+ * backend/internal/workout): same paths, bodies, status codes and error shape.
  */
 type FakeAccount = {
   id: string;
@@ -23,6 +23,18 @@ type FakeExercise = {
   imageUrl: string | null;
   animatedDemoUrl: string | null;
   ownerId: string | null;
+};
+
+type FakeSet = { id: string; weight: number; weightUnit: 'kg' | 'lb'; reps: number; note: string };
+
+type FakeSessionExercise = { id: string; exerciseId: string; note: string; sets: FakeSet[] };
+
+type FakeSession = {
+  id: string;
+  ownerId: string;
+  startedAt: string;
+  finishedAt: string | null;
+  exercises: FakeSessionExercise[];
 };
 
 /** A slice of the real seeded library, enough to search and filter. */
@@ -46,6 +58,7 @@ const MEDIA_KINDS: Record<string, 'image' | 'animated_demo'> = {
 let accounts: FakeAccount[] = [];
 let tokens = new Map<string, string>(); // token -> account id
 let exercises: FakeExercise[] = [];
+let sessions: FakeSession[] = [];
 let nextId = 1;
 
 function seedExercises() {
@@ -72,6 +85,7 @@ export const fakeApi = {
     accounts = [];
     tokens = new Map();
     seedExercises();
+    sessions = [];
     nextId = 1;
     this.authHeaders = [];
     this.uploads = [];
@@ -111,6 +125,49 @@ export const fakeApi = {
   customExercises(ownerId: string) {
     return exercises.filter((e) => e.ownerId === ownerId);
   },
+
+  exerciseNamed(name: string) {
+    const exercise = exercises.find((e) => e.name === name);
+    if (!exercise) throw new Error(`No fake exercise named ${name}`);
+    return exercise;
+  },
+
+  /** Starts a session for ownerId, as if from an earlier run of the app. */
+  addSession(ownerId: string, startedAt = new Date()) {
+    const session: FakeSession = {
+      id: `session-${nextId++}`,
+      ownerId,
+      startedAt: startedAt.toISOString(),
+      finishedAt: null,
+      exercises: [],
+    };
+    sessions.push(session);
+    return session;
+  },
+
+  /** Adds a library exercise, by name, to a session. */
+  addSessionExercise(session: FakeSession, name: string) {
+    const sessionExercise: FakeSessionExercise = {
+      id: `session-exercise-${nextId++}`,
+      exerciseId: this.exerciseNamed(name).id,
+      note: '',
+      sets: [],
+    };
+    session.exercises.push(sessionExercise);
+    return sessionExercise;
+  },
+
+  addSet(sessionExercise: FakeSessionExercise, weight: number, weightUnit: 'kg' | 'lb', reps: number, note = '') {
+    sessionExercise.sets.push({ id: `set-${nextId++}`, weight, weightUnit, reps, note });
+  },
+
+  finishSession(session: FakeSession, finishedAt = new Date()) {
+    session.finishedAt = finishedAt.toISOString();
+  },
+
+  sessions(ownerId: string) {
+    return sessions.filter((s) => s.ownerId === ownerId);
+  },
 };
 
 function error(status: number, code: string, message: string) {
@@ -136,11 +193,136 @@ function exerciseJson({ ownerId: _ownerId, ...exercise }: FakeExercise) {
   return exercise;
 }
 
+function sessionJson({ ownerId: _ownerId, exercises: sessionExercises, ...session }: FakeSession) {
+  return {
+    ...session,
+    exercises: sessionExercises.map((sessionExercise) => ({
+      ...sessionExercise,
+      name: exercises.find((e) => e.id === sessionExercise.exerciseId)?.name ?? '',
+    })),
+  };
+}
+
+/**
+ * The caller's {id} session if it's still in progress, or the error
+ * response the real API sends instead.
+ */
+function sessionInProgress(account: FakeAccount, id: string | readonly string[] | undefined) {
+  const session = sessions.find((s) => s.id === id && s.ownerId === account.id);
+  if (!session) return { response: error(404, 'session_not_found', 'Workout not found.') };
+  if (session.finishedAt) return { response: error(409, 'session_finished', 'This workout is already finished.') };
+  return { session };
+}
+
+function sessionExerciseNotFound() {
+  return error(404, 'session_exercise_not_found', "That exercise isn't in this workout.");
+}
+
 function me(account: FakeAccount) {
   return { id: account.id, email: account.email, unitPreference: account.unitPreference };
 }
 
+// The workout handlers come first: '*/exercises' would also match
+// '/workouts/sessions/:id/exercises'.
 const handlers = [
+  http.get('*/workouts/sessions', ({ request }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const finished = sessions
+      .filter((s) => s.ownerId === account.id && s.finishedAt)
+      .sort((a, b) => b.finishedAt!.localeCompare(a.finishedAt!));
+    return HttpResponse.json({
+      sessions: finished.map((s) => {
+        const { id, startedAt, finishedAt, exercises: sessionExercises } = sessionJson(s);
+        return { id, startedAt, finishedAt, exerciseNames: sessionExercises.map((e) => e.name) };
+      }),
+    });
+  }),
+
+  http.post('*/workouts/sessions', ({ request }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    if (sessions.some((s) => s.ownerId === account.id && !s.finishedAt)) {
+      return error(409, 'session_in_progress', 'Finish or discard your current workout before starting another.');
+    }
+    return HttpResponse.json(sessionJson(fakeApi.addSession(account.id)), { status: 201 });
+  }),
+
+  http.get('*/workouts/sessions/current', ({ request }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const session = sessions.find((s) => s.ownerId === account.id && !s.finishedAt);
+    return HttpResponse.json({ session: session ? sessionJson(session) : null });
+  }),
+
+  http.post('*/workouts/sessions/:id/exercises', async ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const { exerciseId } = (await request.json()) as { exerciseId: string };
+    if (!visibleExercise(account, exerciseId)) return error(404, 'exercise_not_found', 'Exercise not found.');
+    const { session, response } = sessionInProgress(account, params.id);
+    if (!session) return response;
+    session.exercises.push({ id: `session-exercise-${nextId++}`, exerciseId, note: '', sets: [] });
+    return HttpResponse.json(sessionJson(session), { status: 201 });
+  }),
+
+  http.patch('*/workouts/sessions/:id/exercises/:sessionExerciseId', async ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const { note } = (await request.json()) as { note?: string };
+    if (typeof note !== 'string') return error(400, 'invalid_note', 'Send the note, or an empty one to clear it.');
+    if (note.trim().length > 500) return error(400, 'invalid_note', 'Notes can be at most 500 characters.');
+    const { session, response } = sessionInProgress(account, params.id);
+    if (!session) return response;
+    const sessionExercise = session.exercises.find((e) => e.id === params.sessionExerciseId);
+    if (!sessionExercise) return sessionExerciseNotFound();
+    sessionExercise.note = note.trim();
+    return HttpResponse.json(sessionJson(session));
+  }),
+
+  http.post('*/workouts/sessions/:id/exercises/:sessionExerciseId/sets', async ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const { weight, weightUnit, reps, note = '' } = (await request.json()) as Omit<FakeSet, 'id'>;
+    if (typeof weight !== 'number' || weight < 0 || weight > 9999.99) {
+      return error(400, 'invalid_weight', 'Weight must be from 0 to 9999.99.');
+    }
+    if (weightUnit !== 'kg' && weightUnit !== 'lb') {
+      return error(400, 'invalid_weight_unit', 'weightUnit must be "kg" or "lb".');
+    }
+    if (!Number.isInteger(reps) || reps < 1 || reps > 1000) {
+      return error(400, 'invalid_reps', 'Reps must be from 1 to 1000.');
+    }
+    if (note.trim().length > 500) return error(400, 'invalid_note', 'Notes can be at most 500 characters.');
+    const { session, response } = sessionInProgress(account, params.id);
+    if (!session) return response;
+    const sessionExercise = session.exercises.find((e) => e.id === params.sessionExerciseId);
+    if (!sessionExercise) return sessionExerciseNotFound();
+    fakeApi.addSet(sessionExercise, weight, weightUnit, reps, note.trim());
+    return HttpResponse.json(sessionJson(session), { status: 201 });
+  }),
+
+  http.post('*/workouts/sessions/:id/finish', ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const { session, response } = sessionInProgress(account, params.id);
+    if (!session) return response;
+    if (!session.exercises.some((e) => e.sets.length > 0)) {
+      return error(400, 'session_empty', 'Log at least one set before finishing.');
+    }
+    fakeApi.finishSession(session);
+    return HttpResponse.json(sessionJson(session));
+  }),
+
+  http.delete('*/workouts/sessions/:id', ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const { session, response } = sessionInProgress(account, params.id);
+    if (!session) return response;
+    sessions = sessions.filter((s) => s !== session);
+    return new HttpResponse(null, { status: 204 });
+  }),
+
   http.post('*/auth/signup', async ({ request }) => {
     const { email, password } = (await request.json()) as { email: string; password: string };
     if (!email.includes('@')) return error(400, 'invalid_email', 'Enter a valid email address.');
