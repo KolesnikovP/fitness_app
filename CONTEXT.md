@@ -45,8 +45,20 @@ An Exercise added to one Session, holding the Sets logged for it there and an op
 _Avoid_: Workout exercise, entry, slot (a slot belongs to a routine)
 
 **Set**:
-One round of a Session exercise: the weight and the number of reps, with an optional note. A Set keeps the unit (kg or lb) it was logged in.
-_Avoid_: Logged set (as a system term), round, entry
+One round of a Session exercise: the weight and the number of reps, with an optional RPE and note. A Set keeps the unit (kg or lb) it was logged in, and the Superset (if any) its Session exercise was in when it was logged.
+_Avoid_: Logged set (as a system term), entry
+
+**RPE**:
+Rate of perceived exertion: how hard a Set felt, from 1 to 10 in half steps. Optional; a Set logged without one has none.
+_Avoid_: Effort, intensity, difficulty
+
+**Superset**:
+Two or more Session exercises of one Session done back to back, with rest only after the last of them. A Session exercise is in at most one Superset. A Superset of three or more is still a Superset.
+_Avoid_: Giant set, circuit, group (as system terms)
+
+**Round**:
+One Set of each Session exercise in a Superset. The User rests after a round, not between its Sets.
+_Avoid_: Cycle, lap
 
 **Rest timer**:
 An optional countdown a User starts between Sets. It lives only on the device and is not part of the Session.

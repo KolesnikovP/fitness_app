@@ -6,15 +6,21 @@ export {
   formatSet,
   hasSets,
   parseReps,
+  parseOptionalRpe,
   parseWeight,
+  sessionBlocks,
+  supersetProgress,
   type Session,
+  type SessionBlock,
   type SessionExercise,
   type SessionSet,
   type SessionSummary,
+  type SupersetProgress,
   type WeightUnit,
 } from './model';
 export {
   addExerciseToSession,
+  createSuperset,
   discardSession,
   finishSession,
   getCurrentSession,
@@ -22,6 +28,7 @@ export {
   logSet,
   setExerciseNote,
   startSession,
+  ungroupSuperset,
   type NewSet,
 } from './api';
 export { SessionSummaryItem } from './SessionSummaryItem';

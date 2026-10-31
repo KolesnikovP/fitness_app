@@ -36,7 +36,8 @@ export function setExerciseNote(token: string, sessionId: string, sessionExercis
   });
 }
 
-export type NewSet = { weight: number; weightUnit: WeightUnit; reps: number; note: string };
+/** A Set to log. rpe is null when left blank. */
+export type NewSet = { weight: number; weightUnit: WeightUnit; reps: number; rpe: number | null; note: string };
 
 export function logSet(token: string, sessionId: string, sessionExerciseId: string, set: NewSet): Promise<Session> {
   return apiRequest<Session>(path(sessionId, 'exercises', sessionExerciseId, 'sets'), {
@@ -44,6 +45,20 @@ export function logSet(token: string, sessionId: string, sessionExerciseId: stri
     token,
     body: set,
   });
+}
+
+/** Groups two or more Session exercises, none already in one, into a new Superset. */
+export function createSuperset(token: string, sessionId: string, sessionExerciseIds: string[]): Promise<Session> {
+  return apiRequest<Session>(path(sessionId, 'supersets'), {
+    method: 'POST',
+    token,
+    body: { sessionExerciseIds },
+  });
+}
+
+/** Takes a Superset's exercises out of it. Their logged Sets keep the Superset. */
+export function ungroupSuperset(token: string, sessionId: string, supersetId: string): Promise<Session> {
+  return apiRequest<Session>(path(sessionId, 'supersets', supersetId), { method: 'DELETE', token });
 }
 
 /** Finishes and saves a Session. It needs at least one Set. */

@@ -27,6 +27,23 @@ func (q *Queries) AddSessionExercise(ctx context.Context, arg AddSessionExercise
 	return err
 }
 
+const assignSuperset = `-- name: AssignSuperset :exec
+UPDATE session_exercises
+SET superset_id = $1
+WHERE session_id = $2 AND id = ANY($3::uuid[])
+`
+
+type AssignSupersetParams struct {
+	SupersetID *uuid.UUID
+	SessionID  uuid.UUID
+	Ids        []uuid.UUID
+}
+
+func (q *Queries) AssignSuperset(ctx context.Context, arg AssignSupersetParams) error {
+	_, err := q.db.Exec(ctx, assignSuperset, arg.SupersetID, arg.SessionID, arg.Ids)
+	return err
+}
+
 const countSessionSets = `-- name: CountSessionSets :one
 SELECT count(*)
 FROM session_sets s
@@ -165,7 +182,7 @@ func (q *Queries) ListFinishedSessions(ctx context.Context, accountID uuid.UUID)
 }
 
 const listSessionExercises = `-- name: ListSessionExercises :many
-SELECT id, exercise_id, note
+SELECT id, exercise_id, note, superset_id
 FROM session_exercises
 WHERE session_id = $1
 ORDER BY created_at, id
@@ -175,6 +192,7 @@ type ListSessionExercisesRow struct {
 	ID         uuid.UUID
 	ExerciseID uuid.UUID
 	Note       string
+	SupersetID *uuid.UUID
 }
 
 func (q *Queries) ListSessionExercises(ctx context.Context, sessionID uuid.UUID) ([]ListSessionExercisesRow, error) {
@@ -186,7 +204,12 @@ func (q *Queries) ListSessionExercises(ctx context.Context, sessionID uuid.UUID)
 	var items []ListSessionExercisesRow
 	for rows.Next() {
 		var i ListSessionExercisesRow
-		if err := rows.Scan(&i.ID, &i.ExerciseID, &i.Note); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.ExerciseID,
+			&i.Note,
+			&i.SupersetID,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -198,7 +221,8 @@ func (q *Queries) ListSessionExercises(ctx context.Context, sessionID uuid.UUID)
 }
 
 const listSessionSets = `-- name: ListSessionSets :many
-SELECT s.id, s.session_exercise_id, s.weight::float8 AS weight, s.weight_unit, s.reps, s.note
+SELECT s.id, s.session_exercise_id, s.weight::float8 AS weight, s.weight_unit, s.reps, s.note,
+       s.rpe, s.superset_id
 FROM session_sets s
 JOIN session_exercises e ON e.id = s.session_exercise_id
 WHERE e.session_id = $1
@@ -212,6 +236,8 @@ type ListSessionSetsRow struct {
 	WeightUnit        string
 	Reps              int32
 	Note              string
+	Rpe               *float64
+	SupersetID        *uuid.UUID
 }
 
 func (q *Queries) ListSessionSets(ctx context.Context, sessionID uuid.UUID) ([]ListSessionSetsRow, error) {
@@ -230,7 +256,46 @@ func (q *Queries) ListSessionSets(ctx context.Context, sessionID uuid.UUID) ([]L
 			&i.WeightUnit,
 			&i.Reps,
 			&i.Note,
+			&i.Rpe,
+			&i.SupersetID,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSupersetsOf = `-- name: ListSupersetsOf :many
+SELECT id, superset_id
+FROM session_exercises
+WHERE session_id = $1 AND id = ANY($2::uuid[])
+`
+
+type ListSupersetsOfParams struct {
+	SessionID uuid.UUID
+	Ids       []uuid.UUID
+}
+
+type ListSupersetsOfRow struct {
+	ID         uuid.UUID
+	SupersetID *uuid.UUID
+}
+
+// The superset of each of the given session exercises that is in the session.
+func (q *Queries) ListSupersetsOf(ctx context.Context, arg ListSupersetsOfParams) ([]ListSupersetsOfRow, error) {
+	rows, err := q.db.Query(ctx, listSupersetsOf, arg.SessionID, arg.Ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSupersetsOfRow
+	for rows.Next() {
+		var i ListSupersetsOfRow
+		if err := rows.Scan(&i.ID, &i.SupersetID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -262,10 +327,11 @@ func (q *Queries) LockSession(ctx context.Context, arg LockSessionParams) (*time
 }
 
 const logSet = `-- name: LogSet :execrows
-INSERT INTO session_sets (session_exercise_id, weight, weight_unit, reps, note)
-SELECT e.id, $1::float8, $2, $3, $4
+INSERT INTO session_sets (session_exercise_id, weight, weight_unit, reps, note, rpe, superset_id)
+SELECT e.id, $1::float8, $2, $3, $4,
+       $5, e.superset_id
 FROM session_exercises e
-WHERE e.id = $5 AND e.session_id = $6
+WHERE e.id = $6 AND e.session_id = $7
 `
 
 type LogSetParams struct {
@@ -273,17 +339,20 @@ type LogSetParams struct {
 	WeightUnit        string
 	Reps              int32
 	Note              string
+	Rpe               *float64
 	SessionExerciseID uuid.UUID
 	SessionID         uuid.UUID
 }
 
-// Logs a set, provided the session exercise belongs to the session.
+// Logs a set, provided the session exercise belongs to the session. The set
+// keeps the superset its exercise is in now.
 func (q *Queries) LogSet(ctx context.Context, arg LogSetParams) (int64, error) {
 	result, err := q.db.Exec(ctx, logSet,
 		arg.Weight,
 		arg.WeightUnit,
 		arg.Reps,
 		arg.Note,
+		arg.Rpe,
 		arg.SessionExerciseID,
 		arg.SessionID,
 	)
@@ -324,4 +393,23 @@ func (q *Queries) StartSession(ctx context.Context, accountID uuid.UUID) (uuid.U
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
+}
+
+const ungroupSuperset = `-- name: UngroupSuperset :execrows
+UPDATE session_exercises
+SET superset_id = NULL
+WHERE session_id = $1 AND superset_id = $2
+`
+
+type UngroupSupersetParams struct {
+	SessionID  uuid.UUID
+	SupersetID *uuid.UUID
+}
+
+func (q *Queries) UngroupSuperset(ctx context.Context, arg UngroupSupersetParams) (int64, error) {
+	result, err := q.db.Exec(ctx, ungroupSuperset, arg.SessionID, arg.SupersetID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

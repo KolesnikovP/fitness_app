@@ -9,13 +9,14 @@ FROM workout_sessions
 WHERE id = $1 AND account_id = $2;
 
 -- name: ListSessionExercises :many
-SELECT id, exercise_id, note
+SELECT id, exercise_id, note, superset_id
 FROM session_exercises
 WHERE session_id = $1
 ORDER BY created_at, id;
 
 -- name: ListSessionSets :many
-SELECT s.id, s.session_exercise_id, s.weight::float8 AS weight, s.weight_unit, s.reps, s.note
+SELECT s.id, s.session_exercise_id, s.weight::float8 AS weight, s.weight_unit, s.reps, s.note,
+       s.rpe, s.superset_id
 FROM session_sets s
 JOIN session_exercises e ON e.id = s.session_exercise_id
 WHERE e.session_id = $1
@@ -38,9 +39,11 @@ INSERT INTO session_exercises (session_id, exercise_id)
 VALUES ($1, $2);
 
 -- name: LogSet :execrows
--- Logs a set, provided the session exercise belongs to the session.
-INSERT INTO session_sets (session_exercise_id, weight, weight_unit, reps, note)
-SELECT e.id, sqlc.arg(weight)::float8, sqlc.arg(weight_unit), sqlc.arg(reps), sqlc.arg(note)
+-- Logs a set, provided the session exercise belongs to the session. The set
+-- keeps the superset its exercise is in now.
+INSERT INTO session_sets (session_exercise_id, weight, weight_unit, reps, note, rpe, superset_id)
+SELECT e.id, sqlc.arg(weight)::float8, sqlc.arg(weight_unit), sqlc.arg(reps), sqlc.arg(note),
+       sqlc.narg(rpe), e.superset_id
 FROM session_exercises e
 WHERE e.id = sqlc.arg(session_exercise_id) AND e.session_id = sqlc.arg(session_id);
 
@@ -75,3 +78,19 @@ SELECT session_id, exercise_id
 FROM session_exercises
 WHERE session_id = ANY(sqlc.arg(session_ids)::uuid[])
 ORDER BY created_at, id;
+
+-- name: ListSupersetsOf :many
+-- The superset of each of the given session exercises that is in the session.
+SELECT id, superset_id
+FROM session_exercises
+WHERE session_id = sqlc.arg(session_id) AND id = ANY(sqlc.arg(ids)::uuid[]);
+
+-- name: AssignSuperset :exec
+UPDATE session_exercises
+SET superset_id = sqlc.arg(superset_id)
+WHERE session_id = sqlc.arg(session_id) AND id = ANY(sqlc.arg(ids)::uuid[]);
+
+-- name: UngroupSuperset :execrows
+UPDATE session_exercises
+SET superset_id = NULL
+WHERE session_id = $1 AND superset_id = $2;

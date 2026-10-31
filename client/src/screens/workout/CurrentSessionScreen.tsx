@@ -9,20 +9,26 @@ import {
   formatClockTime,
   getCurrentSession,
   hasSets,
+  sessionBlocks,
   type Session,
 } from '@/entities/workout';
 import { RestTimer } from '@/features/rest-timer';
+import { CreateSupersetForm } from '@/features/superset';
 import { errorMessage } from '@/shared/api';
 import { Button, colors, Screen } from '@/shared/ui';
-import { SessionExerciseCard } from '@/widgets/session-exercise-card';
+import { SessionExerciseCard, SupersetBlock } from '@/widgets/session-exercise-card';
 
-/** The workout in progress: its exercises and Sets, a rest timer, and finishing or discarding it. */
+/**
+ * The workout in progress: its exercises and Supersets with their Sets, a
+ * rest timer, and finishing or discarding it.
+ */
 export function CurrentSessionScreen() {
   const { state } = useAuth();
   const token = state.status === 'signedIn' ? state.token : null;
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
+  const [groupingSuperset, setGroupingSuperset] = useState(false);
 
   // Reload on focus, so an exercise added on the picker screen shows up.
   useFocusEffect(
@@ -91,18 +97,42 @@ export function CurrentSessionScreen() {
   }
 
   const canFinish = hasSets(session);
+  const ungrouped = session.exercises.filter((e) => e.supersetId === null);
 
   return (
     <Screen title="Current workout">
       <Text style={styles.muted}>Started at {formatClockTime(session.startedAt)}</Text>
-      {session.exercises.map((sessionExercise) => (
-        <SessionExerciseCard
-          key={sessionExercise.id}
+      {sessionBlocks(session.exercises).map((block) =>
+        block.kind === 'superset' ? (
+          <SupersetBlock
+            key={block.supersetId}
+            sessionId={session.id}
+            supersetId={block.supersetId}
+            exercises={block.exercises}
+            onChange={setSession}
+          />
+        ) : (
+          <SessionExerciseCard
+            key={block.exercise.id}
+            sessionId={session.id}
+            sessionExercise={block.exercise}
+            onChange={setSession}
+          />
+        ),
+      )}
+      {groupingSuperset ? (
+        <CreateSupersetForm
           sessionId={session.id}
-          sessionExercise={sessionExercise}
-          onChange={setSession}
+          exercises={ungrouped}
+          onCreated={(updated) => {
+            setSession(updated);
+            setGroupingSuperset(false);
+          }}
+          onCancel={() => setGroupingSuperset(false)}
         />
-      ))}
+      ) : ungrouped.length >= 2 ? (
+        <Button label="Create superset" variant="secondary" onPress={() => setGroupingSuperset(true)} />
+      ) : null}
       <Button
         label="Add exercise"
         variant="secondary"

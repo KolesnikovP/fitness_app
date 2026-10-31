@@ -25,9 +25,23 @@ type FakeExercise = {
   ownerId: string | null;
 };
 
-type FakeSet = { id: string; weight: number; weightUnit: 'kg' | 'lb'; reps: number; note: string };
+type FakeSet = {
+  id: string;
+  weight: number;
+  weightUnit: 'kg' | 'lb';
+  reps: number;
+  rpe: number | null;
+  note: string;
+  supersetId: string | null;
+};
 
-type FakeSessionExercise = { id: string; exerciseId: string; note: string; sets: FakeSet[] };
+type FakeSessionExercise = {
+  id: string;
+  exerciseId: string;
+  note: string;
+  supersetId: string | null;
+  sets: FakeSet[];
+};
 
 type FakeSession = {
   id: string;
@@ -151,14 +165,30 @@ export const fakeApi = {
       id: `session-exercise-${nextId++}`,
       exerciseId: this.exerciseNamed(name).id,
       note: '',
+      supersetId: null,
       sets: [],
     };
     session.exercises.push(sessionExercise);
     return sessionExercise;
   },
 
-  addSet(sessionExercise: FakeSessionExercise, weight: number, weightUnit: 'kg' | 'lb', reps: number, note = '') {
-    sessionExercise.sets.push({ id: `set-${nextId++}`, weight, weightUnit, reps, note });
+  addSet(
+    sessionExercise: FakeSessionExercise,
+    weight: number,
+    weightUnit: 'kg' | 'lb',
+    reps: number,
+    note = '',
+    rpe: number | null = null,
+  ) {
+    sessionExercise.sets.push({
+      id: `set-${nextId++}`,
+      weight,
+      weightUnit,
+      reps,
+      rpe,
+      note,
+      supersetId: sessionExercise.supersetId,
+    });
   },
 
   finishSession(session: FakeSession, finishedAt = new Date()) {
@@ -262,7 +292,7 @@ const handlers = [
     if (!visibleExercise(account, exerciseId)) return error(404, 'exercise_not_found', 'Exercise not found.');
     const { session, response } = sessionInProgress(account, params.id);
     if (!session) return response;
-    session.exercises.push({ id: `session-exercise-${nextId++}`, exerciseId, note: '', sets: [] });
+    session.exercises.push({ id: `session-exercise-${nextId++}`, exerciseId, note: '', supersetId: null, sets: [] });
     return HttpResponse.json(sessionJson(session), { status: 201 });
   }),
 
@@ -283,7 +313,13 @@ const handlers = [
   http.post('*/workouts/sessions/:id/exercises/:sessionExerciseId/sets', async ({ request, params }) => {
     const account = caller(request);
     if (!account) return unauthorized();
-    const { weight, weightUnit, reps, note = '' } = (await request.json()) as Omit<FakeSet, 'id'>;
+    const {
+      weight,
+      weightUnit,
+      reps,
+      rpe = null,
+      note = '',
+    } = (await request.json()) as Omit<FakeSet, 'id' | 'supersetId'>;
     if (typeof weight !== 'number' || weight < 0 || weight > 9999.99) {
       return error(400, 'invalid_weight', 'Weight must be from 0 to 9999.99.');
     }
@@ -293,13 +329,47 @@ const handlers = [
     if (!Number.isInteger(reps) || reps < 1 || reps > 1000) {
       return error(400, 'invalid_reps', 'Reps must be from 1 to 1000.');
     }
+    if (rpe !== null && (typeof rpe !== 'number' || rpe < 1 || rpe > 10 || !Number.isInteger(rpe * 2))) {
+      return error(400, 'invalid_rpe', 'RPE must be from 1 to 10 in half steps, or left blank.');
+    }
     if (note.trim().length > 500) return error(400, 'invalid_note', 'Notes can be at most 500 characters.');
     const { session, response } = sessionInProgress(account, params.id);
     if (!session) return response;
     const sessionExercise = session.exercises.find((e) => e.id === params.sessionExerciseId);
     if (!sessionExercise) return sessionExerciseNotFound();
-    fakeApi.addSet(sessionExercise, weight, weightUnit, reps, note.trim());
+    fakeApi.addSet(sessionExercise, weight, weightUnit, reps, note.trim(), rpe);
     return HttpResponse.json(sessionJson(session), { status: 201 });
+  }),
+
+  http.post('*/workouts/sessions/:id/supersets', async ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const { sessionExerciseIds } = (await request.json()) as { sessionExerciseIds?: string[] };
+    const ids = [...new Set(sessionExerciseIds ?? [])];
+    if (ids.length < 2) {
+      return error(400, 'invalid_superset', 'A superset needs at least two different exercises.');
+    }
+    const { session, response } = sessionInProgress(account, params.id);
+    if (!session) return response;
+    const members = session.exercises.filter((e) => ids.includes(e.id));
+    if (members.length !== ids.length) return sessionExerciseNotFound();
+    if (members.some((e) => e.supersetId !== null)) {
+      return error(409, 'already_in_superset', 'One of those exercises is already in a superset. Ungroup it first.');
+    }
+    const supersetId = `superset-${nextId++}`;
+    members.forEach((e) => (e.supersetId = supersetId));
+    return HttpResponse.json(sessionJson(session), { status: 201 });
+  }),
+
+  http.delete('*/workouts/sessions/:id/supersets/:supersetId', ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const { session, response } = sessionInProgress(account, params.id);
+    if (!session) return response;
+    const members = session.exercises.filter((e) => e.supersetId === params.supersetId);
+    if (members.length === 0) return error(404, 'superset_not_found', "That superset isn't in this workout.");
+    members.forEach((e) => (e.supersetId = null));
+    return HttpResponse.json(sessionJson(session));
   }),
 
   http.post('*/workouts/sessions/:id/finish', ({ request, params }) => {

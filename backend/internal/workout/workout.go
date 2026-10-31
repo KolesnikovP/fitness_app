@@ -1,12 +1,14 @@
 // Package workout owns Sessions: the workouts a User logs, the Exercises
-// added to each, and the Sets logged for them. Exercise names come from the
-// exercise module through Exercises; this module never reads its tables.
+// added to each, the Supersets they're in, and the Sets logged for them.
+// Exercise names come from the exercise module through Exercises; this module
+// never reads its tables.
 package workout
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"slices"
 	"strings"
@@ -55,22 +57,28 @@ type Session struct {
 }
 
 // SessionExercise is an Exercise added to a Session, with its Sets in the
-// order they were logged.
+// order they were logged. SupersetID is shared by the exercises of one
+// Superset, and null for an exercise in none.
 type SessionExercise struct {
-	ID         uuid.UUID `json:"id"`
-	ExerciseID uuid.UUID `json:"exerciseId"`
-	Name       string    `json:"name"`
-	Note       string    `json:"note"`
-	Sets       []Set     `json:"sets"`
+	ID         uuid.UUID  `json:"id"`
+	ExerciseID uuid.UUID  `json:"exerciseId"`
+	Name       string     `json:"name"`
+	Note       string     `json:"note"`
+	SupersetID *uuid.UUID `json:"supersetId"`
+	Sets       []Set      `json:"sets"`
 }
 
 // Set is one logged Set. Weight is in WeightUnit, the unit it was logged in.
+// RPE is null when the User left it blank. SupersetID is the Superset its
+// exercise was in when it was logged, if any.
 type Set struct {
-	ID         uuid.UUID `json:"id"`
-	Weight     float64   `json:"weight"`
-	WeightUnit string    `json:"weightUnit"`
-	Reps       int32     `json:"reps"`
-	Note       string    `json:"note"`
+	ID         uuid.UUID  `json:"id"`
+	Weight     float64    `json:"weight"`
+	WeightUnit string     `json:"weightUnit"`
+	Reps       int32      `json:"reps"`
+	RPE        *float64   `json:"rpe"`
+	Note       string     `json:"note"`
+	SupersetID *uuid.UUID `json:"supersetId"`
 }
 
 // SessionSummary is a finished Session as the history list shows it.
@@ -89,6 +97,8 @@ func (s *Service) Routes(mux *http.ServeMux, accounts Accounts) {
 	mux.Handle("POST /workouts/sessions/{id}/exercises", accounts.RequireAuth(http.HandlerFunc(h.addExercise)))
 	mux.Handle("PATCH /workouts/sessions/{id}/exercises/{sessionExerciseId}", accounts.RequireAuth(http.HandlerFunc(h.setExerciseNote)))
 	mux.Handle("POST /workouts/sessions/{id}/exercises/{sessionExerciseId}/sets", accounts.RequireAuth(http.HandlerFunc(h.logSet)))
+	mux.Handle("POST /workouts/sessions/{id}/supersets", accounts.RequireAuth(http.HandlerFunc(h.createSuperset)))
+	mux.Handle("DELETE /workouts/sessions/{id}/supersets/{supersetId}", accounts.RequireAuth(http.HandlerFunc(h.ungroupSuperset)))
 	mux.Handle("POST /workouts/sessions/{id}/finish", accounts.RequireAuth(http.HandlerFunc(h.finish)))
 	mux.Handle("DELETE /workouts/sessions/{id}", accounts.RequireAuth(http.HandlerFunc(h.discard)))
 }
@@ -266,6 +276,7 @@ type logSetBody struct {
 	Weight     *float64 `json:"weight"`
 	WeightUnit string   `json:"weightUnit"`
 	Reps       *int     `json:"reps"`
+	RPE        *float64 `json:"rpe"`
 	Note       string   `json:"note"`
 }
 
@@ -274,7 +285,17 @@ const (
 	maxWeight     = 9999.99
 	maxReps       = 1000
 	maxNoteLength = 500
+	minRPE        = 1
+	maxRPE        = 10
 )
+
+// validRPE reports whether rpe is blank or from 1 to 10 in half steps.
+func validRPE(rpe *float64) bool {
+	if rpe == nil {
+		return true
+	}
+	return *rpe >= minRPE && *rpe <= maxRPE && *rpe*2 == math.Trunc(*rpe*2)
+}
 
 func (h handlers) logSet(w http.ResponseWriter, r *http.Request) {
 	var body logSetBody
@@ -294,6 +315,11 @@ func (h handlers) logSet(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusBadRequest, "invalid_reps", fmt.Sprintf("Reps must be from 1 to %d.", maxReps))
 		return
 	}
+	if !validRPE(body.RPE) {
+		httpx.WriteError(w, http.StatusBadRequest, "invalid_rpe",
+			fmt.Sprintf("RPE must be from %d to %d in half steps, or left blank.", minRPE, maxRPE))
+		return
+	}
 	note, ok := validNote(w, body.Note)
 	if !ok {
 		return
@@ -310,6 +336,7 @@ func (h handlers) logSet(w http.ResponseWriter, r *http.Request) {
 			WeightUnit:        body.WeightUnit,
 			Reps:              int32(*body.Reps),
 			Note:              note,
+			Rpe:               body.RPE,
 			SessionExerciseID: sessionExerciseID,
 			SessionID:         sessionID,
 		})
@@ -334,6 +361,84 @@ func validNote(w http.ResponseWriter, note string) (string, bool) {
 		return "", false
 	}
 	return note, true
+}
+
+type createSupersetBody struct {
+	SessionExerciseIDs []string `json:"sessionExerciseIds"`
+}
+
+// createSuperset groups two or more of the session's exercises, none already
+// in a Superset, into a new Superset.
+func (h handlers) createSuperset(w http.ResponseWriter, r *http.Request) {
+	var body createSupersetBody
+	if !httpx.DecodeJSON(w, r, &body) {
+		return
+	}
+	var ids []uuid.UUID
+	for _, raw := range body.SessionExerciseIDs {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			writeSessionExerciseNotFound(w)
+			return
+		}
+		if !slices.Contains(ids, id) {
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) < 2 {
+		httpx.WriteError(w, http.StatusBadRequest, "invalid_superset", "A superset needs at least two different exercises.")
+		return
+	}
+
+	h.changeSession(w, r, http.StatusCreated, func(q *store.Queries, sessionID uuid.UUID) error {
+		found, err := q.ListSupersetsOf(r.Context(), store.ListSupersetsOfParams{SessionID: sessionID, Ids: ids})
+		if err != nil {
+			return fmt.Errorf("list supersets of exercises: %w", err)
+		}
+		if len(found) != len(ids) {
+			writeSessionExerciseNotFound(w)
+			return errResponseWritten
+		}
+		for _, e := range found {
+			if e.SupersetID != nil {
+				httpx.WriteError(w, http.StatusConflict, "already_in_superset",
+					"One of those exercises is already in a superset. Ungroup it first.")
+				return errResponseWritten
+			}
+		}
+		supersetID := uuid.New()
+		if err := q.AssignSuperset(r.Context(), store.AssignSupersetParams{
+			SupersetID: &supersetID, SessionID: sessionID, Ids: ids,
+		}); err != nil {
+			return fmt.Errorf("assign superset: %w", err)
+		}
+		return nil
+	})
+}
+
+// ungroupSuperset takes the exercises of a Superset out of it. Sets already
+// logged keep the Superset they were logged in.
+func (h handlers) ungroupSuperset(w http.ResponseWriter, r *http.Request) {
+	supersetID, err := uuid.Parse(r.PathValue("supersetId"))
+	if err != nil {
+		writeSupersetNotFound(w)
+		return
+	}
+	h.changeSession(w, r, http.StatusOK, func(q *store.Queries, sessionID uuid.UUID) error {
+		ungrouped, err := q.UngroupSuperset(r.Context(), store.UngroupSupersetParams{SessionID: sessionID, SupersetID: &supersetID})
+		if err != nil {
+			return fmt.Errorf("ungroup superset: %w", err)
+		}
+		if ungrouped == 0 {
+			writeSupersetNotFound(w)
+			return errResponseWritten
+		}
+		return nil
+	})
+}
+
+func writeSupersetNotFound(w http.ResponseWriter) {
+	httpx.WriteError(w, http.StatusNotFound, "superset_not_found", "That superset isn't in this workout.")
 }
 
 func writeSessionExerciseNotFound(w http.ResponseWriter) {
@@ -480,7 +585,8 @@ func (h handlers) loadSession(ctx context.Context, id uuid.UUID) (Session, error
 	sets := make(map[uuid.UUID][]Set)
 	for _, s := range setRows {
 		sets[s.SessionExerciseID] = append(sets[s.SessionExerciseID], Set{
-			ID: s.ID, Weight: s.Weight, WeightUnit: s.WeightUnit, Reps: s.Reps, Note: s.Note,
+			ID: s.ID, Weight: s.Weight, WeightUnit: s.WeightUnit, Reps: s.Reps, RPE: s.Rpe, Note: s.Note,
+			SupersetID: s.SupersetID,
 		})
 	}
 	session := Session{
@@ -495,6 +601,7 @@ func (h handlers) loadSession(ctx context.Context, id uuid.UUID) (Session, error
 			ExerciseID: e.ExerciseID,
 			Name:       names[e.ExerciseID],
 			Note:       e.Note,
+			SupersetID: e.SupersetID,
 			Sets:       append([]Set{}, sets[e.ID]...),
 		}
 	}

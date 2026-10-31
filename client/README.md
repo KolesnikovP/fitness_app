@@ -25,8 +25,8 @@ The app calls the backend at `EXPO_PUBLIC_API_URL` if that's set. Otherwise, in 
 |---|---|
 | `src/app` | Expo Router routes only. Each file renders a screen from `src/screens`. The root `_layout.tsx` decides which route group is reachable: logged out → `(auth)`, server unreachable → `unavailable`, no unit preference yet → `onboarding`, otherwise `(tabs)` |
 | `src/screens` | Full screens |
-| `src/widgets` | Blocks composed from features and entities: `session-exercise-card` |
-| `src/features` | User actions: `auth-by-email`, `set-unit-preference`, `log-out`, `search-exercises`, `create-custom-exercise`, `upload-exercise-media`, `log-set`, `exercise-note`, `rest-timer` |
+| `src/widgets` | Blocks composed from features and entities: `session-exercise-card` (also the Superset block) |
+| `src/features` | User actions: `auth-by-email`, `set-unit-preference`, `log-out`, `search-exercises`, `create-custom-exercise`, `upload-exercise-media`, `log-set`, `exercise-note`, `rest-timer`, `superset` |
 | `src/entities` | Domain data and API calls: `auth` (login state, token in `expo-secure-store`), `user`, `exercise`, `workout` |
 | `src/shared` | `api` (HTTP client) and `ui` (Button, TextField, Screen) |
 

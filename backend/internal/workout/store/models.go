@@ -24,7 +24,7 @@ type Exercise struct {
 	MuscleGroup   string
 	EquipmentType string
 	IsCustom      bool
-	OwnerID       pgtype.UUID
+	OwnerID       *uuid.UUID
 	CreatedAt     time.Time
 }
 
@@ -49,6 +49,7 @@ type SessionExercise struct {
 	ExerciseID uuid.UUID
 	Note       string
 	CreatedAt  time.Time
+	SupersetID *uuid.UUID
 }
 
 type SessionSet struct {
@@ -59,12 +60,14 @@ type SessionSet struct {
 	Reps              int32
 	Note              string
 	CreatedAt         time.Time
+	Rpe               *float64
+	SupersetID        *uuid.UUID
 }
 
 type WorkoutSession struct {
 	ID         uuid.UUID
 	AccountID  uuid.UUID
-	RoutineID  pgtype.UUID
+	RoutineID  *uuid.UUID
 	StartedAt  time.Time
 	FinishedAt *time.Time
 }

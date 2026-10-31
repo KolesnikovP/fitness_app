@@ -215,6 +215,31 @@ func TestLogSet(t *testing.T) {
 		}
 	})
 
+	t.Run("logs an optional RPE, in half steps from 1 to 10", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		bench := addExercise(t, srv, token, id, "Bench Press")
+		path := "/workouts/sessions/" + id + "/exercises/" + bench + "/sets"
+
+		testutil.Do(t, srv, http.MethodPost, path, token, map[string]any{"weight": 100, "weightUnit": "kg", "reps": 5})
+		testutil.Do(t, srv, http.MethodPost, path, token, map[string]any{"weight": 100, "weightUnit": "kg", "reps": 5, "rpe": nil})
+		testutil.Do(t, srv, http.MethodPost, path, token, map[string]any{"weight": 100, "weightUnit": "kg", "reps": 5, "rpe": 1})
+		res := testutil.Do(t, srv, http.MethodPost, path, token, map[string]any{"weight": 100, "weightUnit": "kg", "reps": 5, "rpe": 8.5})
+
+		if res.Status != http.StatusCreated {
+			t.Fatalf("status = %d, want 201; body %v", res.Status, res.Body)
+		}
+		sets := objects(t, sessionExercises(t, res)[0], "sets")
+		if len(sets) != 4 {
+			t.Fatalf("sets = %v, want 4", sets)
+		}
+		for i, want := range []any{nil, nil, 1.0, 8.5} {
+			if got, ok := sets[i]["rpe"]; !ok || got != want {
+				t.Errorf("set %d rpe = %v, want %v", i+1, got, want)
+			}
+		}
+	})
+
 	for _, tc := range []struct {
 		name string
 		body map[string]any
@@ -227,6 +252,9 @@ func TestLogSet(t *testing.T) {
 		{"missing reps", map[string]any{"weight": 100, "weightUnit": "kg"}, "invalid_reps"},
 		{"zero reps", map[string]any{"weight": 100, "weightUnit": "kg", "reps": 0}, "invalid_reps"},
 		{"note too long", map[string]any{"weight": 100, "weightUnit": "kg", "reps": 5, "note": strings.Repeat("a", 501)}, "invalid_note"},
+		{"RPE below 1", map[string]any{"weight": 100, "weightUnit": "kg", "reps": 5, "rpe": 0}, "invalid_rpe"},
+		{"RPE above 10", map[string]any{"weight": 100, "weightUnit": "kg", "reps": 5, "rpe": 10.5}, "invalid_rpe"},
+		{"RPE between half steps", map[string]any{"weight": 100, "weightUnit": "kg", "reps": 5, "rpe": 7.3}, "invalid_rpe"},
 	} {
 		t.Run("rejects "+tc.name, func(t *testing.T) {
 			_, _, token := testutil.SignUp(t, srv)
@@ -471,6 +499,211 @@ func TestSessionHistory(t *testing.T) {
 			t.Fatalf("sessions = %v, want none", list)
 		}
 	})
+}
+
+func TestSuperset(t *testing.T) {
+	srv := testutil.NewServer(t)
+
+	t.Run("groups two exercises into a superset", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		bench := addExercise(t, srv, token, id, "Bench Press")
+		row := addExercise(t, srv, token, id, "Barbell Row")
+		addExercise(t, srv, token, id, "Plank")
+
+		res := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions/"+id+"/supersets", token,
+			map[string]any{"sessionExerciseIds": []string{bench, row}})
+
+		if res.Status != http.StatusCreated {
+			t.Fatalf("status = %d, want 201; body %v", res.Status, res.Body)
+		}
+		got := sessionExercises(t, res)
+		superset, _ := got[0]["supersetId"].(string)
+		if superset == "" || got[1]["supersetId"] != superset {
+			t.Errorf("supersetIds = %v, %v; want one shared id", got[0]["supersetId"], got[1]["supersetId"])
+		}
+		if v, ok := got[2]["supersetId"]; !ok || v != nil {
+			t.Errorf("Plank supersetId = %v, want null", v)
+		}
+	})
+
+	t.Run("groups three or more exercises into one superset", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		ids := []string{
+			addExercise(t, srv, token, id, "Bench Press"),
+			addExercise(t, srv, token, id, "Barbell Row"),
+			addExercise(t, srv, token, id, "Pull-up"),
+			addExercise(t, srv, token, id, "Plank"),
+		}
+
+		res := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions/"+id+"/supersets", token,
+			map[string]any{"sessionExerciseIds": ids})
+
+		if res.Status != http.StatusCreated {
+			t.Fatalf("status = %d, want 201; body %v", res.Status, res.Body)
+		}
+		got := sessionExercises(t, res)
+		for _, e := range got {
+			if e["supersetId"] == nil || e["supersetId"] != got[0]["supersetId"] {
+				t.Fatalf("exercises = %v, want all four in one superset", got)
+			}
+		}
+	})
+
+	t.Run("keeps separate supersets apart", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		a, b := addExercise(t, srv, token, id, "Bench Press"), addExercise(t, srv, token, id, "Barbell Row")
+		c, d := addExercise(t, srv, token, id, "Back Squat"), addExercise(t, srv, token, id, "Pull-up")
+
+		createSuperset(t, srv, token, id, a, b)
+		res := createSuperset(t, srv, token, id, c, d)
+
+		got := sessionExercises(t, res)
+		if got[0]["supersetId"] == got[2]["supersetId"] || got[2]["supersetId"] != got[3]["supersetId"] {
+			t.Fatalf("exercises = %v, want two separate supersets", got)
+		}
+	})
+
+	for _, tc := range []struct {
+		name string
+		ids  func(bench, row string) any
+	}{
+		{"a single exercise", func(bench, _ string) any { return []string{bench} }},
+		{"the same exercise twice", func(bench, _ string) any { return []string{bench, bench} }},
+		{"no exercises", func(_, _ string) any { return []string{} }},
+		{"a missing list", func(_, _ string) any { return nil }},
+	} {
+		t.Run("rejects "+tc.name, func(t *testing.T) {
+			_, _, token := testutil.SignUp(t, srv)
+			id := startSession(t, srv, token)
+			bench := addExercise(t, srv, token, id, "Bench Press")
+			row := addExercise(t, srv, token, id, "Barbell Row")
+
+			res := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions/"+id+"/supersets", token,
+				map[string]any{"sessionExerciseIds": tc.ids(bench, row)})
+
+			if res.Status != http.StatusBadRequest || res.ErrorCode() != "invalid_superset" {
+				t.Fatalf("got %d %q, want 400 invalid_superset", res.Status, res.ErrorCode())
+			}
+			if got := currentExercises(t, srv, token); got[0]["supersetId"] != nil {
+				t.Errorf("exercises = %v, want none grouped", got)
+			}
+		})
+	}
+
+	t.Run("refuses an exercise already in a superset", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		a, b := addExercise(t, srv, token, id, "Bench Press"), addExercise(t, srv, token, id, "Barbell Row")
+		c := addExercise(t, srv, token, id, "Plank")
+		createSuperset(t, srv, token, id, a, b)
+
+		res := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions/"+id+"/supersets", token,
+			map[string]any{"sessionExerciseIds": []string{b, c}})
+
+		if res.Status != http.StatusConflict || res.ErrorCode() != "already_in_superset" {
+			t.Fatalf("got %d %q, want 409 already_in_superset", res.Status, res.ErrorCode())
+		}
+		if got := currentExercises(t, srv, token); got[2]["supersetId"] != nil {
+			t.Errorf("Plank = %v, want it left ungrouped", got[2])
+		}
+	})
+
+	t.Run("refuses an exercise from another session", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		first := startSession(t, srv, token)
+		old := addExercise(t, srv, token, first, "Bench Press")
+		logSet(t, srv, token, first, old, 100, 5)
+		finishSession(t, srv, token, first)
+		second := startSession(t, srv, token)
+		row := addExercise(t, srv, token, second, "Barbell Row")
+
+		res := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions/"+second+"/supersets", token,
+			map[string]any{"sessionExerciseIds": []string{old, row}})
+
+		if res.Status != http.StatusNotFound || res.ErrorCode() != "session_exercise_not_found" {
+			t.Fatalf("got %d %q, want 404 session_exercise_not_found", res.Status, res.ErrorCode())
+		}
+	})
+
+	t.Run("records on each set the superset it was logged in", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		bench, row := addExercise(t, srv, token, id, "Bench Press"), addExercise(t, srv, token, id, "Barbell Row")
+		logSet(t, srv, token, id, bench, 100, 5) // Before grouping.
+		superset := sessionExercises(t, createSuperset(t, srv, token, id, bench, row))[0]["supersetId"].(string)
+		logSet(t, srv, token, id, bench, 100, 5)
+		logSet(t, srv, token, id, row, 80, 8)
+
+		res := testutil.Do(t, srv, http.MethodDelete, "/workouts/sessions/"+id+"/supersets/"+superset, token, nil)
+
+		if res.Status != http.StatusOK {
+			t.Fatalf("ungroup: status = %d, want 200; body %v", res.Status, res.Body)
+		}
+		logSet(t, srv, token, id, bench, 100, 5) // After ungrouping.
+		got := currentExercises(t, srv, token)
+		if got[0]["supersetId"] != nil || got[1]["supersetId"] != nil {
+			t.Errorf("exercises = %v, want both ungrouped", got)
+		}
+		benchSets, rowSets := objects(t, got[0], "sets"), objects(t, got[1], "sets")
+		for i, want := range []any{nil, superset, nil} {
+			if v, ok := benchSets[i]["supersetId"]; !ok || v != want {
+				t.Errorf("Bench Press set %d supersetId = %v, want %v", i+1, v, want)
+			}
+		}
+		if rowSets[0]["supersetId"] != superset {
+			t.Errorf("Barbell Row set supersetId = %v, want %s", rowSets[0]["supersetId"], superset)
+		}
+	})
+
+	t.Run("refuses to ungroup an unknown superset", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+
+		res := testutil.Do(t, srv, http.MethodDelete, "/workouts/sessions/"+id+"/supersets/"+uuid.NewString(), token, nil)
+
+		if res.Status != http.StatusNotFound || res.ErrorCode() != "superset_not_found" {
+			t.Fatalf("got %d %q, want 404 superset_not_found", res.Status, res.ErrorCode())
+		}
+	})
+
+	t.Run("refuses changes to a finished session", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		bench, row := addExercise(t, srv, token, id, "Bench Press"), addExercise(t, srv, token, id, "Barbell Row")
+		logSet(t, srv, token, id, bench, 100, 5)
+		finishSession(t, srv, token, id)
+
+		res := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions/"+id+"/supersets", token,
+			map[string]any{"sessionExerciseIds": []string{bench, row}})
+
+		if res.Status != http.StatusConflict || res.ErrorCode() != "session_finished" {
+			t.Fatalf("got %d %q, want 409 session_finished", res.Status, res.ErrorCode())
+		}
+	})
+}
+
+func createSuperset(t *testing.T, srv *httptest.Server, token, sessionID string, sessionExerciseIDs ...string) testutil.Response {
+	t.Helper()
+	res := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions/"+sessionID+"/supersets", token,
+		map[string]any{"sessionExerciseIds": sessionExerciseIDs})
+	if res.Status != http.StatusCreated {
+		t.Fatalf("create superset: status %d, body %v", res.Status, res.Body)
+	}
+	return res
+}
+
+// currentExercises returns the exercises of the caller's session in progress.
+func currentExercises(t *testing.T, srv *httptest.Server, token string) []map[string]any {
+	t.Helper()
+	res := testutil.Do(t, srv, http.MethodGet, "/workouts/sessions/current", token, nil)
+	session, ok := res.Body["session"].(map[string]any)
+	if !ok {
+		t.Fatalf("no session in progress: %v", res.Body)
+	}
+	return objects(t, session, "exercises")
 }
 
 // startSession starts a session and returns its id.

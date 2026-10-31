@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { act, fireEvent, renderRouter, screen, within } from 'expo-router/testing-library';
+import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library';
 import { Alert } from 'react-native';
 
 import { fakeApi } from './support/fake-api';
@@ -15,6 +15,16 @@ async function openWorkoutTab() {
   await act(async () => router.navigate('/workout'));
   await screen.findByRole('header', { name: 'Workout' });
   return account;
+}
+
+/** Launches the app signed in as accountId and opens their workout in progress. */
+async function resumeWorkout(accountId: string) {
+  secureStore.set('auth-token', fakeApi.issueToken(accountId));
+  await renderRouter('./src/app', { initialUrl: '/' });
+  await screen.findByRole('header', { name: 'Feed' });
+  await act(async () => router.navigate('/workout'));
+  await fireEvent.press(await screen.findByRole('button', { name: 'Resume workout' }));
+  await screen.findByRole('header', { name: 'Current workout' });
 }
 
 /** The card for one exercise in the workout in progress. */
@@ -85,6 +95,87 @@ describe('freeform workout', () => {
     await screen.findByRole('header', { name: 'Current workout' });
     expect(exerciseCard('Deadlift').getByText('140 kg × 3')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Finish workout' })).toBeEnabled();
+  });
+
+  it('logs a set with an optional RPE', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Back Squat');
+
+    await fireEvent.changeText(card.getByLabelText('Weight (kg)'), '140');
+    await fireEvent.changeText(card.getByLabelText('Reps'), '5');
+    await fireEvent.changeText(card.getByLabelText('RPE'), '11');
+    // RPE runs from 1 to 10.
+    expect(card.getByRole('button', { name: 'Log set' })).toBeDisabled();
+    await fireEvent.changeText(card.getByLabelText('RPE'), '8,5');
+    await fireEvent.press(card.getByRole('button', { name: 'Log set' }));
+
+    expect(await card.findByText('140 kg × 5 @ RPE 8.5')).toBeVisible();
+    expect(card.getByLabelText('RPE')).toHaveDisplayValue('');
+
+    // Left blank, the set has no RPE.
+    await fireEvent.changeText(card.getByLabelText('Reps'), '4');
+    await fireEvent.press(card.getByRole('button', { name: 'Log set' }));
+    expect(await card.findByText('140 kg × 4')).toBeVisible();
+
+    const [saved] = fakeApi.sessions(account.id);
+    expect(saved.exercises[0].sets).toMatchObject([
+      { weight: 140, reps: 5, rpe: 8.5 },
+      { weight: 140, reps: 4, rpe: null },
+    ]);
+  });
+
+  it('groups exercises into a superset, logged back to back with rest after the round', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    fakeApi.addSessionExercise(session, 'Bench Press');
+    fakeApi.addSessionExercise(session, 'Plank');
+    fakeApi.addSessionExercise(session, 'Lat Pulldown');
+    await resumeWorkout(account.id);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Create superset' }));
+    const form = within(screen.getByLabelText('New superset'));
+    await fireEvent.press(form.getByRole('checkbox', { name: 'Bench Press' }));
+    // One exercise isn't a superset.
+    expect(form.getByRole('button', { name: 'Group as superset' })).toBeDisabled();
+    await fireEvent.press(form.getByRole('checkbox', { name: 'Lat Pulldown' }));
+    await fireEvent.press(form.getByRole('button', { name: 'Group as superset' }));
+
+    const superset = within(await screen.findByLabelText('Superset of Bench Press and Lat Pulldown'));
+    // Its exercises are shown back to back, ahead of the one added between them.
+    expect(screen.getAllByLabelText(/ card$/).map((card) => card.props.accessibilityLabel)).toEqual([
+      'Bench Press card',
+      'Lat Pulldown card',
+      'Plank card',
+    ]);
+    expect(superset.getByText('Next: Bench Press')).toBeVisible();
+
+    const bench = within(superset.getByLabelText('Bench Press card'));
+    await fireEvent.changeText(bench.getByLabelText('Weight (kg)'), '80');
+    await fireEvent.changeText(bench.getByLabelText('Reps'), '8');
+    await fireEvent.press(bench.getByRole('button', { name: 'Log set' }));
+    // No rest between the exercises of a superset...
+    expect(await superset.findByText('Next: Lat Pulldown, no rest')).toBeVisible();
+
+    const pulldown = within(superset.getByLabelText('Lat Pulldown card'));
+    await fireEvent.changeText(pulldown.getByLabelText('Weight (kg)'), '60');
+    await fireEvent.changeText(pulldown.getByLabelText('Reps'), '10');
+    await fireEvent.press(pulldown.getByRole('button', { name: 'Log set' }));
+    // ...only after the whole round.
+    expect(await superset.findByText('Round 1 done. Rest now.')).toBeVisible();
+
+    const [saved] = fakeApi.sessions(account.id);
+    const [benchPress, plank, latPulldown] = saved.exercises;
+    expect(benchPress.supersetId).not.toBeNull();
+    expect(latPulldown.supersetId).toBe(benchPress.supersetId);
+    expect(plank.supersetId).toBeNull();
+    expect(benchPress.sets).toMatchObject([{ weight: 80, reps: 8, supersetId: benchPress.supersetId }]);
+    expect(latPulldown.sets).toMatchObject([{ weight: 60, reps: 10, supersetId: benchPress.supersetId }]);
+
+    await fireEvent.press(superset.getByRole('button', { name: 'Ungroup' }));
+    await waitFor(() => expect(screen.queryByLabelText(/^Superset of/)).toBeNull());
+    expect(fakeApi.sessions(account.id)[0].exercises.every((e) => e.supersetId === null)).toBe(true);
   });
 
   it('counts down a rest timer between sets', async () => {
