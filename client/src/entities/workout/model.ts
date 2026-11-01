@@ -56,12 +56,11 @@ export type SessionExercise = {
 };
 
 /**
- * What a Session exercise can be swapped to now: its planned Exercise, then
- * its Substitutes in order, leaving out the one being done.
+ * Every Exercise a Session exercise can be done as: its planned one, then its
+ * Substitutes in order. None for an exercise not started from a Routine.
  */
-export function swapOptions(exercise: SessionExercise): ExerciseRef[] {
-  if (!exercise.planned) return [];
-  return [exercise.planned, ...exercise.substitutes].filter((option) => option.exerciseId !== exercise.exerciseId);
+export function swapChoices(exercise: SessionExercise): ExerciseRef[] {
+  return exercise.planned ? [exercise.planned, ...exercise.substitutes] : [];
 }
 
 /** The Exercise its Routine planned, if the Session exercise is swapped away from it; otherwise null. */

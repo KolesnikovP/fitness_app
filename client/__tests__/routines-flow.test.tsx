@@ -184,13 +184,26 @@ describe('routines', () => {
     await fireEvent.press(card.getByRole('button', { name: 'Log set' }));
     expect(await card.findByText('100 kg × 5')).toBeVisible();
 
-    // The bench is taken: one tap swaps to the first substitute.
-    await fireEvent.press(card.getByRole('button', { name: 'Swap to Dumbbell Bench Press' }));
+    // The bench is taken: Swap shows the substitutes, saying what they're for.
+    await fireEvent.press(card.getByRole('button', { name: 'Swap Bench Press' }));
+    let sheet = within(await screen.findByLabelText('Substitutes for Bench Press'));
+    expect(sheet.getByRole('header', { name: "Can't do Bench Press right now?" })).toBeVisible();
+    expect(sheet.getByText('Doing now · Barbell')).toBeVisible();
+    expect(await sheet.findByText('Substitute 1 · Dumbbell')).toBeVisible();
+    expect(sheet.getByText('Substitute 2 · Bodyweight')).toBeVisible();
+    await fireEvent.press(sheet.getByRole('button', { name: 'Swap to Dumbbell Bench Press' }));
     card = within(await screen.findByLabelText('Dumbbell Bench Press card'));
+    expect(screen.queryByLabelText('Substitutes for Bench Press')).toBeNull();
     expect(card.getByText('Instead of Bench Press')).toBeVisible();
     // The set already logged keeps the exercise it was done with.
     expect(within(card.getByRole('button', { name: 'Edit set 1' })).getByText('Bench Press')).toBeVisible();
-    expect(card.getByRole('button', { name: 'Swap to Bench Press' })).toBeVisible();
+    // Back to the bench is a swap away, once it's free.
+    await fireEvent.press(card.getByRole('button', { name: 'Swap Dumbbell Bench Press' }));
+    sheet = within(await screen.findByLabelText('Substitutes for Bench Press'));
+    expect(sheet.getByRole('header', { name: "Can't do Bench Press right now?" })).toBeVisible();
+    expect(sheet.getByRole('button', { name: 'Swap to Bench Press' })).toBeVisible();
+    await fireEvent.press(sheet.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByLabelText('Substitutes for Bench Press')).toBeNull();
     // The planned sets and reps still stand, but not the barbell's weight.
     expect(card.getByText('Target 3 × 5')).toBeVisible();
     expect(card.getByLabelText('Weight (kg)')).toHaveDisplayValue('');

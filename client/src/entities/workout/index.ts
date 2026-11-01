@@ -18,7 +18,7 @@ export {
   setDraftFromTarget,
   setDraftOf,
   supersetProgress,
-  swapOptions,
+  swapChoices,
   swappedFrom,
   type Session,
   type SessionBlock,

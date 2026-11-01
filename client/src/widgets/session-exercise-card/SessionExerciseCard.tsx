@@ -12,7 +12,7 @@ import {
 import { EditSetForm } from '@/features/edit-set';
 import { ExerciseNoteField } from '@/features/exercise-note';
 import { LogSetForm } from '@/features/log-set';
-import { SwapCarousel } from '@/features/swap-exercise';
+import { SwapSheet } from '@/features/swap-exercise';
 import { colors, spacing } from '@/shared/ui';
 
 type SessionExerciseCardProps = {
@@ -24,7 +24,7 @@ type SessionExerciseCardProps = {
 
 /**
  * One exercise in the workout in progress: what its Routine planned, if
- * anything, and the Substitutes to swap it for; its logged Sets (tap one to
+ * anything, and swapping it for a Substitute; its logged Sets (tap one to
  * correct or delete it), a note, and the form for the next Set.
  */
 export function SessionExerciseCard({ sessionId, sessionExercise, onChange, onDeleteSet }: SessionExerciseCardProps) {
@@ -34,9 +34,11 @@ export function SessionExerciseCard({ sessionId, sessionExercise, onChange, onDe
 
   return (
     <View accessibilityLabel={`${sessionExercise.name} card`} style={styles.card}>
-      <Text style={styles.name}>{sessionExercise.name}</Text>
+      <View style={styles.header}>
+        <Text style={styles.name}>{sessionExercise.name}</Text>
+        <SwapSheet sessionId={sessionId} sessionExercise={sessionExercise} onSwapped={onChange} />
+      </View>
       {planned ? <Text style={styles.setNote}>Instead of {planned.name}</Text> : null}
-      <SwapCarousel sessionId={sessionId} sessionExercise={sessionExercise} onSwapped={onChange} />
       {target ? (
         <View style={styles.target}>
           <Text style={styles.targetValue}>Target {formatTarget(target)}</Text>
@@ -104,7 +106,8 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
-  name: { fontSize: 20, fontWeight: '600', color: colors.text },
+  header: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  name: { flex: 1, fontSize: 20, fontWeight: '600', color: colors.text },
   target: { gap: 2 },
   targetValue: { fontSize: 15, fontWeight: '600', color: colors.primary },
   set: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start', paddingVertical: 2 },
