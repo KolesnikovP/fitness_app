@@ -1,1 +1,1 @@
-export { LogSetForm } from './LogSetForm';
+export { PendingSetRow } from './PendingSetRow';
