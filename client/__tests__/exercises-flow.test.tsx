@@ -28,6 +28,13 @@ function chip(group: string, label: string) {
   return within(screen.getByLabelText(group)).getByRole('radio', { name: label });
 }
 
+/** Opens a library filter's sheet and taps one of its cards. */
+async function pickFilter(group: string, label: string) {
+  await fireEvent.press(screen.getByRole('button', { name: group }));
+  const options = await screen.findByLabelText(`${group} options`);
+  await fireEvent.press(within(options).getByRole('radio', { name: label }));
+}
+
 describe('exercise library', () => {
   it('lists the library and narrows it by name, muscle group and equipment type', async () => {
     await openExercisesTab();
@@ -37,13 +44,26 @@ describe('exercise library', () => {
     await waitFor(() => expect(listedExercises()).toEqual(['Bench Press', 'Dumbbell Bench Press', 'Overhead Press']));
 
     await fireEvent.changeText(screen.getByLabelText('Search exercises'), '');
-    await fireEvent.press(chip('Muscle group', 'Back'));
-    await fireEvent.press(chip('Equipment', 'Cable'));
+    await pickFilter('Muscle group', 'Back');
+    await pickFilter('Equipment', 'Cable');
     await waitFor(() => expect(listedExercises()).toEqual(['Lat Pulldown']));
+    // Picking closes the sheet, and the button shows what's picked.
+    expect(screen.queryByLabelText('Equipment options')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Equipment' })).toHaveAccessibilityValue({ text: 'Cable' });
 
-    // Tapping a selected filter again clears it.
-    await fireEvent.press(chip('Equipment', 'Cable'));
+    // Picking the selected card again clears it.
+    await pickFilter('Equipment', 'Cable');
     await waitFor(() => expect(listedExercises()).toEqual(['Deadlift', 'Lat Pulldown']));
+    expect(screen.getByRole('button', { name: 'Equipment' })).toHaveAccessibilityValue({ text: 'Any' });
+
+    // Clear filters resets every filter at once, then goes away.
+    await pickFilter('Equipment', 'Barbell');
+    await waitFor(() => expect(listedExercises()).toEqual(['Deadlift']));
+    await fireEvent.press(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(screen.getByRole('button', { name: 'Muscle group' })).toHaveAccessibilityValue({ text: 'Any' });
+    expect(screen.getByRole('button', { name: 'Equipment' })).toHaveAccessibilityValue({ text: 'Any' });
+    expect(screen.queryByRole('button', { name: 'Clear filters' })).toBeNull();
+    await waitFor(() => expect(listedExercises()).toContain('Bench Press'));
   });
 
   it('shows an exercise in detail', async () => {
