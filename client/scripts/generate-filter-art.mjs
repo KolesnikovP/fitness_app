@@ -6,7 +6,7 @@
 //   OPENAI_API_KEY=... node scripts/generate-filter-art.mjs
 //   ONLY=biceps,barbell OPENAI_API_KEY=... node scripts/generate-filter-art.mjs
 //
-// Full-size originals go to art-source/exercise-filters (git-ignored); 768px
+// Full-size originals go to art-source/exercise-filters (committed as the source of truth); 768px
 // copies go to assets/exercise-filters, which the app bundles. Existing
 // originals are skipped, so delete one to regenerate it. New files also need
 // an entry in src/entities/exercise/filterArt.ts.

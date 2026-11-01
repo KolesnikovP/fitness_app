@@ -4,6 +4,3 @@
 # Go build output
 /backend/api
 /backend/bin/
-
-# Full-size generated art; only the resized copies in client/assets are committed
-/client/art-source/
