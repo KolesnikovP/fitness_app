@@ -119,7 +119,6 @@ func (s *Service) Routes(mux *http.ServeMux, accounts Accounts) {
 	mux.Handle("GET /exercises", accounts.RequireAuth(http.HandlerFunc(h.list)))
 	mux.Handle("POST /exercises", accounts.RequireAuth(http.HandlerFunc(h.create)))
 	mux.Handle("GET /exercises/{id}", accounts.RequireAuth(http.HandlerFunc(h.get)))
-	mux.Handle("GET /exercises/{id}/substitutes", accounts.RequireAuth(http.HandlerFunc(h.substitutes)))
 	mux.Handle("POST /exercises/{id}/media", accounts.RequireAuth(http.HandlerFunc(h.uploadMedia)))
 	mux.Handle("GET /exercises/{id}/image", accounts.RequireAuth(h.serveMedia(kindImage)))
 	mux.Handle("GET /exercises/{id}/animated_demo", accounts.RequireAuth(h.serveMedia(kindAnimatedDemo)))
@@ -176,32 +175,6 @@ func (h handlers) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, newExercise(row))
-}
-
-// substitutes suggests Substitutes for the {id} exercise: the others the
-// caller may see that train the same muscle group, those with the same
-// equipment type first.
-func (h handlers) substitutes(w http.ResponseWriter, r *http.Request) {
-	exercise, ok := h.loadVisible(w, r)
-	if !ok {
-		return
-	}
-	caller, _ := auth.AccountID(r.Context())
-	rows, err := h.queries.ListSubstituteSuggestions(r.Context(), store.ListSubstituteSuggestionsParams{
-		CallerID:      caller,
-		ID:            exercise.ID,
-		MuscleGroup:   exercise.MuscleGroup,
-		EquipmentType: exercise.EquipmentType,
-	})
-	if err != nil {
-		httpx.WriteInternalError(w, r, fmt.Errorf("list substitute suggestions: %w", err))
-		return
-	}
-	out := make([]Exercise, len(rows))
-	for i, row := range rows {
-		out[i] = newExercise(store.GetVisibleExerciseRow(row))
-	}
-	httpx.WriteJSON(w, http.StatusOK, listResponse{Exercises: out})
 }
 
 // loadVisible loads the {id} exercise if the caller may see it. Otherwise it

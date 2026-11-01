@@ -828,21 +828,6 @@ const handlers = [
     return HttpResponse.json(exerciseJson(exercise), { status: 201 });
   }),
 
-  http.get('*/exercises/:id/substitutes', ({ request, params }) => {
-    const account = caller(request);
-    if (!account) return unauthorized();
-    const exercise = visibleExercise(account, params.id);
-    if (!exercise) return error(404, 'exercise_not_found', 'Exercise not found.');
-    const sameEquipment = (e: FakeExercise) => (e.equipmentType === exercise.equipmentType ? 0 : 1);
-    const found = exercises
-      .filter((e) => (e.ownerId === null || e.ownerId === account.id) && e.id !== exercise.id)
-      .filter((e) => e.muscleGroup === exercise.muscleGroup)
-      .sort(
-        (a, b) => sameEquipment(a) - sameEquipment(b) || a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
-      );
-    return HttpResponse.json({ exercises: found.map(exerciseJson) });
-  }),
-
   http.get('*/exercises/:id', ({ request, params }) => {
     const account = caller(request);
     if (!account) return unauthorized();

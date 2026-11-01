@@ -2,16 +2,14 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import {
-  canAddSubstitute,
+  MAX_SUBSTITUTES,
   REST_OPTIONS,
   setsInput,
-  withSubstituteAdded,
   withSubstituteMoved,
   withSubstituteRemoved,
   type SlotDraft,
 } from '@/entities/routine';
 import { formatRest, repsInput, weightInput } from '@/entities/workout';
-import { SubstitutePicker } from '@/features/plan-substitutes';
 import { Button, colors, Select, spacing, TextField } from '@/shared/ui';
 import { listNames } from '@/shared/utils';
 
@@ -22,6 +20,8 @@ type SlotEditorProps = {
   onChange: (patch: Partial<SlotDraft>) => void;
   onMove: (direction: -1 | 1) => void;
   onRemove: () => void;
+  /** Opens the screen to pick Substitutes from the library. */
+  onAddSubstitutes: () => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
 };
@@ -31,9 +31,16 @@ type SlotEditorProps = {
  * weight), an optional rest and note, its Substitutes in order, and moving
  * or removing it.
  */
-export function SlotEditor({ slot, onChange, onMove, onRemove, canMoveUp, canMoveDown }: SlotEditorProps) {
+export function SlotEditor({
+  slot,
+  onChange,
+  onMove,
+  onRemove,
+  onAddSubstitutes,
+  canMoveUp,
+  canMoveDown,
+}: SlotEditorProps) {
   const [noteOpen, setNoteOpen] = useState(slot.note !== '');
-  const [pickingSubstitutes, setPickingSubstitutes] = useState(false);
 
   return (
     <View accessibilityLabel={`${slot.name} slot`} style={styles.card}>
@@ -118,16 +125,9 @@ export function SlotEditor({ slot, onChange, onMove, onRemove, canMoveUp, canMov
           ))}
         </View>
       ) : null}
-      {pickingSubstitutes ? (
-        <SubstitutePicker
-          exercise={{ exerciseId: slot.exerciseId, name: slot.name }}
-          canAdd={(exerciseId) => canAddSubstitute(slot, exerciseId)}
-          onAdd={(exercise) => onChange({ substitutes: withSubstituteAdded(slot, exercise) })}
-          onDone={() => setPickingSubstitutes(false)}
-        />
-      ) : (
-        <Button label="Add substitute" variant="link" onPress={() => setPickingSubstitutes(true)} />
-      )}
+      {slot.substitutes.length < MAX_SUBSTITUTES ? (
+        <Button label="Add substitutes" variant="link" onPress={onAddSubstitutes} />
+      ) : null}
       <View style={styles.actions}>
         {canMoveUp ? <Button label="Move up" variant="link" onPress={() => onMove(-1)} /> : null}
         {canMoveDown ? <Button label="Move down" variant="link" onPress={() => onMove(1)} /> : null}

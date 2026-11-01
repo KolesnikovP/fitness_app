@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { act, fireEvent, renderRouter, screen, within } from 'expo-router/testing-library';
+import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library';
 import { Alert } from 'react-native';
 
 import { fakeApi } from './support/fake-api';
@@ -122,29 +122,48 @@ describe('routines', () => {
     const accountId = await openWorkoutTab();
     await fireEvent.press(await screen.findByRole('button', { name: 'New routine' }));
     await fireEvent.changeText(await screen.findByLabelText('Routine name'), 'Push day');
-    const bench = await addSlot('bench', 'Bench Press');
+    let bench = await addSlot('bench', 'Bench Press');
     await fireEvent.changeText(bench.getByLabelText('Reps'), '5');
     await fireEvent.changeText(bench.getByLabelText('Weight (kg)'), '100');
 
-    // Suggestions train the same muscles, with the same equipment first.
-    await fireEvent.press(bench.getByRole('button', { name: 'Add substitute' }));
-    const suggestions = within(await screen.findByLabelText('Substitutes for Bench Press'));
-    const offered = await suggestions.findAllByRole('button', { name: /^Add .* as a substitute$/ });
-    expect(offered.map((button) => button.props.accessibilityLabel)).toEqual([
-      'Add Incline Bench Press as a substitute',
-      'Add Dumbbell Bench Press as a substitute',
-      'Add Push-up as a substitute',
-    ]);
-    await fireEvent.press(suggestions.getByRole('button', { name: 'Add Push-up as a substitute' }));
-    await fireEvent.press(suggestions.getByRole('button', { name: 'Add Dumbbell Bench Press as a substitute' }));
-    // Already picked: not offered again.
-    expect(suggestions.queryByRole('button', { name: 'Add Push-up as a substitute' })).toBeNull();
-    await fireEvent.press(suggestions.getByRole('button', { name: 'Done' }));
+    // Picked from the library, starting at exercises for the same muscles.
+    await fireEvent.press(bench.getByRole('button', { name: 'Add substitutes' }));
+    await screen.findByRole('header', { name: 'Add substitutes' });
+    const picker = within(screen.getByLabelText('Exercise picker'));
+    expect(picker.getByRole('radio', { name: 'Chest' })).toBeChecked();
+    await waitFor(() =>
+      expect(picker.getAllByRole('checkbox').map((item) => item.props.accessibilityLabel)).toEqual([
+        // Not Bench Press itself.
+        'Dumbbell Bench Press',
+        'Incline Bench Press',
+        'Push-up',
+      ]),
+    );
+    await fireEvent.press(picker.getByRole('checkbox', { name: 'Push-up' }));
+    await fireEvent.press(picker.getByRole('checkbox', { name: 'Dumbbell Bench Press' }));
+    // Anything else in the library, with the filter cleared.
+    await fireEvent.press(picker.getByRole('radio', { name: 'Chest' }));
+    expect(await picker.findByRole('checkbox', { name: 'Deadlift' })).toBeVisible();
+    await fireEvent.press(screen.getByRole('button', { name: 'Add 2 substitutes' }));
+
+    // Back on the editor, in the order picked.
+    bench = within(await screen.findByLabelText('Bench Press slot'));
+    expect(bench.getByLabelText('Substitutes').props.accessibilityValue).toEqual({ text: 'Push-up and Dumbbell Bench Press' });
     // Dumbbell Bench Press is the better fallback: first in line.
     await fireEvent.press(bench.getByRole('button', { name: 'Move Dumbbell Bench Press up' }));
     expect(bench.getByLabelText('Substitutes').props.accessibilityValue).toEqual({
       text: 'Dumbbell Bench Press and Push-up',
     });
+    // The ones already picked aren't offered again.
+    await fireEvent.press(bench.getByRole('button', { name: 'Add substitutes' }));
+    const again = within(await screen.findByLabelText('Exercise picker'));
+    await waitFor(() =>
+      expect(again.getAllByRole('checkbox').map((item) => item.props.accessibilityLabel)).toEqual([
+        'Incline Bench Press',
+      ]),
+    );
+    await act(async () => router.back());
+    bench = within(await screen.findByLabelText('Bench Press slot'));
 
     await fireEvent.press(screen.getByRole('button', { name: 'Save routine' }));
     await screen.findByRole('header', { name: 'Workout' });

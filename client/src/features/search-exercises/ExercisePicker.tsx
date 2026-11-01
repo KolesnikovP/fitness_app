@@ -17,13 +17,22 @@ type ExercisePickerProps = {
   selectedIds?: string[];
   /** Shows a spinner in place of the list while the pick is being saved. */
   busy?: boolean;
+  /** Filters to start with; the User can change or clear them. */
+  initialFilters?: Partial<ExerciseFilters>;
+  /** Exercises left out of the list, as ones that can't be picked here. */
+  hiddenIds?: string[];
 };
 
 /** Searches the library and picks an exercise from it, or several with selectedIds. */
-export function ExercisePicker({ onPick, selectedIds, busy }: ExercisePickerProps) {
+export function ExercisePicker({ onPick, selectedIds, busy, initialFilters, hiddenIds }: ExercisePickerProps) {
   const { state } = useAuth();
   const token = state.status === 'signedIn' ? state.token : null;
-  const [filters, setFilters] = useState<ExerciseFilters>({ query: '', muscleGroup: null, equipmentType: null });
+  const [filters, setFilters] = useState<ExerciseFilters>(() => ({
+    query: '',
+    muscleGroup: null,
+    equipmentType: null,
+    ...initialFilters,
+  }));
   const query = useDebouncedValue(filters.query, SEARCH_DELAY_MS);
   const { muscleGroup, equipmentType } = filters;
   const [exercises, setExercises] = useState<Exercise[] | null>(null);
@@ -35,7 +44,7 @@ export function ExercisePicker({ onPick, selectedIds, busy }: ExercisePickerProp
     listExercises(token, { query, muscleGroup, equipmentType })
       .then((found) => {
         if (!current) return;
-        setExercises(found);
+        setExercises(hiddenIds ? found.filter((e) => !hiddenIds.includes(e.id)) : found);
         setError(null);
       })
       .catch((e) => current && setError(errorMessage(e)));
@@ -43,6 +52,8 @@ export function ExercisePicker({ onPick, selectedIds, busy }: ExercisePickerProp
     return () => {
       current = false;
     };
+    // hiddenIds is fixed for the picker's life; a new array each render isn't a change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, query, muscleGroup, equipmentType]);
 
   return (

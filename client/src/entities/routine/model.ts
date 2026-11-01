@@ -250,7 +250,7 @@ export function withoutSuperset(draft: RoutineDraft, group: number): RoutineDraf
 }
 
 /** Whether exerciseId can be added as a Substitute for slot: not its own, nor one already, nor past the most. */
-export function canAddSubstitute(slot: SlotDraft, exerciseId: string): boolean {
+function canAddSubstitute(slot: SlotDraft, exerciseId: string): boolean {
   return (
     exerciseId !== slot.exerciseId &&
     !slot.substitutes.some((sub) => sub.exerciseId === exerciseId) &&
@@ -259,8 +259,20 @@ export function canAddSubstitute(slot: SlotDraft, exerciseId: string): boolean {
 }
 
 /** The slot's Substitutes with exercise added last, unless it can't be added. */
-export function withSubstituteAdded(slot: SlotDraft, exercise: ExerciseRef): ExerciseRef[] {
+function withSubstituteAdded(slot: SlotDraft, exercise: ExerciseRef): ExerciseRef[] {
   return canAddSubstitute(slot, exercise.exerciseId) ? [...slot.substitutes, exercise] : slot.substitutes;
+}
+
+/** The draft with exercises added, in order, as Substitutes of the slot with key; any that can't be are skipped. */
+export function withSubstitutesAdded(draft: RoutineDraft, key: string, exercises: ExerciseRef[]): RoutineDraft {
+  return {
+    ...draft,
+    slots: draft.slots.map((slot) =>
+      slot.key === key
+        ? exercises.reduce<SlotDraft>((next, e) => ({ ...next, substitutes: withSubstituteAdded(next, e) }), slot)
+        : slot,
+    ),
+  };
 }
 
 /** The slot's Substitutes without exerciseId. */

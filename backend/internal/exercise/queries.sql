@@ -47,17 +47,3 @@ SELECT id, name
 FROM exercises
 WHERE id = ANY(sqlc.arg(ids)::uuid[])
   AND (owner_id IS NULL OR owner_id = sqlc.arg(caller_id)::uuid);
-
--- name: ListSubstituteSuggestions :many
--- Exercises the caller may see for the same muscle group as the given one,
--- leaving it out: those with the same equipment type first, then by name.
-SELECT e.id, e.name, e.muscle_group, e.equipment_type, e.is_custom,
-       img.updated_at AS image_updated_at,
-       anim.updated_at AS animated_demo_updated_at
-FROM exercises e
-LEFT JOIN exercise_media img ON img.exercise_id = e.id AND img.kind = 'image'
-LEFT JOIN exercise_media anim ON anim.exercise_id = e.id AND anim.kind = 'animated_demo'
-WHERE (e.owner_id IS NULL OR e.owner_id = sqlc.arg(caller_id)::uuid)
-  AND e.id <> sqlc.arg(id)::uuid
-  AND e.muscle_group = sqlc.arg(muscle_group)
-ORDER BY e.equipment_type <> sqlc.arg(equipment_type), lower(e.name) COLLATE "C", e.id;

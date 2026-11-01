@@ -1,6 +1,5 @@
 // Routine entity: Routine types, editing a draft, and API bindings
 export {
-  canAddSubstitute,
   emptyRoutineDraft,
   MAX_SUBSTITUTES,
   MAX_TARGET_SETS,
@@ -17,7 +16,7 @@ export {
   withSlotChanged,
   withSlotRemoved,
   withStartingWeights,
-  withSubstituteAdded,
+  withSubstitutesAdded,
   withSubstituteMoved,
   withSubstituteRemoved,
   withSuperset,

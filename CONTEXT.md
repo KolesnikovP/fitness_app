@@ -79,7 +79,7 @@ What an Exercise slot plans: a number of Sets, each of so many reps at a weight 
 _Avoid_: Goal, prescription, planned set
 
 **Substitute**:
-An Exercise planned in an Exercise slot to do instead of the slot's own when that can't be done, such as when the equipment is taken. A slot has up to ten, in order; the app suggests ones training the same Muscle group, with the same Equipment type first.
+An Exercise planned in an Exercise slot to do instead of the slot's own when that can't be done, such as when the equipment is taken. A slot has up to ten, in order, chosen from the whole library; the picker starts filtered to the slot Exercise's Muscle group.
 _Avoid_: Alternative, alternate, replacement
 
 **Swap**:

@@ -13,7 +13,6 @@ export {
   createExercise,
   getExercise,
   listExercises,
-  listSubstituteSuggestions,
   uploadExerciseMedia,
   type ExerciseFilters,
   type MediaFile,

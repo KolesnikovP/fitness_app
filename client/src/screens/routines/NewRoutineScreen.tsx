@@ -21,6 +21,9 @@ export function NewRoutineScreen() {
         onAddExercises={picker.open}
         added={picker.added}
         onAdded={picker.consumed}
+        onAddSubstitutes={picker.openSubstitutes}
+        addedSubstitutes={picker.addedSubstitutes}
+        onSubstitutesAdded={picker.substitutesConsumed}
         onSave={async (routine) => {
           await createRoutine(token, routine);
           router.back();
