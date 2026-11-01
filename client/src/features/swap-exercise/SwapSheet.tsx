@@ -3,7 +3,13 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { equipmentLabel, getExercise, type ExerciseRef } from '@/entities/exercise';
-import { swapChoices, swapSessionExercise, type Session, type SessionExercise } from '@/entities/workout';
+import {
+  swapChoices,
+  swappedFrom,
+  swapSessionExercise,
+  type Session,
+  type SessionExercise,
+} from '@/entities/workout';
 import { errorMessage } from '@/shared/api';
 import { colors, spacing } from '@/shared/ui';
 
@@ -14,8 +20,9 @@ type SwapSheetProps = {
 };
 
 /**
- * A Swap button for a Session exercise with Substitutes. It opens a sheet for
- * when its equipment is taken: every Exercise it can be done as, with its
+ * A Swap button for a Session exercise with Substitutes, after a line saying
+ * what it's for ("Equipment taken?"), or what it was swapped from. It opens a
+ * sheet for when the equipment is taken: every Exercise it can be done as, with its
  * equipment, and the one being done marked. Tapping one swaps to it for this
  * workout only.
  */
@@ -30,6 +37,7 @@ export function SwapSheet({ sessionId, sessionExercise, onSwapped }: SwapSheetPr
   if (state.status !== 'signedIn' || !sessionExercise.planned || choices.length < 2) return null;
   const { token } = state;
   const planned = sessionExercise.planned;
+  const swappedAway = swappedFrom(sessionExercise);
 
   async function swap(exerciseId: string) {
     setError(null);
@@ -61,14 +69,17 @@ export function SwapSheet({ sessionId, sessionExercise, onSwapped }: SwapSheetPr
 
   return (
     <>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Swap ${sessionExercise.name}`}
-        onPress={() => setOpen(true)}
-        style={({ pressed }) => [styles.button, pressed && styles.pressed]}
-      >
-        <Text style={styles.buttonText}>⇄ Swap</Text>
-      </Pressable>
+      <View style={styles.prompt}>
+        <Text style={styles.promptText}>{swappedAway ? `Instead of ${swappedAway.name}` : 'Equipment taken?'}</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Swap ${sessionExercise.name}`}
+          onPress={() => setOpen(true)}
+          style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+        >
+          <Text style={styles.buttonText}>⇄ Swap</Text>
+        </Pressable>
+      </View>
       <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
         <Pressable accessibilityLabel="Close" style={styles.backdrop} onPress={close} />
         <View accessibilityLabel={`Substitutes for ${planned.name}`} style={styles.sheet}>
@@ -142,6 +153,8 @@ function useEquipment(choices: ExerciseRef[]): Record<string, string> {
 }
 
 const styles = StyleSheet.create({
+  prompt: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm },
+  promptText: { fontSize: 15, color: colors.muted },
   button: {
     paddingHorizontal: spacing.md,
     paddingVertical: 6,

@@ -185,6 +185,7 @@ describe('routines', () => {
     expect(await card.findByText('100 kg × 5')).toBeVisible();
 
     // The bench is taken: Swap shows the substitutes, saying what they're for.
+    expect(card.getByText('Equipment taken?')).toBeVisible();
     await fireEvent.press(card.getByRole('button', { name: 'Swap Bench Press' }));
     let sheet = within(await screen.findByLabelText('Substitutes for Bench Press'));
     expect(sheet.getByRole('header', { name: "Can't do Bench Press right now?" })).toBeVisible();

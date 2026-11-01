@@ -5,7 +5,6 @@ import {
   currentTarget,
   formatSet,
   formatTarget,
-  swappedFrom,
   type Session,
   type SessionExercise,
 } from '@/entities/workout';
@@ -30,15 +29,17 @@ type SessionExerciseCardProps = {
 export function SessionExerciseCard({ sessionId, sessionExercise, onChange, onDeleteSet }: SessionExerciseCardProps) {
   const [editingSetId, setEditingSetId] = useState<string | null>(null);
   const target = currentTarget(sessionExercise);
-  const planned = swappedFrom(sessionExercise);
 
   return (
     <View accessibilityLabel={`${sessionExercise.name} card`} style={styles.card}>
       <View style={styles.header}>
-        <Text style={styles.name}>{sessionExercise.name}</Text>
-        <SwapSheet sessionId={sessionId} sessionExercise={sessionExercise} onSwapped={onChange} />
+        <View style={styles.heading}>
+          <Text style={styles.name}>{sessionExercise.name}</Text>
+          <SwapSheet sessionId={sessionId} sessionExercise={sessionExercise} onSwapped={onChange} />
+        </View>
+        {/* Where the exercise's picture will go. */}
+        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.picture} />
       </View>
-      {planned ? <Text style={styles.setNote}>Instead of {planned.name}</Text> : null}
       {target ? (
         <View style={styles.target}>
           <Text style={styles.targetValue}>Target {formatTarget(target)}</Text>
@@ -106,8 +107,10 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
-  header: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
-  name: { flex: 1, fontSize: 20, fontWeight: '600', color: colors.text },
+  header: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  heading: { flex: 1, gap: spacing.xs },
+  name: { fontSize: 20, fontWeight: '600', color: colors.text },
+  picture: { width: 64, height: 64, borderRadius: 10, backgroundColor: '#DCE9FA' },
   target: { gap: 2 },
   targetValue: { fontSize: 15, fontWeight: '600', color: colors.primary },
   set: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start', paddingVertical: 2 },
