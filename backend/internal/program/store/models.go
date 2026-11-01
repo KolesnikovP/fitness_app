@@ -48,6 +48,7 @@ type ExerciseSlot struct {
 	RestSeconds      *int32
 	Note             string
 	SupersetGroup    *int32
+	SubstituteIds    []uuid.UUID
 }
 
 type Profile struct {
@@ -92,6 +93,8 @@ type SessionExercise struct {
 	TargetWeightUnit  *string
 	TargetRestSeconds *int32
 	TargetNote        *string
+	PlannedExerciseID pgtype.UUID
+	SubstituteIds     []uuid.UUID
 }
 
 type SessionSet struct {
@@ -104,6 +107,7 @@ type SessionSet struct {
 	CreatedAt         time.Time
 	Rpe               pgtype.Numeric
 	SupersetID        pgtype.UUID
+	ExerciseID        uuid.UUID
 }
 
 type WorkoutSession struct {

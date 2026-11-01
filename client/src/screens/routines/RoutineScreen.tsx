@@ -37,6 +37,9 @@ function SlotSummary({ slot }: { slot: RoutineSlot }) {
         })}
       </Text>
       {detail ? <Text style={styles.muted}>{detail}</Text> : null}
+      {slot.substitutes.length > 0 ? (
+        <Text style={styles.muted}>Substitutes: {slot.substitutes.map((sub) => sub.name).join(', ')}</Text>
+      ) : null}
     </View>
   );
 }

@@ -8,6 +8,7 @@ export { ExerciseDetailScreen } from './exercises/ExerciseDetailScreen';
 export { ExerciseLibraryScreen } from './exercises/ExerciseLibraryScreen';
 export { NewExerciseScreen } from './exercises/NewExerciseScreen';
 export { AddRoutineExercisesScreen } from './routines/AddRoutineExercisesScreen';
+export { AddSubstitutesScreen } from './routines/AddSubstitutesScreen';
 export { EditRoutineScreen } from './routines/EditRoutineScreen';
 export { NewRoutineScreen } from './routines/NewRoutineScreen';
 export { RoutineScreen } from './routines/RoutineScreen';

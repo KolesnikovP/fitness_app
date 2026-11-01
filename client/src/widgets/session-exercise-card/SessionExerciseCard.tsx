@@ -1,10 +1,17 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { formatSet, formatTarget, type Session, type SessionExercise } from '@/entities/workout';
+import {
+  currentTarget,
+  formatSet,
+  formatTarget,
+  type Session,
+  type SessionExercise,
+} from '@/entities/workout';
 import { EditSetForm } from '@/features/edit-set';
 import { ExerciseNoteField } from '@/features/exercise-note';
 import { LogSetForm } from '@/features/log-set';
+import { SwapSheet } from '@/features/swap-exercise';
 import { colors, spacing } from '@/shared/ui';
 
 type SessionExerciseCardProps = {
@@ -16,16 +23,23 @@ type SessionExerciseCardProps = {
 
 /**
  * One exercise in the workout in progress: what its Routine planned, if
- * anything, its logged Sets (tap one to correct or delete it), a note, and the
- * form for the next Set.
+ * anything, and swapping it for a Substitute; its logged Sets (tap one to
+ * correct or delete it), a note, and the form for the next Set.
  */
 export function SessionExerciseCard({ sessionId, sessionExercise, onChange, onDeleteSet }: SessionExerciseCardProps) {
   const [editingSetId, setEditingSetId] = useState<string | null>(null);
-  const { target } = sessionExercise;
+  const target = currentTarget(sessionExercise);
 
   return (
     <View accessibilityLabel={`${sessionExercise.name} card`} style={styles.card}>
-      <Text style={styles.name}>{sessionExercise.name}</Text>
+      <View style={styles.header}>
+        <View style={styles.heading}>
+          <Text style={styles.name}>{sessionExercise.name}</Text>
+          <SwapSheet sessionId={sessionId} sessionExercise={sessionExercise} onSwapped={onChange} />
+        </View>
+        {/* Where the exercise's picture will go. */}
+        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.picture} />
+      </View>
       {target ? (
         <View style={styles.target}>
           <Text style={styles.targetValue}>Target {formatTarget(target)}</Text>
@@ -65,12 +79,16 @@ export function SessionExerciseCard({ sessionId, sessionExercise, onChange, onDe
             <Text style={styles.setNumber}>{i + 1}</Text>
             <View style={styles.setText}>
               <Text style={styles.setValue}>{formatSet(set)}</Text>
+              {/* Done with another exercise, before a swap. */}
+              {set.exerciseId !== sessionExercise.exerciseId ? <Text style={styles.setNote}>{set.name}</Text> : null}
               {set.note ? <Text style={styles.setNote}>{set.note}</Text> : null}
             </View>
           </Pressable>
         ),
       )}
       <LogSetForm
+        // Starts over on a swap, from the Target for the Exercise swapped to.
+        key={sessionExercise.exerciseId}
         sessionId={sessionId}
         sessionExerciseId={sessionExercise.id}
         target={target}
@@ -89,7 +107,10 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
+  header: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  heading: { flex: 1, gap: spacing.xs },
   name: { fontSize: 20, fontWeight: '600', color: colors.text },
+  picture: { width: 64, height: 64, borderRadius: 10, backgroundColor: '#DCE9FA' },
   target: { gap: 2 },
   targetValue: { fontSize: 15, fontWeight: '600', color: colors.primary },
   set: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start', paddingVertical: 2 },

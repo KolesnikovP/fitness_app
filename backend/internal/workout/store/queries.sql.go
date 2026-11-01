@@ -13,16 +13,18 @@ import (
 )
 
 const addPlannedSessionExercise = `-- name: AddPlannedSessionExercise :exec
-INSERT INTO session_exercises (session_id, exercise_id, superset_id, target_sets, target_reps, target_weight,
-                               target_weight_unit, target_rest_seconds, target_note)
-VALUES ($1, $2, $3, $4,
-        $5, $6::float8, $7,
-        $8, $9)
+INSERT INTO session_exercises (session_id, exercise_id, planned_exercise_id, substitute_ids, superset_id,
+                               target_sets, target_reps, target_weight, target_weight_unit, target_rest_seconds,
+                               target_note)
+VALUES ($1, $2, $2, $3::uuid[],
+        $4, $5, $6, $7::float8,
+        $8, $9, $10)
 `
 
 type AddPlannedSessionExerciseParams struct {
 	SessionID         uuid.UUID
 	ExerciseID        uuid.UUID
+	SubstituteIds     []uuid.UUID
 	SupersetID        *uuid.UUID
 	TargetSets        *int32
 	TargetReps        *int32
@@ -32,11 +34,13 @@ type AddPlannedSessionExerciseParams struct {
 	TargetNote        *string
 }
 
-// Adds an exercise from a routine's slot, with a copy of its target.
+// Adds an exercise from a routine's slot, with a copy of its target and
+// substitutes.
 func (q *Queries) AddPlannedSessionExercise(ctx context.Context, arg AddPlannedSessionExerciseParams) error {
 	_, err := q.db.Exec(ctx, addPlannedSessionExercise,
 		arg.SessionID,
 		arg.ExerciseID,
+		arg.SubstituteIds,
 		arg.SupersetID,
 		arg.TargetSets,
 		arg.TargetReps,
@@ -178,11 +182,37 @@ func (q *Queries) GetSessionInProgress(ctx context.Context, accountID uuid.UUID)
 	return id, err
 }
 
-const listExercisesOfSessions = `-- name: ListExercisesOfSessions :many
-SELECT session_id, exercise_id
+const getSwapOptions = `-- name: GetSwapOptions :one
+SELECT planned_exercise_id, substitute_ids
 FROM session_exercises
-WHERE session_id = ANY($1::uuid[])
-ORDER BY created_at, id
+WHERE id = $1 AND session_id = $2
+`
+
+type GetSwapOptionsParams struct {
+	ID        uuid.UUID
+	SessionID uuid.UUID
+}
+
+type GetSwapOptionsRow struct {
+	PlannedExerciseID *uuid.UUID
+	SubstituteIds     []uuid.UUID
+}
+
+// What a session exercise of the session can be swapped to: its planned
+// exercise (null if it wasn't planned) and substitutes.
+func (q *Queries) GetSwapOptions(ctx context.Context, arg GetSwapOptionsParams) (GetSwapOptionsRow, error) {
+	row := q.db.QueryRow(ctx, getSwapOptions, arg.ID, arg.SessionID)
+	var i GetSwapOptionsRow
+	err := row.Scan(&i.PlannedExerciseID, &i.SubstituteIds)
+	return i, err
+}
+
+const listExercisesOfSessions = `-- name: ListExercisesOfSessions :many
+SELECT e.session_id, coalesce(s.exercise_id, e.exercise_id)::uuid AS exercise_id
+FROM session_exercises e
+LEFT JOIN session_sets s ON s.session_exercise_id = e.id
+WHERE e.session_id = ANY($1::uuid[])
+ORDER BY e.created_at, e.id, s.created_at, s.id
 `
 
 type ListExercisesOfSessionsRow struct {
@@ -190,6 +220,8 @@ type ListExercisesOfSessionsRow struct {
 	ExerciseID uuid.UUID
 }
 
+// The exercises done in each session: for each session exercise in order,
+// the exercise of each of its sets in order, or its own if it has none.
 func (q *Queries) ListExercisesOfSessions(ctx context.Context, sessionIds []uuid.UUID) ([]ListExercisesOfSessionsRow, error) {
 	rows, err := q.db.Query(ctx, listExercisesOfSessions, sessionIds)
 	if err != nil {
@@ -245,7 +277,7 @@ func (q *Queries) ListFinishedSessions(ctx context.Context, accountID uuid.UUID)
 
 const listSessionExercises = `-- name: ListSessionExercises :many
 SELECT id, exercise_id, note, superset_id, target_sets, target_reps, target_weight, target_weight_unit,
-       target_rest_seconds, target_note
+       target_rest_seconds, target_note, planned_exercise_id, substitute_ids
 FROM session_exercises
 WHERE session_id = $1
 ORDER BY created_at, id
@@ -262,6 +294,8 @@ type ListSessionExercisesRow struct {
 	TargetWeightUnit  *string
 	TargetRestSeconds *int32
 	TargetNote        *string
+	PlannedExerciseID *uuid.UUID
+	SubstituteIds     []uuid.UUID
 }
 
 func (q *Queries) ListSessionExercises(ctx context.Context, sessionID uuid.UUID) ([]ListSessionExercisesRow, error) {
@@ -284,6 +318,8 @@ func (q *Queries) ListSessionExercises(ctx context.Context, sessionID uuid.UUID)
 			&i.TargetWeightUnit,
 			&i.TargetRestSeconds,
 			&i.TargetNote,
+			&i.PlannedExerciseID,
+			&i.SubstituteIds,
 		); err != nil {
 			return nil, err
 		}
@@ -296,7 +332,7 @@ func (q *Queries) ListSessionExercises(ctx context.Context, sessionID uuid.UUID)
 }
 
 const listSessionSets = `-- name: ListSessionSets :many
-SELECT s.id, s.session_exercise_id, s.weight::float8 AS weight, s.weight_unit, s.reps, s.note,
+SELECT s.id, s.session_exercise_id, s.exercise_id, s.weight::float8 AS weight, s.weight_unit, s.reps, s.note,
        s.rpe, s.superset_id
 FROM session_sets s
 JOIN session_exercises e ON e.id = s.session_exercise_id
@@ -307,6 +343,7 @@ ORDER BY s.created_at, s.id
 type ListSessionSetsRow struct {
 	ID                uuid.UUID
 	SessionExerciseID uuid.UUID
+	ExerciseID        uuid.UUID
 	Weight            float64
 	WeightUnit        string
 	Reps              int32
@@ -327,6 +364,7 @@ func (q *Queries) ListSessionSets(ctx context.Context, sessionID uuid.UUID) ([]L
 		if err := rows.Scan(
 			&i.ID,
 			&i.SessionExerciseID,
+			&i.ExerciseID,
 			&i.Weight,
 			&i.WeightUnit,
 			&i.Reps,
@@ -402,8 +440,8 @@ func (q *Queries) LockSession(ctx context.Context, arg LockSessionParams) (*time
 }
 
 const logSet = `-- name: LogSet :execrows
-INSERT INTO session_sets (session_exercise_id, weight, weight_unit, reps, note, rpe, superset_id)
-SELECT e.id, $1::float8, $2, $3, $4,
+INSERT INTO session_sets (session_exercise_id, exercise_id, weight, weight_unit, reps, note, rpe, superset_id)
+SELECT e.id, e.exercise_id, $1::float8, $2, $3, $4,
        $5, e.superset_id
 FROM session_exercises e
 WHERE e.id = $6 AND e.session_id = $7
@@ -420,7 +458,8 @@ type LogSetParams struct {
 }
 
 // Logs a set, provided the session exercise belongs to the session. The set
-// keeps the superset its exercise is in now.
+// records the exercise being done now (a substitute, if swapped to one) and
+// keeps the superset its session exercise is in now.
 func (q *Queries) LogSet(ctx context.Context, arg LogSetParams) (int64, error) {
 	result, err := q.db.Exec(ctx, logSet,
 		arg.Weight,
@@ -474,6 +513,23 @@ func (q *Queries) StartSession(ctx context.Context, arg StartSessionParams) (uui
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
+}
+
+const swapExercise = `-- name: SwapExercise :exec
+UPDATE session_exercises
+SET exercise_id = $3
+WHERE id = $1 AND session_id = $2
+`
+
+type SwapExerciseParams struct {
+	ID         uuid.UUID
+	SessionID  uuid.UUID
+	ExerciseID uuid.UUID
+}
+
+func (q *Queries) SwapExercise(ctx context.Context, arg SwapExerciseParams) error {
+	_, err := q.db.Exec(ctx, swapExercise, arg.ID, arg.SessionID, arg.ExerciseID)
+	return err
 }
 
 const ungroupSuperset = `-- name: UngroupSuperset :execrows

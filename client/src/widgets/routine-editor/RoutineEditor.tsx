@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
+import type { ExerciseRef } from '@/entities/exercise';
 import {
   parseRoutineDraft,
   slotBlocks,
@@ -10,6 +11,7 @@ import {
   withSlotAdded,
   withSlotChanged,
   withSlotRemoved,
+  withSubstitutesAdded,
   withSuperset,
   type RoutineDraft,
   type RoutineInput,
@@ -29,6 +31,11 @@ type RoutineEditorProps = {
   /** Exercises picked there, to add at the end; then onAdded is called. */
   added: { id: string; name: string }[] | null;
   onAdded: () => void;
+  /** Opens the screen to pick Substitutes for a slot. */
+  onAddSubstitutes: (slot: SlotDraft) => void;
+  /** Substitutes picked there, to add to that slot; then onSubstitutesAdded is called. */
+  addedSubstitutes: { slotKey: string; exercises: ExerciseRef[] } | null;
+  onSubstitutesAdded: () => void;
   /** Saves the Routine. A thrown error is shown, and the draft kept. */
   onSave: (routine: RoutineInput) => Promise<void>;
 };
@@ -37,7 +44,16 @@ type RoutineEditorProps = {
  * Builds or edits a Routine: its name, and its Exercise slots in order, each
  * with a Target, optional rest and note, and Supersets of them.
  */
-export function RoutineEditor({ initial, onAddExercises, added, onAdded, onSave }: RoutineEditorProps) {
+export function RoutineEditor({
+  initial,
+  onAddExercises,
+  added,
+  onAdded,
+  onAddSubstitutes,
+  addedSubstitutes,
+  onSubstitutesAdded,
+  onSave,
+}: RoutineEditorProps) {
   const { state } = useAuth();
   const unit = state.status === 'signedIn' ? (state.me.unitPreference ?? 'kg') : 'kg';
   const [draft, setDraft] = useState(initial);
@@ -52,6 +68,14 @@ export function RoutineEditor({ initial, onAddExercises, added, onAdded, onSave 
     // Only new picks: onAdded and unit don't change what was picked.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [added]);
+
+  useEffect(() => {
+    if (!addedSubstitutes || addedSubstitutes.exercises.length === 0) return;
+    setDraft((d) => withSubstitutesAdded(d, addedSubstitutes.slotKey, addedSubstitutes.exercises));
+    onSubstitutesAdded();
+    // Only new picks, as above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addedSubstitutes]);
 
   const routine = parseRoutineDraft(draft);
   const blocks = slotBlocks(draft.slots);
@@ -77,6 +101,7 @@ export function RoutineEditor({ initial, onAddExercises, added, onAdded, onSave 
         onChange={(patch) => setDraft((d) => withSlotChanged(d, slot.key, patch))}
         onMove={(direction) => setDraft((d) => withBlockMoved(d, slot.key, direction))}
         onRemove={() => setDraft((d) => withSlotRemoved(d, slot.key))}
+        onAddSubstitutes={() => onAddSubstitutes(slot)}
         canMoveUp={blockIndex > 0}
         canMoveDown={blockIndex < blocks.length - 1}
       />

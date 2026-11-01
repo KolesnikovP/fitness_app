@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { act, fireEvent, renderRouter, screen, within } from 'expo-router/testing-library';
+import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library';
 import { Alert } from 'react-native';
 
 import { fakeApi } from './support/fake-api';
@@ -116,6 +116,122 @@ describe('routines', () => {
       ],
       [[42.5, 8]],
     ]);
+  });
+
+  it('plans substitutes for a slot, and swaps to one mid-workout without changing the routine', async () => {
+    const accountId = await openWorkoutTab();
+    await fireEvent.press(await screen.findByRole('button', { name: 'New routine' }));
+    await fireEvent.changeText(await screen.findByLabelText('Routine name'), 'Push day');
+    let bench = await addSlot('bench', 'Bench Press');
+    await fireEvent.changeText(bench.getByLabelText('Reps'), '5');
+    await fireEvent.changeText(bench.getByLabelText('Weight (kg)'), '100');
+
+    // Picked from the library, starting at exercises for the same muscles.
+    await fireEvent.press(bench.getByRole('button', { name: 'Add substitutes' }));
+    await screen.findByRole('header', { name: 'Add substitutes' });
+    const picker = within(screen.getByLabelText('Exercise picker'));
+    expect(picker.getByRole('radio', { name: 'Chest' })).toBeChecked();
+    await waitFor(() =>
+      expect(picker.getAllByRole('checkbox').map((item) => item.props.accessibilityLabel)).toEqual([
+        // Not Bench Press itself.
+        'Dumbbell Bench Press',
+        'Incline Bench Press',
+        'Push-up',
+      ]),
+    );
+    await fireEvent.press(picker.getByRole('checkbox', { name: 'Push-up' }));
+    await fireEvent.press(picker.getByRole('checkbox', { name: 'Dumbbell Bench Press' }));
+    // Anything else in the library, with the filter cleared.
+    await fireEvent.press(picker.getByRole('radio', { name: 'Chest' }));
+    expect(await picker.findByRole('checkbox', { name: 'Deadlift' })).toBeVisible();
+    await fireEvent.press(screen.getByRole('button', { name: 'Add 2 substitutes' }));
+
+    // Back on the editor, in the order picked.
+    bench = within(await screen.findByLabelText('Bench Press slot'));
+    expect(bench.getByLabelText('Substitutes').props.accessibilityValue).toEqual({ text: 'Push-up and Dumbbell Bench Press' });
+    // Dumbbell Bench Press is the better fallback: first in line.
+    await fireEvent.press(bench.getByRole('button', { name: 'Move Dumbbell Bench Press up' }));
+    expect(bench.getByLabelText('Substitutes').props.accessibilityValue).toEqual({
+      text: 'Dumbbell Bench Press and Push-up',
+    });
+    // The ones already picked aren't offered again.
+    await fireEvent.press(bench.getByRole('button', { name: 'Add substitutes' }));
+    const again = within(await screen.findByLabelText('Exercise picker'));
+    await waitFor(() =>
+      expect(again.getAllByRole('checkbox').map((item) => item.props.accessibilityLabel)).toEqual([
+        'Incline Bench Press',
+      ]),
+    );
+    await act(async () => router.back());
+    bench = within(await screen.findByLabelText('Bench Press slot'));
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Save routine' }));
+    await screen.findByRole('header', { name: 'Workout' });
+    const [saved] = fakeApi.routines(accountId);
+    const planned = structuredClone(saved.slots);
+    expect(saved.slots[0].substituteIds).toEqual([
+      fakeApi.exerciseNamed('Dumbbell Bench Press').id,
+      fakeApi.exerciseNamed('Push-up').id,
+    ]);
+
+    await fireEvent.press(within(screen.getByLabelText('Routines')).getByRole('button', { name: 'Push day' }));
+    await screen.findByRole('header', { name: 'Push day' });
+    expect(screen.getByText('Substitutes: Dumbbell Bench Press, Push-up')).toBeVisible();
+    await fireEvent.press(screen.getByRole('button', { name: 'Start workout' }));
+
+    await screen.findByRole('header', { name: 'Current workout' });
+    let card = within(screen.getByLabelText('Bench Press card'));
+    await fireEvent.press(card.getByRole('button', { name: 'Log set' }));
+    expect(await card.findByText('100 kg × 5')).toBeVisible();
+
+    // The bench is taken: Swap shows the substitutes, saying what they're for.
+    expect(card.getByText('Equipment taken?')).toBeVisible();
+    await fireEvent.press(card.getByRole('button', { name: 'Swap Bench Press' }));
+    let sheet = within(await screen.findByLabelText('Substitutes for Bench Press'));
+    expect(sheet.getByRole('header', { name: "Can't do Bench Press right now?" })).toBeVisible();
+    expect(sheet.getByText('Doing now · Barbell')).toBeVisible();
+    expect(await sheet.findByText('Substitute 1 · Dumbbell')).toBeVisible();
+    expect(sheet.getByText('Substitute 2 · Bodyweight')).toBeVisible();
+    await fireEvent.press(sheet.getByRole('button', { name: 'Swap to Dumbbell Bench Press' }));
+    card = within(await screen.findByLabelText('Dumbbell Bench Press card'));
+    expect(screen.queryByLabelText('Substitutes for Bench Press')).toBeNull();
+    expect(card.getByText('Instead of Bench Press')).toBeVisible();
+    // The set already logged keeps the exercise it was done with.
+    expect(within(card.getByRole('button', { name: 'Edit set 1' })).getByText('Bench Press')).toBeVisible();
+    // Back to the bench is a swap away, once it's free.
+    await fireEvent.press(card.getByRole('button', { name: 'Swap Dumbbell Bench Press' }));
+    sheet = within(await screen.findByLabelText('Substitutes for Bench Press'));
+    expect(sheet.getByRole('header', { name: "Can't do Bench Press right now?" })).toBeVisible();
+    expect(sheet.getByRole('button', { name: 'Swap to Bench Press' })).toBeVisible();
+    await fireEvent.press(sheet.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByLabelText('Substitutes for Bench Press')).toBeNull();
+    // The planned sets and reps still stand, but not the barbell's weight.
+    expect(card.getByText('Target 3 × 5')).toBeVisible();
+    expect(card.getByLabelText('Weight (kg)')).toHaveDisplayValue('');
+    expect(card.getByLabelText('Reps')).toHaveDisplayValue('5');
+    await fireEvent.changeText(card.getByLabelText('Weight (kg)'), '35');
+    await fireEvent.changeText(card.getByLabelText('Reps'), '10');
+    await fireEvent.press(card.getByRole('button', { name: 'Log set' }));
+    expect(await card.findByText('35 kg × 10')).toBeVisible();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Finish workout' }));
+    await screen.findByRole('header', { name: 'Workout' });
+    expect(
+      await within(screen.getByLabelText('Past workouts')).findByText('Bench Press, Dumbbell Bench Press'),
+    ).toBeVisible();
+    const [session] = fakeApi.sessions(accountId);
+    expect(session.exercises[0].sets.map((set) => fakeApi.exerciseName(set.exerciseId))).toEqual([
+      'Bench Press',
+      'Dumbbell Bench Press',
+    ]);
+
+    // The routine still plans the bench, with the same substitutes.
+    expect(fakeApi.routines(accountId)[0].slots).toEqual(planned);
+    await fireEvent.press(within(screen.getByLabelText('Routines')).getByRole('button', { name: 'Push day' }));
+    const plan = within(await screen.findByLabelText('Planned exercises'));
+    expect(plan.getByText('Bench Press')).toBeVisible();
+    expect(plan.queryByText('Dumbbell Bench Press')).toBeNull();
+    expect(plan.getByText('Substitutes: Dumbbell Bench Press, Push-up')).toBeVisible();
   });
 
   it('adds several exercises at once, in the order they were picked', async () => {

@@ -1,13 +1,18 @@
+import type { ExerciseRef } from '@/entities/exercise';
 import type { UnitPreference } from '@/entities/user';
 
 export type WeightUnit = UnitPreference;
 
 /**
- * A logged Set. weight is in weightUnit, the unit it was logged in. rpe is
- * null when left blank. supersetId is the Superset it was logged in, if any.
+ * A logged Set. exerciseId and name are the Exercise actually done, which
+ * differs from its Session exercise's once that's swapped. weight is in
+ * weightUnit, the unit it was logged in. rpe is null when left blank.
+ * supersetId is the Superset it was logged in, if any.
  */
 export type SessionSet = {
   id: string;
+  exerciseId: string;
+  name: string;
   weight: number;
   weightUnit: WeightUnit;
   reps: number;
@@ -32,8 +37,11 @@ export type SessionTarget = {
 
 /**
  * An Exercise added to a Session, with its Sets in the order they were
- * logged. Exercises of one Superset share its supersetId. target is null for
- * an exercise not started from a Routine.
+ * logged. exerciseId and name are the Exercise being done now. Exercises of
+ * one Superset share its supersetId. target is what its Routine's slot
+ * planned, and planned the slot's own Exercise, both null for an exercise
+ * not started from a Routine. It can be swapped to planned or one of its
+ * substitutes.
  */
 export type SessionExercise = {
   id: string;
@@ -42,8 +50,32 @@ export type SessionExercise = {
   note: string;
   supersetId: string | null;
   target: SessionTarget | null;
+  planned: ExerciseRef | null;
+  substitutes: ExerciseRef[];
   sets: SessionSet[];
 };
+
+/**
+ * Every Exercise a Session exercise can be done as: its planned one, then its
+ * Substitutes in order. None for an exercise not started from a Routine.
+ */
+export function swapChoices(exercise: SessionExercise): ExerciseRef[] {
+  return exercise.planned ? [exercise.planned, ...exercise.substitutes] : [];
+}
+
+/** The Exercise its Routine planned, if the Session exercise is swapped away from it; otherwise null. */
+export function swappedFrom(exercise: SessionExercise): ExerciseRef | null {
+  return exercise.planned !== null && exercise.planned.exerciseId !== exercise.exerciseId ? exercise.planned : null;
+}
+
+/**
+ * The Target to log a Session exercise against: its own, but without a
+ * weight (0) once swapped, since that was planned for another Exercise.
+ */
+export function currentTarget(exercise: SessionExercise): SessionTarget | null {
+  if (!exercise.target || !swappedFrom(exercise)) return exercise.target;
+  return { ...exercise.target, weight: 0 };
+}
 
 /** How the workout in progress is laid out: single exercises and Supersets. */
 export type SessionBlock =

@@ -1,9 +1,17 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { REST_OPTIONS, setsInput, type SlotDraft } from '@/entities/routine';
+import {
+  MAX_SUBSTITUTES,
+  REST_OPTIONS,
+  setsInput,
+  withSubstituteMoved,
+  withSubstituteRemoved,
+  type SlotDraft,
+} from '@/entities/routine';
 import { formatRest, repsInput, weightInput } from '@/entities/workout';
 import { Button, colors, Select, spacing, TextField } from '@/shared/ui';
+import { listNames } from '@/shared/utils';
 
 const REST_SELECT_OPTIONS = REST_OPTIONS.map((seconds) => ({ value: seconds, label: formatRest(seconds) }));
 
@@ -12,15 +20,26 @@ type SlotEditorProps = {
   onChange: (patch: Partial<SlotDraft>) => void;
   onMove: (direction: -1 | 1) => void;
   onRemove: () => void;
+  /** Opens the screen to pick Substitutes from the library. */
+  onAddSubstitutes: () => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
 };
 
 /**
  * One Exercise slot of a Routine being built: its Target (sets × reps at a
- * weight), an optional rest and note, and moving or removing it.
+ * weight), an optional rest and note, its Substitutes in order, and moving
+ * or removing it.
  */
-export function SlotEditor({ slot, onChange, onMove, onRemove, canMoveUp, canMoveDown }: SlotEditorProps) {
+export function SlotEditor({
+  slot,
+  onChange,
+  onMove,
+  onRemove,
+  onAddSubstitutes,
+  canMoveUp,
+  canMoveDown,
+}: SlotEditorProps) {
   const [noteOpen, setNoteOpen] = useState(slot.note !== '');
 
   return (
@@ -76,6 +95,39 @@ export function SlotEditor({ slot, onChange, onMove, onRemove, canMoveUp, canMov
       ) : (
         <Button label="Add note" variant="link" onPress={() => setNoteOpen(true)} />
       )}
+      {slot.substitutes.length > 0 ? (
+        <View
+          accessibilityLabel="Substitutes"
+          accessibilityValue={{ text: listNames(slot.substitutes.map((sub) => sub.name)) }}
+          style={styles.substitutes}
+        >
+          <Text style={styles.label}>Substitutes</Text>
+          {slot.substitutes.map((sub, i) => (
+            <View key={sub.exerciseId} style={styles.substitute}>
+              <Text style={styles.substituteName}>
+                {i + 1}. {sub.name}
+              </Text>
+              {i > 0 ? (
+                <Button
+                  label="Up"
+                  accessibilityLabel={`Move ${sub.name} up`}
+                  variant="link"
+                  onPress={() => onChange({ substitutes: withSubstituteMoved(slot, sub.exerciseId, -1) })}
+                />
+              ) : null}
+              <Button
+                label="Remove"
+                accessibilityLabel={`Remove ${sub.name} as a substitute`}
+                variant="link"
+                onPress={() => onChange({ substitutes: withSubstituteRemoved(slot, sub.exerciseId) })}
+              />
+            </View>
+          ))}
+        </View>
+      ) : null}
+      {slot.substitutes.length < MAX_SUBSTITUTES ? (
+        <Button label="Add substitutes" variant="link" onPress={onAddSubstitutes} />
+      ) : null}
       <View style={styles.actions}>
         {canMoveUp ? <Button label="Move up" variant="link" onPress={() => onMove(-1)} /> : null}
         {canMoveDown ? <Button label="Move down" variant="link" onPress={() => onMove(1)} /> : null}
@@ -101,4 +153,8 @@ const styles = StyleSheet.create({
   weight: { width: 120 },
   rest: { width: 120 },
   actions: { flexDirection: 'row', gap: spacing.md },
+  substitutes: { gap: 2 },
+  label: { fontSize: 15, fontWeight: '600', color: colors.muted },
+  substitute: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  substituteName: { flex: 1, fontSize: 17, color: colors.text },
 });

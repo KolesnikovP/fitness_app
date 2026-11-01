@@ -9,9 +9,11 @@ type ButtonProps = {
   variant?: 'primary' | 'secondary' | 'link';
   loading?: boolean;
   disabled?: boolean;
+  /** What a screen reader says, when the label alone doesn't say what it acts on. Defaults to label. */
+  accessibilityLabel?: string;
 };
 
-export function Button({ label, onPress, variant = 'primary', loading, disabled }: ButtonProps) {
+export function Button({ label, onPress, variant = 'primary', loading, disabled, accessibilityLabel }: ButtonProps) {
   const isPrimary = variant === 'primary';
   const isLink = variant === 'link';
   const inactive = disabled || loading;
@@ -19,7 +21,7 @@ export function Button({ label, onPress, variant = 'primary', loading, disabled 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled: inactive, busy: loading }}
       disabled={inactive}
       onPress={onPress}

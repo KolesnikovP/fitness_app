@@ -1079,6 +1079,152 @@ func TestSaveSessionAsRoutine(t *testing.T) {
 	})
 }
 
+func TestSwapExercise(t *testing.T) {
+	srv := testutil.NewServer(t)
+
+	// startWithSubstitutes starts a session from a routine planning Bench
+	// Press, with Dumbbell Bench Press and Push-up as its substitutes, and
+	// returns the routine's id, the session's id and the Bench Press session
+	// exercise's id.
+	startWithSubstitutes := func(t *testing.T, token string) (string, string, string) {
+		t.Helper()
+		routine := createRoutine(t, srv, token, map[string]any{
+			"name": "Push day",
+			"slots": []map[string]any{{
+				"exerciseId": exerciseID(t, srv, token, "Bench Press"), "targetSets": 3, "targetReps": 5,
+				"targetWeight": 100, "weightUnit": "kg",
+				"substituteIds": []string{
+					exerciseID(t, srv, token, "Dumbbell Bench Press"), exerciseID(t, srv, token, "Push-up"),
+				},
+			}},
+		})
+		res := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions", token, map[string]any{"routineId": routine})
+		if res.Status != http.StatusCreated {
+			t.Fatalf("start session: status %d, body %v", res.Status, res.Body)
+		}
+		return routine, res.Body["id"].(string), sessionExercises(t, res)[0]["id"].(string)
+	}
+
+	swap := func(t *testing.T, token, sessionID, sessionExerciseID, exerciseID string) testutil.Response {
+		t.Helper()
+		return testutil.Do(t, srv, http.MethodPatch, "/workouts/sessions/"+sessionID+"/exercises/"+sessionExerciseID,
+			token, map[string]any{"exerciseId": exerciseID})
+	}
+
+	t.Run("a session from a routine carries each slot's substitutes", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		startWithSubstitutes(t, token)
+
+		bench := currentExercises(t, srv, token)[0]
+
+		planned, _ := bench["planned"].(map[string]any)
+		if planned["name"] != "Bench Press" || planned["exerciseId"] != bench["exerciseId"] {
+			t.Errorf("planned = %v, want Bench Press", bench["planned"])
+		}
+		subs := objects(t, bench, "substitutes")
+		if len(subs) != 2 || subs[0]["name"] != "Dumbbell Bench Press" || subs[1]["name"] != "Push-up" {
+			t.Errorf("substitutes = %v, want Dumbbell Bench Press, then Push-up", subs)
+		}
+	})
+
+	t.Run("swaps to a substitute, and later sets record it", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		_, id, bench := startWithSubstitutes(t, token)
+		logSet(t, srv, token, id, bench, 100, 5)
+		dumbbell := exerciseID(t, srv, token, "Dumbbell Bench Press")
+
+		res := swap(t, token, id, bench, dumbbell)
+
+		if res.Status != http.StatusOK {
+			t.Fatalf("status = %d, want 200; body %v", res.Status, res.Body)
+		}
+		got := sessionExercises(t, res)[0]
+		if got["exerciseId"] != dumbbell || got["name"] != "Dumbbell Bench Press" {
+			t.Errorf("exercise = %v, want swapped to Dumbbell Bench Press", got)
+		}
+		if planned, _ := got["planned"].(map[string]any); planned["name"] != "Bench Press" {
+			t.Errorf("planned = %v, want still Bench Press", got["planned"])
+		}
+		if target, _ := got["target"].(map[string]any); target["sets"] != 3.0 {
+			t.Errorf("target = %v, want the slot's target kept", got["target"])
+		}
+
+		logSet(t, srv, token, id, bench, 30, 10)
+		sets := objects(t, currentExercises(t, srv, token)[0], "sets")
+		if len(sets) != 2 || sets[0]["name"] != "Bench Press" || sets[1]["name"] != "Dumbbell Bench Press" ||
+			sets[1]["exerciseId"] != dumbbell {
+			t.Errorf("sets = %v, want one of Bench Press, then one of Dumbbell Bench Press", sets)
+		}
+	})
+
+	t.Run("swaps back to the planned exercise", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		_, id, bench := startWithSubstitutes(t, token)
+		swap(t, token, id, bench, exerciseID(t, srv, token, "Push-up"))
+
+		res := swap(t, token, id, bench, exerciseID(t, srv, token, "Bench Press"))
+
+		if res.Status != http.StatusOK || sessionExercises(t, res)[0]["name"] != "Bench Press" {
+			t.Fatalf("got %d %v, want back on Bench Press", res.Status, res.Body)
+		}
+	})
+
+	t.Run("refuses an exercise that isn't one of its substitutes", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		_, id, bench := startWithSubstitutes(t, token)
+		deadlift := exerciseID(t, srv, token, "Deadlift")
+		freeform := addExercise(t, srv, token, id, "Back Squat")
+
+		for name, res := range map[string]testutil.Response{
+			"not a substitute":  swap(t, token, id, bench, deadlift),
+			"not an id":         swap(t, token, id, bench, "nope"),
+			"an added exercise": swap(t, token, id, freeform, deadlift),
+		} {
+			if res.Status != http.StatusBadRequest || res.ErrorCode() != "invalid_swap" {
+				t.Errorf("%s: got %d %q, want 400 invalid_swap", name, res.Status, res.ErrorCode())
+			}
+		}
+	})
+
+	t.Run("leaves the routine as it was, and history shows what was done", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		routine, id, bench := startWithSubstitutes(t, token)
+		before := testutil.Do(t, srv, http.MethodGet, "/routines/"+routine, token, nil)
+		logSet(t, srv, token, id, bench, 100, 5)
+		swap(t, token, id, bench, exerciseID(t, srv, token, "Push-up"))
+		logSet(t, srv, token, id, bench, 0, 20)
+		finishSession(t, srv, token, id)
+
+		after := testutil.Do(t, srv, http.MethodGet, "/routines/"+routine, token, nil)
+
+		if fmt.Sprint(after.Body["slots"]) != fmt.Sprint(before.Body["slots"]) {
+			t.Errorf("slots after the session = %v, want unchanged from %v", after.Body["slots"], before.Body["slots"])
+		}
+		slot := objects(t, after.Body, "slots")[0]
+		if slot["name"] != "Bench Press" || len(objects(t, slot, "substitutes")) != 2 {
+			t.Errorf("slot = %v, want Bench Press with its two substitutes", slot)
+		}
+		history := testutil.Do(t, srv, http.MethodGet, "/workouts/sessions", token, nil)
+		names := objects(t, history.Body, "sessions")[0]["exerciseNames"]
+		if fmt.Sprint(names) != "[Bench Press Push-up]" {
+			t.Errorf("exerciseNames = %v, want [Bench Press Push-up]", names)
+		}
+	})
+
+	t.Run("refuses a finished session", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		_, id, bench := startWithSubstitutes(t, token)
+		logSet(t, srv, token, id, bench, 100, 5)
+		finishSession(t, srv, token, id)
+
+		res := swap(t, token, id, bench, exerciseID(t, srv, token, "Push-up"))
+
+		if res.Status != http.StatusConflict || res.ErrorCode() != "session_finished" {
+			t.Fatalf("got %d %q, want 409 session_finished", res.Status, res.ErrorCode())
+		}
+	})
+}
+
 // createRoutine creates a routine from body and returns its id.
 func createRoutine(t *testing.T, srv *httptest.Server, token string, body map[string]any) string {
 	t.Helper()

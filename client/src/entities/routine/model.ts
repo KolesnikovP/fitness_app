@@ -1,10 +1,15 @@
+import type { ExerciseRef } from '@/entities/exercise';
 import { parseReps, parseWeight, type WeightUnit } from '@/entities/workout';
+
+/** The most Substitutes a slot can plan. */
+export const MAX_SUBSTITUTES = 10;
 
 /**
  * One Exercise slot of a Routine: the Exercise and its Target. targetWeight
  * is in weightUnit, and 0 until the User knows what to start with (or for a
  * bodyweight exercise). restSeconds is null when no rest is planned. Slots
- * sharing a supersetGroup are a planned Superset.
+ * sharing a supersetGroup are a planned Superset. substitutes are the
+ * Exercises, in order, the User can swap this one for in a workout.
  */
 export type RoutineSlot = {
   id: string;
@@ -17,6 +22,7 @@ export type RoutineSlot = {
   restSeconds: number | null;
   note: string;
   supersetGroup: number | null;
+  substitutes: ExerciseRef[];
 };
 
 /** A saved Routine, its slots in order. */
@@ -26,7 +32,10 @@ export type Routine = { id: string; name: string; updatedAt: string; slots: Rout
 export type RoutineSummary = { id: string; name: string; updatedAt: string; exerciseNames: string[] };
 
 /** A Routine to save, as the API takes it. */
-export type RoutineInput = { name: string; slots: Omit<RoutineSlot, 'id' | 'name'>[] };
+export type RoutineInput = {
+  name: string;
+  slots: (Omit<RoutineSlot, 'id' | 'name' | 'substitutes'> & { substituteIds: string[] })[];
+};
 
 /** An Exercise slot as the User is editing it. key tells slots apart while editing. */
 export type SlotDraft = {
@@ -40,6 +49,7 @@ export type SlotDraft = {
   restSeconds: number | null;
   note: string;
   supersetGroup: number | null;
+  substitutes: ExerciseRef[];
 };
 
 /** A Routine as the User is building or editing it. */
@@ -108,6 +118,7 @@ export function routineDraftOf(routine: Routine): RoutineDraft {
       restSeconds: slot.restSeconds,
       note: slot.note,
       supersetGroup: slot.supersetGroup,
+      substitutes: slot.substitutes,
     }),
   );
   // Each Superset's slots together, as they're shown.
@@ -147,6 +158,7 @@ export function parseRoutineDraft(draft: RoutineDraft): RoutineInput | null {
       restSeconds: slot.restSeconds,
       note: slot.note.trim(),
       supersetGroup: slot.supersetGroup,
+      substituteIds: slot.substitutes.map((sub) => sub.exerciseId),
     });
   }
   return { name, slots };
@@ -169,6 +181,7 @@ export function withSlotAdded(
     restSeconds: null,
     note: '',
     supersetGroup: null,
+    substitutes: [],
   };
   return { ...draft, slots: [...draft.slots, slot] };
 }
@@ -182,9 +195,10 @@ export function needsStartingWeight(slot: RoutineSlot): boolean {
 export function withStartingWeights(routine: Routine, startingWeights: Record<string, number>): RoutineInput {
   return {
     name: routine.name,
-    slots: routine.slots.map(({ id, name: _name, ...slot }) => ({
+    slots: routine.slots.map(({ id, name: _name, substitutes, ...slot }) => ({
       ...slot,
       targetWeight: startingWeights[id] ?? slot.targetWeight,
+      substituteIds: substitutes.map((sub) => sub.exerciseId),
     })),
   };
 }
@@ -233,4 +247,45 @@ export function withoutSuperset(draft: RoutineDraft, group: number): RoutineDraf
     ...draft,
     slots: draft.slots.map((slot) => (slot.supersetGroup === group ? { ...slot, supersetGroup: null } : slot)),
   };
+}
+
+/** Whether exerciseId can be added as a Substitute for slot: not its own, nor one already, nor past the most. */
+function canAddSubstitute(slot: SlotDraft, exerciseId: string): boolean {
+  return (
+    exerciseId !== slot.exerciseId &&
+    !slot.substitutes.some((sub) => sub.exerciseId === exerciseId) &&
+    slot.substitutes.length < MAX_SUBSTITUTES
+  );
+}
+
+/** The slot's Substitutes with exercise added last, unless it can't be added. */
+function withSubstituteAdded(slot: SlotDraft, exercise: ExerciseRef): ExerciseRef[] {
+  return canAddSubstitute(slot, exercise.exerciseId) ? [...slot.substitutes, exercise] : slot.substitutes;
+}
+
+/** The draft with exercises added, in order, as Substitutes of the slot with key; any that can't be are skipped. */
+export function withSubstitutesAdded(draft: RoutineDraft, key: string, exercises: ExerciseRef[]): RoutineDraft {
+  return {
+    ...draft,
+    slots: draft.slots.map((slot) =>
+      slot.key === key
+        ? exercises.reduce<SlotDraft>((next, e) => ({ ...next, substitutes: withSubstituteAdded(next, e) }), slot)
+        : slot,
+    ),
+  };
+}
+
+/** The slot's Substitutes without exerciseId. */
+export function withSubstituteRemoved(slot: SlotDraft, exerciseId: string): ExerciseRef[] {
+  return slot.substitutes.filter((sub) => sub.exerciseId !== exerciseId);
+}
+
+/** The slot's Substitutes with exerciseId moved one place up (-1) or down (1). */
+export function withSubstituteMoved(slot: SlotDraft, exerciseId: string, direction: -1 | 1): ExerciseRef[] {
+  const subs = [...slot.substitutes];
+  const from = subs.findIndex((sub) => sub.exerciseId === exerciseId);
+  const to = from + direction;
+  if (from === -1 || to < 0 || to >= subs.length) return slot.substitutes;
+  [subs[from], subs[to]] = [subs[to], subs[from]];
+  return subs;
 }

@@ -1,6 +1,7 @@
 // Workout entity: Session types, formatting and API bindings
 export {
   emptySetDraft,
+  currentTarget,
   formatClockTime,
   formatDuration,
   formatSessionDate,
@@ -17,6 +18,8 @@ export {
   setDraftFromTarget,
   setDraftOf,
   supersetProgress,
+  swapChoices,
+  swappedFrom,
   type Session,
   type SessionBlock,
   type SessionExercise,
@@ -42,6 +45,7 @@ export {
   saveSessionAsRoutine,
   setExerciseNote,
   startSession,
+  swapSessionExercise,
   ungroupSuperset,
   type NewSet,
 } from './api';
