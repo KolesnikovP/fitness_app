@@ -15,6 +15,7 @@ export function TextField({ label, dense, ...inputProps }: TextFieldProps) {
       <TextInput
         accessibilityLabel={label}
         placeholderTextColor={colors.muted}
+        keyboardAppearance={colors.dark ? 'dark' : 'light'}
         style={[styles.input, dense && styles.dense]}
         textAlign={dense ? 'center' : undefined}
         {...inputProps}

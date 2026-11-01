@@ -1,6 +1,7 @@
 import { Image, StyleSheet } from 'react-native';
 
 import { apiUrl } from '@/shared/api';
+import { colors } from '@/shared/ui';
 
 type ExerciseMediaProps = {
   /** An API path, such as an exercise's imageUrl. */
@@ -24,5 +25,5 @@ export function ExerciseMedia({ path, token, accessibilityLabel }: ExerciseMedia
 }
 
 const styles = StyleSheet.create({
-  media: { width: '100%', aspectRatio: 1, borderRadius: 12, backgroundColor: '#F2F2F2' },
+  media: { width: '100%', aspectRatio: 1, borderRadius: 12, backgroundColor: colors.placeholder },
 });

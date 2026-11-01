@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
   heading: { flex: 1, gap: spacing.xs },
   name: { fontSize: 20, fontWeight: '600', color: colors.text },
-  picture: { width: 64, height: 64, borderRadius: 10, backgroundColor: '#DCE9FA' },
+  picture: { width: 64, height: 64, borderRadius: 10, backgroundColor: colors.placeholder },
   target: { gap: 2 },
   targetValue: { fontSize: 15, fontWeight: '600', color: colors.primary },
   setNote: { fontSize: 15, color: colors.muted },

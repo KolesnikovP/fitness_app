@@ -1,8 +1,11 @@
 import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
 import { AuthProvider, useAuth } from '@/entities/auth';
+import { colors } from '@/shared/ui';
+import { PaletteBadge } from '@/shared/ui/PaletteBadge';
 
 // Keep the splash screen up until the stored login has been checked, so a
 // signed-in user never sees the login screen flash.
@@ -11,7 +14,9 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   return (
     <AuthProvider>
+      <StatusBar style={colors.dark ? 'light' : 'dark'} />
       <RootNavigator />
+      <PaletteBadge />
     </AuthProvider>
   );
 }
@@ -29,7 +34,7 @@ function RootNavigator() {
   // Each group is only reachable in its state; navigating anywhere else
   // redirects to the first screen that is.
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Protected guard={state.status === 'loading' || state.status === 'signedOut'}>
         <Stack.Screen name="(auth)" />
       </Stack.Protected>

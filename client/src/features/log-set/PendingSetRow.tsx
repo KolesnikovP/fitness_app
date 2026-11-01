@@ -122,6 +122,6 @@ const styles = StyleSheet.create({
   // An unchecked box; a logged Set's row shows it ticked.
   box: { width: 30, height: 30, borderRadius: 8, borderWidth: 2, borderColor: colors.primary },
   dimmed: { borderColor: colors.border },
-  pressed: { backgroundColor: '#EAF3FF' },
+  pressed: { backgroundColor: colors.primarySubtle },
   error: { color: colors.danger, fontSize: 15, marginTop: spacing.xs },
 });

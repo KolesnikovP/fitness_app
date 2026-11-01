@@ -66,7 +66,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     padding: spacing.sm,
     borderRadius: 10,
-    backgroundColor: '#F2F7FF',
+    backgroundColor: colors.primarySubtle,
   },
   title: { fontSize: 15, fontWeight: '600', color: colors.text },
   row: { flexDirection: 'row', gap: spacing.sm },

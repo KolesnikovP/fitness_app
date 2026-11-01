@@ -3,7 +3,7 @@ import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, type Image
 
 import { Button, colors, spacing } from '@/shared/ui';
 
-const CARD_BACKGROUND = '#0B2540';
+const CARD_BACKGROUND = colors.feature;
 
 type FilterCardButtonProps<T extends string> = {
   label: string;
@@ -115,9 +115,9 @@ const styles = StyleSheet.create({
   triggerActive: { backgroundColor: CARD_BACKGROUND, borderColor: CARD_BACKGROUND },
   triggerText: { flex: 1 },
   triggerLabel: { fontSize: 13, color: colors.muted },
-  triggerLabelActive: { color: '#B8C4D6' },
+  triggerLabelActive: { color: colors.featureMuted },
   triggerValue: { fontSize: 17, fontWeight: '600', color: colors.text },
-  triggerValueActive: { color: '#FFFFFF' },
+  triggerValueActive: { color: colors.featureText },
   chevron: { fontSize: 15, color: colors.muted },
   backdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.3)' },
   sheet: {
@@ -144,6 +144,6 @@ const styles = StyleSheet.create({
   cardSelected: { borderColor: colors.primary },
   artCropped: { position: 'absolute', right: 0, top: 0, width: '62%', height: '100%' },
   artWhole: { position: 'absolute', right: 8, top: '12%', width: '55%', height: '76%' },
-  cardText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700', maxWidth: '45%' },
+  cardText: { color: colors.featureText, fontSize: 18, fontWeight: '700', maxWidth: '45%' },
   check: { position: 'absolute', top: 8, left: 12, color: colors.primary, fontSize: 14, fontWeight: '800' },
 });

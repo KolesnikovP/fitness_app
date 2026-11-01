@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: '#EAF3FF',
+    backgroundColor: colors.primarySubtle,
   },
   buttonText: { fontSize: 15, fontWeight: '600', color: colors.primary },
   pressed: { opacity: 0.5 },

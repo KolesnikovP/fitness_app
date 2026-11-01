@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  optionActive: { borderColor: colors.primary, backgroundColor: '#EEF5FF' },
+  optionActive: { borderColor: colors.primary, backgroundColor: colors.primarySubtle },
   optionTitle: { fontSize: 19, fontWeight: '600', color: colors.text },
   optionDetail: { fontSize: 17, color: colors.muted },
   error: { color: colors.danger, fontSize: 15 },
