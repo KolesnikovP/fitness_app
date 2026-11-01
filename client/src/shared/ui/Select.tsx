@@ -102,7 +102,7 @@ const useStyles = makeStyles((colors) => ({
     gap: spacing.xs,
     borderWidth: 1,
     borderColor: colors.fieldBorder,
-    backgroundColor: colors.field,
+    backgroundColor: colors.background,
     borderRadius: 10,
     paddingHorizontal: spacing.sm,
   },

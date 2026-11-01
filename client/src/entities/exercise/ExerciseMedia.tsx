@@ -26,5 +26,5 @@ export function ExerciseMedia({ path, token, accessibilityLabel }: ExerciseMedia
 }
 
 const useStyles = makeStyles((colors) => ({
-  media: { width: '100%', aspectRatio: 1, borderRadius: 12, backgroundColor: colors.placeholder },
+  media: { width: '100%', aspectRatio: 1, borderRadius: 12, backgroundColor: colors.card },
 }));

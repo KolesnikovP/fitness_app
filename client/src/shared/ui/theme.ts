@@ -10,10 +10,12 @@ export type Colors = {
   text: string;
   muted: string;
   border: string;
-  /** A panel raised off the background, such as a set being edited. */
-  surface: string;
-  /** Inside a text field or picker, and its outline (also outlines secondary buttons). */
-  field: string;
+  /**
+   * The app has two tones: background, and card a step off it (lighter in the dark, darker in the
+   * light). Anything set into a card, such as an input or a picture, takes the background tone.
+   */
+  card: string;
+  /** Outlines inputs, pickers, secondary buttons and a set being edited. */
   fieldBorder: string;
   /** Text-only actions such as "Add set note". */
   link: string;
@@ -29,8 +31,6 @@ export type Colors = {
   successSubtle: string;
   /** Text on a success fill. */
   successText: string;
-  /** Behind exercise pictures that haven't loaded or don't exist. */
-  placeholder: string;
   /** The filter cards: the app's one bold surface. */
   feature: string;
   featureText: string;
@@ -47,8 +47,7 @@ export const lightColors: Colors = {
   text: CHARCOAL,
   muted: '#6B6862',
   border: '#DEDAD3',
-  surface: '#F1EEE8',
-  field: '#FFFFFF',
+  card: '#F2EFE9',
   fieldBorder: '#CBC5BB',
   link: '#8F6127', // gold darkened to read as text on light (6.7:1); #DFA05D is ~2:1
   primary: CHARCOAL,
@@ -58,7 +57,6 @@ export const lightColors: Colors = {
   success: SAGE,
   successSubtle: '#E5ECE2',
   successText: '#FFFFFF',
-  placeholder: '#EEEAE3',
   feature: BRICK,
   featureText: '#FFF6EC',
   featureMuted: '#F3D6CF',
@@ -72,8 +70,7 @@ export const darkColors: Colors = {
   text: '#F2ECE3',
   muted: '#9C958B',
   border: '#3A3734',
-  surface: '#272523',
-  field: CHARCOAL,
+  card: '#262422',
   fieldBorder: '#4D4944',
   link: GOLD,
   primary: GOLD,
@@ -83,7 +80,6 @@ export const darkColors: Colors = {
   success: SAGE,
   successSubtle: '#263027',
   successText: '#F2ECE3',
-  placeholder: '#2A2826',
   feature: BRICK,
   featureText: '#FFF6EC',
   featureMuted: '#F0CFC8',

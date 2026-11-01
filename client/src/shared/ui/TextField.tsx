@@ -34,7 +34,7 @@ const useStyles = makeStyles((colors) => ({
     minHeight: 48,
     borderWidth: 1,
     borderColor: colors.fieldBorder,
-    backgroundColor: colors.field,
+    backgroundColor: colors.background,
     borderRadius: 10,
     paddingHorizontal: spacing.md,
     fontSize: 17,

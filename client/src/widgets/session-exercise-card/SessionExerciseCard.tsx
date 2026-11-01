@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { currentTarget, formatTarget, type Session, type SessionExercise } from '@/entities/workout';
 import { ExerciseNoteField } from '@/features/exercise-note';
@@ -57,13 +57,12 @@ const useStyles = makeStyles((colors) => ({
     gap: spacing.sm,
     padding: spacing.md,
     borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    backgroundColor: colors.card,
   },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
   heading: { flex: 1, gap: spacing.xs },
   name: { fontSize: 20, fontWeight: '600', color: colors.text },
-  picture: { width: 64, height: 64, borderRadius: 10, backgroundColor: colors.placeholder },
+  picture: { width: 64, height: 64, borderRadius: 10, backgroundColor: colors.background },
   target: { gap: 2 },
   targetValue: { fontSize: 15, fontWeight: '600', color: colors.primary },
   setNote: { fontSize: 15, color: colors.muted },
