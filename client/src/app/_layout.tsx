@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 
 import { AuthProvider, useAuth } from '@/entities/auth';
 import { ThemeProvider, useTheme, useThemedStackOptions } from '@/shared/ui';
+import { NoiseBadge, NoiseProvider } from '@/shared/ui/NoisePrototype';
 
 // Keep the splash screen up until the stored login has been checked, so a
 // signed-in user never sees the login screen flash.
@@ -13,9 +14,12 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <RootNavigator />
-      </AuthProvider>
+      <NoiseProvider>
+        <AuthProvider>
+          <RootNavigator />
+          <NoiseBadge />
+        </AuthProvider>
+      </NoiseProvider>
     </ThemeProvider>
   );
 }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 
 import { Button, makeStyles, spacing } from '@/shared/ui';
+import { Noise } from '@/shared/ui/NoisePrototype';
 
 type FilterCardButtonProps<T extends string> = {
   label: string;
@@ -77,6 +78,7 @@ export function FilterCardButton<T extends string>({
                     onPress={() => pick(checked ? null : option.value)}
                     style={[styles.card, checked && styles.cardSelected]}
                   >
+                    <Noise />
                     {image ? (
                       <Image
                         source={image}

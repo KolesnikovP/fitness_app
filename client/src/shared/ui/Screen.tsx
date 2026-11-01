@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-na
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { spacing } from './theme';
+import { Noise } from './NoisePrototype';
 import { makeStyles } from './ThemeProvider';
 
 type ScreenProps = {
@@ -18,6 +19,7 @@ export function Screen({ title, children, centered, footer }: ScreenProps) {
   const styles = useStyles();
   return (
     <SafeAreaView style={styles.safeArea}>
+      <Noise />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           contentContainerStyle={[styles.content, centered && styles.centered]}
