@@ -195,7 +195,7 @@ export function RoutineScreen() {
         variant="secondary"
         onPress={() => router.push({ pathname: '/workout/routines/[id]/edit', params: { id: routine.id } })}
       />
-      <Button label="Delete routine" variant="secondary" onPress={confirmDelete} />
+      <Button label="Delete routine" variant="secondary" tone="danger" onPress={confirmDelete} />
     </Screen>
   );
 }

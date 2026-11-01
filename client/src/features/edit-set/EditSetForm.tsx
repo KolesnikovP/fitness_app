@@ -57,7 +57,7 @@ export function EditSetForm({ sessionId, set, number, onSaved, onDelete, onCance
           <Button label="Save" onPress={save} loading={saving} disabled={!corrected} />
         </View>
       </View>
-      <Button label="Delete set" variant="link" onPress={onDelete} />
+      <Button label="Delete set" variant="link" tone="danger" onPress={onDelete} />
     </View>
   );
 }
@@ -67,7 +67,7 @@ const useStyles = makeStyles((colors) => ({
     gap: spacing.sm,
     padding: spacing.sm,
     borderRadius: 10,
-    backgroundColor: colors.primarySubtle,
+    backgroundColor: colors.surface,
   },
   title: { fontSize: 15, fontWeight: '600', color: colors.text },
   row: { flexDirection: 'row', gap: spacing.sm },

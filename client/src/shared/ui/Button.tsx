@@ -8,18 +8,27 @@ type ButtonProps = {
   onPress: () => void;
   /** link: a small text-only button, for secondary actions like revealing a field. */
   variant?: 'primary' | 'secondary' | 'link';
+  /** danger: for actions that delete or discard; colours the label. */
+  tone?: 'danger';
   loading?: boolean;
   disabled?: boolean;
   /** What a screen reader says, when the label alone doesn't say what it acts on. Defaults to label. */
   accessibilityLabel?: string;
 };
 
-export function Button({ label, onPress, variant = 'primary', loading, disabled, accessibilityLabel }: ButtonProps) {
+export function Button({ label, onPress, variant = 'primary', tone, loading, disabled, accessibilityLabel }: ButtonProps) {
   const { colors } = useTheme();
   const styles = useStyles();
   const isPrimary = variant === 'primary';
   const isLink = variant === 'link';
   const inactive = disabled || loading;
+  const labelColor = isPrimary
+    ? colors.primaryText
+    : tone === 'danger'
+      ? colors.danger
+      : isLink
+        ? colors.link
+        : colors.text;
 
   return (
     <Pressable
@@ -30,15 +39,15 @@ export function Button({ label, onPress, variant = 'primary', loading, disabled,
       onPress={onPress}
       style={({ pressed }) => [
         isLink ? styles.link : styles.base,
-        isPrimary ? styles.primary : styles.secondary,
+        isPrimary ? styles.primary : isLink ? null : styles.secondary,
         (pressed || inactive) && styles.dimmed,
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={isPrimary ? colors.primaryText : colors.primary} />
+        <ActivityIndicator color={labelColor} />
       ) : (
         <Text
-          style={[styles.label, isLink && styles.linkLabel, { color: isPrimary ? colors.primaryText : colors.primary }]}
+          style={[styles.label, isLink && styles.linkLabel, { color: labelColor }]}
         >
           {label}
         </Text>
@@ -56,9 +65,9 @@ const useStyles = makeStyles((colors) => ({
     paddingHorizontal: spacing.md,
   },
   primary: { backgroundColor: colors.primary },
-  secondary: { backgroundColor: 'transparent' },
+  secondary: { borderWidth: 1, borderColor: colors.fieldBorder },
   link: { minHeight: 32, alignSelf: 'flex-start', justifyContent: 'center' },
   dimmed: { opacity: 0.6 },
   label: { fontSize: 17, fontWeight: '600' },
-  linkLabel: { fontSize: 15, fontWeight: '500' },
+  linkLabel: { fontSize: 15, fontWeight: '600' },
 }));

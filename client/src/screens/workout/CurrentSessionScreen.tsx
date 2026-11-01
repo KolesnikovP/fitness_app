@@ -165,7 +165,7 @@ export function CurrentSessionScreen() {
       ) : null}
       <Button label="Finish workout" onPress={finish} loading={finishing} disabled={!canFinish} />
       {canFinish ? null : <Text style={styles.muted}>Log a set to finish the workout.</Text>}
-      <Button label="Discard workout" variant="secondary" onPress={confirmDiscard} />
+      <Button label="Discard workout" variant="secondary" tone="danger" onPress={confirmDiscard} />
     </Screen>
   );
 }

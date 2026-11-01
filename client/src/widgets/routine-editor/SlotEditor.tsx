@@ -132,7 +132,7 @@ export function SlotEditor({
       <View style={styles.actions}>
         {canMoveUp ? <Button label="Move up" variant="link" onPress={() => onMove(-1)} /> : null}
         {canMoveDown ? <Button label="Move down" variant="link" onPress={() => onMove(1)} /> : null}
-        <Button label="Remove" variant="link" onPress={onRemove} />
+        <Button label="Remove" variant="link" tone="danger" onPress={onRemove} />
       </View>
     </View>
   );

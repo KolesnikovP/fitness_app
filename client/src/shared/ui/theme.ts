@@ -10,6 +10,13 @@ export type Colors = {
   text: string;
   muted: string;
   border: string;
+  /** A panel raised off the background, such as a set being edited. */
+  surface: string;
+  /** Inside a text field or picker, and its outline (also outlines secondary buttons). */
+  field: string;
+  fieldBorder: string;
+  /** Text-only actions such as "Add set note". */
+  link: string;
   /** Fills (buttons, active states) and accent text such as links. */
   primary: string;
   /** Text and icons sitting on a primary fill. */
@@ -40,6 +47,10 @@ export const lightColors: Colors = {
   text: CHARCOAL,
   muted: '#6B6862',
   border: '#DEDAD3',
+  surface: '#F1EEE8',
+  field: '#FFFFFF',
+  fieldBorder: '#CBC5BB',
+  link: '#8F6127', // gold darkened to read as text on light (6.7:1); #DFA05D is ~2:1
   primary: CHARCOAL,
   primaryText: '#FBFAF7',
   primarySubtle: '#F6E7D3',
@@ -61,6 +72,10 @@ export const darkColors: Colors = {
   text: '#F2ECE3',
   muted: '#9C958B',
   border: '#3A3734',
+  surface: '#272523',
+  field: CHARCOAL,
+  fieldBorder: '#4D4944',
+  link: GOLD,
   primary: GOLD,
   primaryText: CHARCOAL,
   primarySubtle: '#3A2E21',

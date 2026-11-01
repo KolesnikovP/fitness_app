@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { Button } from './Button';
 import { spacing } from './theme';
@@ -100,8 +100,9 @@ const useStyles = makeStyles((colors) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    borderWidth: 1,
+    borderColor: colors.fieldBorder,
+    backgroundColor: colors.field,
     borderRadius: 10,
     paddingHorizontal: spacing.sm,
   },

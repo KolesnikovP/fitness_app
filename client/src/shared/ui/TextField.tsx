@@ -1,4 +1,4 @@
-import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
+import { Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { spacing } from './theme';
 import { makeStyles, useTheme } from './ThemeProvider';
@@ -32,8 +32,9 @@ const useStyles = makeStyles((colors) => ({
   label: { fontSize: 15, fontWeight: '500', color: colors.text },
   input: {
     minHeight: 48,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    borderWidth: 1,
+    borderColor: colors.fieldBorder,
+    backgroundColor: colors.field,
     borderRadius: 10,
     paddingHorizontal: spacing.md,
     fontSize: 17,
