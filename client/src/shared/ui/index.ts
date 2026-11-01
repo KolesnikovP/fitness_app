@@ -5,3 +5,4 @@ export { Screen } from './Screen';
 export { Select, type SelectOption } from './Select';
 export { TextField } from './TextField';
 export { colors, spacing } from './theme';
+export { PrototypeSwitcher } from './PrototypeSwitcher'; // PROTOTYPE

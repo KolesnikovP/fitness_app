@@ -1,6 +1,6 @@
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import {
@@ -16,8 +16,9 @@ import {
 import { SetDeletedBar, usePendingSetDeletion } from '@/features/delete-set';
 import { RestTimer } from '@/features/rest-timer';
 import { CreateSupersetForm } from '@/features/superset';
+import { SWAP_VARIANTS } from '@/features/swap-exercise';
 import { errorMessage } from '@/shared/api';
-import { Button, colors, Screen } from '@/shared/ui';
+import { Button, colors, PrototypeSwitcher, Screen } from '@/shared/ui';
 import { SessionExerciseCard, SupersetBlock } from '@/widgets/session-exercise-card';
 
 /**
@@ -31,6 +32,8 @@ export function CurrentSessionScreen() {
   const [error, setError] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [groupingSuperset, setGroupingSuperset] = useState(false);
+  // PROTOTYPE: swap UI variants, switched by ?variant=.
+  const { variant = 'A' } = useLocalSearchParams<{ variant?: string }>();
   const deletion = usePendingSetDeletion(token, session?.id ?? null, setSession, setError);
 
   // Reload on focus, so an exercise added on the picker screen shows up.
@@ -113,63 +116,67 @@ export function CurrentSessionScreen() {
   const plannedRests = shown.exercises.flatMap((e) => (e.target?.restSeconds ? [e.target.restSeconds] : []));
 
   return (
-    <Screen
-      title="Current workout"
-      footer={deletion.pendingSetId ? <SetDeletedBar onUndo={deletion.undo} /> : null}
-    >
-      <Text style={styles.muted}>Started at {formatClockTime(session.startedAt)}</Text>
-      {sessionBlocks(shown.exercises).map((block) =>
-        block.kind === 'superset' ? (
-          <SupersetBlock
-            key={block.supersetId}
+    <View style={styles.prototypeHost}>
+      <Screen
+        title="Current workout"
+        footer={deletion.pendingSetId ? <SetDeletedBar onUndo={deletion.undo} /> : null}
+      >
+        <Text style={styles.muted}>Started at {formatClockTime(session.startedAt)}</Text>
+        {sessionBlocks(shown.exercises).map((block) =>
+          block.kind === 'superset' ? (
+            <SupersetBlock
+              key={block.supersetId}
+              sessionId={session.id}
+              supersetId={block.supersetId}
+              exercises={block.exercises}
+              onChange={setSession}
+              onDeleteSet={deletion.remove}
+            />
+          ) : (
+            <SessionExerciseCard
+              key={block.exercise.id}
+              sessionId={session.id}
+              sessionExercise={block.exercise}
+              onChange={setSession}
+              onDeleteSet={deletion.remove}
+            />
+          ),
+        )}
+        {groupingSuperset ? (
+          <CreateSupersetForm
             sessionId={session.id}
-            supersetId={block.supersetId}
-            exercises={block.exercises}
-            onChange={setSession}
-            onDeleteSet={deletion.remove}
+            exercises={ungrouped}
+            onCreated={(updated) => {
+              setSession(updated);
+              setGroupingSuperset(false);
+            }}
+            onCancel={() => setGroupingSuperset(false)}
           />
-        ) : (
-          <SessionExerciseCard
-            key={block.exercise.id}
-            sessionId={session.id}
-            sessionExercise={block.exercise}
-            onChange={setSession}
-            onDeleteSet={deletion.remove}
-          />
-        ),
-      )}
-      {groupingSuperset ? (
-        <CreateSupersetForm
-          sessionId={session.id}
-          exercises={ungrouped}
-          onCreated={(updated) => {
-            setSession(updated);
-            setGroupingSuperset(false);
-          }}
-          onCancel={() => setGroupingSuperset(false)}
+        ) : ungrouped.length >= 2 ? (
+          <Button label="Create superset" variant="secondary" onPress={() => setGroupingSuperset(true)} />
+        ) : null}
+        <Button
+          label="Add exercise"
+          variant="secondary"
+          onPress={() => router.push({ pathname: '/workout/add-exercise', params: { sessionId: session.id } })}
         />
-      ) : ungrouped.length >= 2 ? (
-        <Button label="Create superset" variant="secondary" onPress={() => setGroupingSuperset(true)} />
-      ) : null}
-      <Button
-        label="Add exercise"
-        variant="secondary"
-        onPress={() => router.push({ pathname: '/workout/add-exercise', params: { sessionId: session.id } })}
-      />
-      <RestTimer plannedSeconds={plannedRests} />
-      {error ? (
-        <Text accessibilityRole="alert" style={styles.error}>
-          {error}
-        </Text>
-      ) : null}
-      <Button label="Finish workout" onPress={finish} loading={finishing} disabled={!canFinish} />
-      {canFinish ? null : <Text style={styles.muted}>Log a set to finish the workout.</Text>}
-      <Button label="Discard workout" variant="secondary" onPress={confirmDiscard} />
-    </Screen>
+        <RestTimer plannedSeconds={plannedRests} />
+        {error ? (
+          <Text accessibilityRole="alert" style={styles.error}>
+            {error}
+          </Text>
+        ) : null}
+        <Button label="Finish workout" onPress={finish} loading={finishing} disabled={!canFinish} />
+        {canFinish ? null : <Text style={styles.muted}>Log a set to finish the workout.</Text>}
+        <Button label="Discard workout" variant="secondary" onPress={confirmDiscard} />
+      </Screen>
+      <PrototypeSwitcher variants={SWAP_VARIANTS} current={variant} onChange={(key) => router.setParams({ variant: key })} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  prototypeHost: { flex: 1 }, // PROTOTYPE
   error: { color: colors.danger, fontSize: 15 },
   muted: { fontSize: 15, color: colors.muted },
 });

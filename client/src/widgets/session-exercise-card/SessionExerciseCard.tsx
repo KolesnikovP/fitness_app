@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -5,14 +6,13 @@ import {
   currentTarget,
   formatSet,
   formatTarget,
-  swappedFrom,
   type Session,
   type SessionExercise,
 } from '@/entities/workout';
 import { EditSetForm } from '@/features/edit-set';
 import { ExerciseNoteField } from '@/features/exercise-note';
 import { LogSetForm } from '@/features/log-set';
-import { SwapCarousel } from '@/features/swap-exercise';
+import { SwapVariant } from '@/features/swap-exercise';
 import { colors, spacing } from '@/shared/ui';
 
 type SessionExerciseCardProps = {
@@ -30,13 +30,12 @@ type SessionExerciseCardProps = {
 export function SessionExerciseCard({ sessionId, sessionExercise, onChange, onDeleteSet }: SessionExerciseCardProps) {
   const [editingSetId, setEditingSetId] = useState<string | null>(null);
   const target = currentTarget(sessionExercise);
-  const planned = swappedFrom(sessionExercise);
+  // PROTOTYPE: which swap UI variant to draw.
+  const { variant = 'A' } = useLocalSearchParams<{ variant?: string }>();
 
   return (
     <View accessibilityLabel={`${sessionExercise.name} card`} style={styles.card}>
-      <Text style={styles.name}>{sessionExercise.name}</Text>
-      {planned ? <Text style={styles.setNote}>Instead of {planned.name}</Text> : null}
-      <SwapCarousel sessionId={sessionId} sessionExercise={sessionExercise} onSwapped={onChange} />
+      <SwapVariant variant={variant} sessionId={sessionId} sessionExercise={sessionExercise} onSwapped={onChange} />
       {target ? (
         <View style={styles.target}>
           <Text style={styles.targetValue}>Target {formatTarget(target)}</Text>
