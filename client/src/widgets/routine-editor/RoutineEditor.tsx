@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
@@ -15,7 +15,6 @@ import {
   type RoutineInput,
   type SlotDraft,
 } from '@/entities/routine';
-import { ExercisePicker } from '@/features/search-exercises';
 import { SupersetPicker } from '@/features/superset';
 import { errorMessage } from '@/shared/api';
 import { Button, colors, spacing, TextField } from '@/shared/ui';
@@ -25,6 +24,11 @@ import { SlotEditor } from './SlotEditor';
 
 type RoutineEditorProps = {
   initial: RoutineDraft;
+  /** Opens the screen to pick exercises to add. */
+  onAddExercises: () => void;
+  /** Exercises picked there, to add at the end; then onAdded is called. */
+  added: { id: string; name: string }[] | null;
+  onAdded: () => void;
   /** Saves the Routine. A thrown error is shown, and the draft kept. */
   onSave: (routine: RoutineInput) => Promise<void>;
 };
@@ -33,14 +37,21 @@ type RoutineEditorProps = {
  * Builds or edits a Routine: its name, and its Exercise slots in order, each
  * with a Target, optional rest and note, and Supersets of them.
  */
-export function RoutineEditor({ initial, onSave }: RoutineEditorProps) {
+export function RoutineEditor({ initial, onAddExercises, added, onAdded, onSave }: RoutineEditorProps) {
   const { state } = useAuth();
   const unit = state.status === 'signedIn' ? (state.me.unitPreference ?? 'kg') : 'kg';
   const [draft, setDraft] = useState(initial);
-  const [adding, setAdding] = useState(false);
   const [grouping, setGrouping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!added || added.length === 0) return;
+    setDraft((d) => added.reduce((next, exercise) => withSlotAdded(next, exercise, unit), d));
+    onAdded();
+    // Only new picks: onAdded and unit don't change what was picked.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [added]);
 
   const routine = parseRoutineDraft(draft);
   const blocks = slotBlocks(draft.slots);
@@ -112,19 +123,7 @@ export function RoutineEditor({ initial, onSave }: RoutineEditorProps) {
       ) : ungrouped.length >= 2 ? (
         <Button label="Create superset" variant="secondary" onPress={() => setGrouping(true)} />
       ) : null}
-      {adding ? (
-        <>
-          <ExercisePicker
-            onPick={(exercise) => {
-              setDraft((d) => withSlotAdded(d, exercise, unit));
-              setAdding(false);
-            }}
-          />
-          <Button label="Cancel" variant="secondary" onPress={() => setAdding(false)} />
-        </>
-      ) : (
-        <Button label="Add exercise" variant="secondary" onPress={() => setAdding(true)} />
-      )}
+      <Button label="Add exercises" variant="secondary" onPress={onAddExercises} />
       {error ? (
         <Text accessibilityRole="alert" style={styles.error}>
           {error}

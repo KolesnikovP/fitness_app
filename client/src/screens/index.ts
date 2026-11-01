@@ -7,6 +7,7 @@ export { ServerUnavailableScreen } from './server-unavailable/ServerUnavailableS
 export { ExerciseDetailScreen } from './exercises/ExerciseDetailScreen';
 export { ExerciseLibraryScreen } from './exercises/ExerciseLibraryScreen';
 export { NewExerciseScreen } from './exercises/NewExerciseScreen';
+export { AddRoutineExercisesScreen } from './routines/AddRoutineExercisesScreen';
 export { EditRoutineScreen } from './routines/EditRoutineScreen';
 export { NewRoutineScreen } from './routines/NewRoutineScreen';
 export { RoutineScreen } from './routines/RoutineScreen';

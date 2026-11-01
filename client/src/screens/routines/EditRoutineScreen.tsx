@@ -8,6 +8,8 @@ import { errorMessage } from '@/shared/api';
 import { colors, Screen } from '@/shared/ui';
 import { RoutineEditor } from '@/widgets/routine-editor';
 
+import { useAddedExercises } from './useAddedExercises';
+
 /** Edits a saved Routine: its name and slots. */
 export function EditRoutineScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -15,6 +17,7 @@ export function EditRoutineScreen() {
   const token = state.status === 'signedIn' ? state.token : null;
   const [draft, setDraft] = useState<RoutineDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const picker = useAddedExercises(`/workout/routines/${id}/edit`);
 
   useEffect(() => {
     if (!token) return;
@@ -34,6 +37,9 @@ export function EditRoutineScreen() {
       {draft ? (
         <RoutineEditor
           initial={draft}
+          onAddExercises={picker.open}
+          added={picker.added}
+          onAdded={picker.consumed}
           onSave={async (routine) => {
             await updateRoutine(token, id, routine);
             router.back();

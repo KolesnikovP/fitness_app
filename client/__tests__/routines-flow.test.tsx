@@ -17,13 +17,18 @@ async function openWorkoutTab(accountId?: string) {
   return id;
 }
 
-/** Adds a library exercise to the routine being built, through the picker. */
+/**
+ * Adds a library exercise to the routine being built, through the picker
+ * screen, and returns its slot once back on the editor.
+ */
 async function addSlot(search: string, name: string) {
-  await fireEvent.press(screen.getByRole('button', { name: 'Add exercise' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Add exercises' }));
+  await screen.findByRole('header', { name: 'Add exercises' });
   // Jest mounts every tab, so the Exercises tab's search is also on screen.
   const picker = within(screen.getByLabelText('Exercise picker'));
   await fireEvent.changeText(picker.getByLabelText('Search exercises'), search);
-  await fireEvent.press(await picker.findByRole('button', { name }));
+  await fireEvent.press(await picker.findByRole('checkbox', { name }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Add 1 exercise' }));
   return within(await screen.findByLabelText(`${name} slot`));
 }
 
@@ -111,6 +116,37 @@ describe('routines', () => {
       ],
       [[42.5, 8]],
     ]);
+  });
+
+  it('adds several exercises at once, in the order they were picked', async () => {
+    await openWorkoutTab();
+    await fireEvent.press(await screen.findByRole('button', { name: 'New routine' }));
+    await fireEvent.changeText(await screen.findByLabelText('Routine name'), 'Full body');
+    // The editor doesn't list the library itself.
+    expect(screen.queryByLabelText('Exercise picker')).toBeNull();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Add exercises' }));
+    await screen.findByRole('header', { name: 'Add exercises' });
+    const picker = within(screen.getByLabelText('Exercise picker'));
+    expect(screen.getByRole('button', { name: 'Add exercises' })).toBeDisabled();
+    await fireEvent.changeText(picker.getByLabelText('Search exercises'), 'press');
+    await fireEvent.press(await picker.findByRole('checkbox', { name: 'Overhead Press' }));
+    await fireEvent.press(picker.getByRole('checkbox', { name: 'Bench Press' }));
+    await fireEvent.press(picker.getByRole('checkbox', { name: 'Bench Press' })); // Changed their mind.
+    // Picks are kept while searching for the next one.
+    await fireEvent.changeText(picker.getByLabelText('Search exercises'), 'squat');
+    await fireEvent.press(await picker.findByRole('checkbox', { name: 'Back Squat' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Add 2 exercises' }));
+
+    await screen.findByRole('header', { name: 'New routine' });
+    // The name typed before picking is still there.
+    expect(screen.getByLabelText('Routine name')).toHaveDisplayValue('Full body');
+    const slots = screen.getAllByLabelText(/ slot$/).map((slot) => slot.props.accessibilityLabel);
+    expect(slots).toEqual(['Overhead Press slot', 'Back Squat slot']);
+
+    // Picking again adds to the end.
+    await addSlot('deadlift', 'Deadlift');
+    expect(screen.getAllByLabelText(/ slot$/)).toHaveLength(3);
   });
 
   it('plans an exercise without a weight, and asks for it when the routine is started', async () => {
@@ -205,6 +241,10 @@ describe('routines', () => {
     await fireEvent.press(within(screen.getByLabelText('Overhead Press slot')).getByRole('button', { name: 'Remove' }));
     await fireEvent.press(within(screen.getByLabelText('Plank slot')).getByRole('button', { name: 'Move up' }));
     await fireEvent.changeText(within(screen.getByLabelText('Bench Press slot')).getByLabelText('Sets'), '5');
+    await addSlot('deadlift', 'Deadlift');
+    await screen.findByRole('header', { name: 'Edit routine' });
+    // Edits made before picking are kept.
+    expect(screen.getByLabelText('Routine name')).toHaveDisplayValue('Push day B');
     await fireEvent.press(screen.getByRole('button', { name: 'Save routine' }));
 
     await screen.findByRole('header', { name: 'Push day B' });
@@ -214,6 +254,7 @@ describe('routines', () => {
     expect(fakeApi.routines(accountId)[0].slots.map((s) => [s.exerciseId, s.targetSets])).toEqual([
       [fakeApi.exerciseNamed('Plank').id, 3],
       [fakeApi.exerciseNamed('Bench Press').id, 5],
+      [fakeApi.exerciseNamed('Deadlift').id, 3],
     ]);
   });
 

@@ -13,12 +13,14 @@ const SEARCH_DELAY_MS = 250;
 
 type ExercisePickerProps = {
   onPick: (exercise: Exercise) => void;
+  /** When picking several: the ids picked so far, shown ticked. */
+  selectedIds?: string[];
   /** Shows a spinner in place of the list while the pick is being saved. */
   busy?: boolean;
 };
 
-/** Searches the library and picks one exercise from it. */
-export function ExercisePicker({ onPick, busy }: ExercisePickerProps) {
+/** Searches the library and picks an exercise from it, or several with selectedIds. */
+export function ExercisePicker({ onPick, selectedIds, busy }: ExercisePickerProps) {
   const { state } = useAuth();
   const token = state.status === 'signedIn' ? state.token : null;
   const [filters, setFilters] = useState<ExerciseFilters>({ query: '', muscleGroup: null, equipmentType: null });
@@ -58,7 +60,12 @@ export function ExercisePicker({ onPick, busy }: ExercisePickerProps) {
       ) : (
         <View accessibilityLabel="Exercise list">
           {exercises.map((exercise) => (
-            <ExerciseListItem key={exercise.id} exercise={exercise} onPress={() => onPick(exercise)} />
+            <ExerciseListItem
+              key={exercise.id}
+              exercise={exercise}
+              onPress={() => onPick(exercise)}
+              selected={selectedIds?.includes(exercise.id)}
+            />
           ))}
           {exercises.length === 0 ? <Text style={styles.empty}>No exercises match.</Text> : null}
         </View>
