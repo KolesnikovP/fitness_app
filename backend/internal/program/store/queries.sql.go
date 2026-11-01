@@ -14,10 +14,10 @@ import (
 
 const addSlot = `-- name: AddSlot :exec
 INSERT INTO exercise_slots (routine_id, position, exercise_id, target_sets, target_reps, target_weight,
-                            target_weight_unit, rest_seconds, note, superset_group)
+                            target_weight_unit, rest_seconds, note, superset_group, substitute_ids)
 VALUES ($1, $2, $3, $4,
         $5, $6::float8, $7,
-        $8, $9, $10)
+        $8, $9, $10, $11::uuid[])
 `
 
 type AddSlotParams struct {
@@ -31,6 +31,7 @@ type AddSlotParams struct {
 	RestSeconds      *int32
 	Note             string
 	SupersetGroup    *int32
+	SubstituteIds    []uuid.UUID
 }
 
 func (q *Queries) AddSlot(ctx context.Context, arg AddSlotParams) error {
@@ -45,6 +46,7 @@ func (q *Queries) AddSlot(ctx context.Context, arg AddSlotParams) error {
 		arg.RestSeconds,
 		arg.Note,
 		arg.SupersetGroup,
+		arg.SubstituteIds,
 	)
 	return err
 }
@@ -195,7 +197,7 @@ func (q *Queries) ListRoutines(ctx context.Context, accountID uuid.UUID) ([]List
 
 const listSlotsOfRoutines = `-- name: ListSlotsOfRoutines :many
 SELECT id, routine_id, exercise_id, target_sets, target_reps, target_weight::float8 AS target_weight,
-       target_weight_unit, rest_seconds, note, superset_group
+       target_weight_unit, rest_seconds, note, superset_group, substitute_ids
 FROM exercise_slots
 WHERE routine_id = ANY($1::uuid[])
 ORDER BY routine_id, position
@@ -212,6 +214,7 @@ type ListSlotsOfRoutinesRow struct {
 	RestSeconds      *int32
 	Note             string
 	SupersetGroup    *int32
+	SubstituteIds    []uuid.UUID
 }
 
 func (q *Queries) ListSlotsOfRoutines(ctx context.Context, routineIds []uuid.UUID) ([]ListSlotsOfRoutinesRow, error) {
@@ -234,6 +237,7 @@ func (q *Queries) ListSlotsOfRoutines(ctx context.Context, routineIds []uuid.UUI
 			&i.RestSeconds,
 			&i.Note,
 			&i.SupersetGroup,
+			&i.SubstituteIds,
 		); err != nil {
 			return nil, err
 		}

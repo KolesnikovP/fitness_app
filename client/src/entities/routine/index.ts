@@ -1,6 +1,8 @@
 // Routine entity: Routine types, editing a draft, and API bindings
 export {
+  canAddSubstitute,
   emptyRoutineDraft,
+  MAX_SUBSTITUTES,
   MAX_TARGET_SETS,
   needsStartingWeight,
   parseRoutineDraft,
@@ -15,6 +17,9 @@ export {
   withSlotChanged,
   withSlotRemoved,
   withStartingWeights,
+  withSubstituteAdded,
+  withSubstituteMoved,
+  withSubstituteRemoved,
   withSuperset,
   type Routine,
   type RoutineDraft,

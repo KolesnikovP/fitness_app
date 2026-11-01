@@ -24,6 +24,18 @@ export function getExercise(token: string, id: string): Promise<Exercise> {
   return apiRequest<Exercise>(`/exercises/${encodeURIComponent(id)}`, { token });
 }
 
+/**
+ * Exercises to suggest as Substitutes for exerciseId: the others training the
+ * same muscle group, those with the same equipment type first.
+ */
+export async function listSubstituteSuggestions(token: string, exerciseId: string): Promise<Exercise[]> {
+  const { exercises } = await apiRequest<{ exercises: Exercise[] }>(
+    `/exercises/${encodeURIComponent(exerciseId)}/substitutes`,
+    { token },
+  );
+  return exercises;
+}
+
 export type NewExercise = { name: string; muscleGroup: MuscleGroup; equipmentType: EquipmentType };
 
 export function createExercise(token: string, exercise: NewExercise): Promise<Exercise> {

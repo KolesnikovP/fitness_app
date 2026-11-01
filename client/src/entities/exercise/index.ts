@@ -6,12 +6,14 @@ export {
   muscleGroupLabel,
   type EquipmentType,
   type Exercise,
+  type ExerciseRef,
   type MuscleGroup,
 } from './model';
 export {
   createExercise,
   getExercise,
   listExercises,
+  listSubstituteSuggestions,
   uploadExerciseMedia,
   type ExerciseFilters,
   type MediaFile,

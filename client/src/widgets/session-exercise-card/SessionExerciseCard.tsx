@@ -1,10 +1,18 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { formatSet, formatTarget, type Session, type SessionExercise } from '@/entities/workout';
+import {
+  currentTarget,
+  formatSet,
+  formatTarget,
+  swappedFrom,
+  type Session,
+  type SessionExercise,
+} from '@/entities/workout';
 import { EditSetForm } from '@/features/edit-set';
 import { ExerciseNoteField } from '@/features/exercise-note';
 import { LogSetForm } from '@/features/log-set';
+import { SwapCarousel } from '@/features/swap-exercise';
 import { colors, spacing } from '@/shared/ui';
 
 type SessionExerciseCardProps = {
@@ -16,16 +24,19 @@ type SessionExerciseCardProps = {
 
 /**
  * One exercise in the workout in progress: what its Routine planned, if
- * anything, its logged Sets (tap one to correct or delete it), a note, and the
- * form for the next Set.
+ * anything, and the Substitutes to swap it for; its logged Sets (tap one to
+ * correct or delete it), a note, and the form for the next Set.
  */
 export function SessionExerciseCard({ sessionId, sessionExercise, onChange, onDeleteSet }: SessionExerciseCardProps) {
   const [editingSetId, setEditingSetId] = useState<string | null>(null);
-  const { target } = sessionExercise;
+  const target = currentTarget(sessionExercise);
+  const planned = swappedFrom(sessionExercise);
 
   return (
     <View accessibilityLabel={`${sessionExercise.name} card`} style={styles.card}>
       <Text style={styles.name}>{sessionExercise.name}</Text>
+      {planned ? <Text style={styles.setNote}>Instead of {planned.name}</Text> : null}
+      <SwapCarousel sessionId={sessionId} sessionExercise={sessionExercise} onSwapped={onChange} />
       {target ? (
         <View style={styles.target}>
           <Text style={styles.targetValue}>Target {formatTarget(target)}</Text>
@@ -65,12 +76,16 @@ export function SessionExerciseCard({ sessionId, sessionExercise, onChange, onDe
             <Text style={styles.setNumber}>{i + 1}</Text>
             <View style={styles.setText}>
               <Text style={styles.setValue}>{formatSet(set)}</Text>
+              {/* Done with another exercise, before a swap. */}
+              {set.exerciseId !== sessionExercise.exerciseId ? <Text style={styles.setNote}>{set.name}</Text> : null}
               {set.note ? <Text style={styles.setNote}>{set.note}</Text> : null}
             </View>
           </Pressable>
         ),
       )}
       <LogSetForm
+        // Starts over on a swap, from the Target for the Exercise swapped to.
+        key={sessionExercise.exerciseId}
         sessionId={sessionId}
         sessionExerciseId={sessionExercise.id}
         target={target}

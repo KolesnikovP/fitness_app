@@ -1,0 +1,1 @@
+export { SwapCarousel } from './SwapCarousel';

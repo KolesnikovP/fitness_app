@@ -41,11 +41,11 @@ A Session started empty, with Exercises added as the User goes, rather than from
 _Avoid_: Empty workout, quick start
 
 **Session exercise**:
-An Exercise added to one Session, holding the Sets logged for it there and an optional note.
+An Exercise added to one Session, holding the Sets logged for it there and an optional note. One started from an Exercise slot can be Swapped.
 _Avoid_: Workout exercise, entry, slot (a slot belongs to a routine)
 
 **Set**:
-One round of a Session exercise: the weight and the number of reps, with an optional RPE and note. A Set keeps the unit (kg or lb) it was logged in, and the Superset (if any) its Session exercise was in when it was logged.
+One round of a Session exercise: the weight and the number of reps, with an optional RPE and note. A Set keeps the Exercise actually done (which a Swap can make differ from the one planned), the unit (kg or lb) it was logged in, and the Superset (if any) its Session exercise was in when it was logged.
 _Avoid_: Logged set (as a system term), entry
 
 **RPE**:
@@ -71,12 +71,20 @@ A named, reusable plan for a Session: an ordered list of Exercise slots. Startin
 _Avoid_: Template, workout plan, saved workout
 
 **Exercise slot**:
-One Exercise planned in a Routine: its Target, and optionally a rest, a note, and the Superset it's planned in. Editing a Routine replaces its slots.
+One Exercise planned in a Routine: its Target, and optionally a rest, a note, Substitutes, and the Superset it's planned in. Editing a Routine replaces its slots.
 _Avoid_: Slot exercise, routine exercise, entry
 
 **Target**:
 What an Exercise slot plans: a number of Sets, each of so many reps at a weight (in kg or lb). A weight of 0 means none is planned yet, as for a new lifter who doesn't know theirs: starting the Routine asks for one and saves it. A Session started from a Routine keeps a copy of each slot's Target on its Session exercise, and the User logs the Sets they actually did against it.
 _Avoid_: Goal, prescription, planned set
+
+**Substitute**:
+An Exercise planned in an Exercise slot to do instead of the slot's own when that can't be done, such as when the equipment is taken. A slot has up to ten, in order; the app suggests ones training the same Muscle group, with the same Equipment type first.
+_Avoid_: Alternative, alternate, replacement
+
+**Swap**:
+Changing a Session exercise to one of its Substitutes, or back to the planned Exercise, for that Session only. It keeps the Target's sets and reps but not its weight, which was planned for another Exercise. The Routine is unchanged; Sets logged after the Swap record the Exercise swapped to.
+_Avoid_: Substitution (as a stored thing), replace, switch
 
 **Program**:
 A training plan of weeks, each holding Routines. In v1 every User has one Program with one week that holds all their Routines, and the app shows neither.

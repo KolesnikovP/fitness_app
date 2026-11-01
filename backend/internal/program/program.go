@@ -57,18 +57,26 @@ type Routine struct {
 // Slot is one Exercise slot of a Routine: the Exercise and its Target.
 // TargetWeight is in WeightUnit. RestSeconds is null when no rest is planned.
 // Slots sharing a SupersetGroup (numbered from 1 in Routine order) are a
-// planned Superset; it's null for a slot in none.
+// planned Superset; it's null for a slot in none. Substitutes are the
+// Exercises the User can swap this one for in a Session, in order.
 type Slot struct {
-	ID            uuid.UUID `json:"id"`
-	ExerciseID    uuid.UUID `json:"exerciseId"`
-	Name          string    `json:"name"`
-	TargetSets    int32     `json:"targetSets"`
-	TargetReps    int32     `json:"targetReps"`
-	TargetWeight  float64   `json:"targetWeight"`
-	WeightUnit    string    `json:"weightUnit"`
-	RestSeconds   *int32    `json:"restSeconds"`
-	Note          string    `json:"note"`
-	SupersetGroup *int32    `json:"supersetGroup"`
+	ID            uuid.UUID    `json:"id"`
+	ExerciseID    uuid.UUID    `json:"exerciseId"`
+	Name          string       `json:"name"`
+	TargetSets    int32        `json:"targetSets"`
+	TargetReps    int32        `json:"targetReps"`
+	TargetWeight  float64      `json:"targetWeight"`
+	WeightUnit    string       `json:"weightUnit"`
+	RestSeconds   *int32       `json:"restSeconds"`
+	Note          string       `json:"note"`
+	SupersetGroup *int32       `json:"supersetGroup"`
+	Substitutes   []Substitute `json:"substitutes"`
+}
+
+// Substitute is an Exercise planned in a slot to swap its own for.
+type Substitute struct {
+	ExerciseID uuid.UUID `json:"exerciseId"`
+	Name       string    `json:"name"`
 }
 
 // RoutineInput is a Routine to save: its name and slots in order.
@@ -77,7 +85,7 @@ type RoutineInput struct {
 	Slots []SlotInput
 }
 
-// SlotInput is an Exercise slot to save, without its id or name.
+// SlotInput is an Exercise slot to save, without its id or names.
 type SlotInput struct {
 	ExerciseID    uuid.UUID
 	TargetSets    int32
@@ -87,6 +95,7 @@ type SlotInput struct {
 	RestSeconds   *int32
 	Note          string
 	SupersetGroup *int32
+	SubstituteIDs []uuid.UUID
 }
 
 // Limits matching the routines and exercise_slots CHECK constraints.
@@ -98,6 +107,7 @@ const (
 	maxWeight      = 9999.99
 	maxRestSeconds = 3600
 	maxNoteLength  = 500
+	maxSubstitutes = 10
 )
 
 // InvalidRoutineError is a RoutineInput that can't be saved, with the error
@@ -182,6 +192,8 @@ func addSlots(ctx context.Context, q *store.Queries, routineID uuid.UUID, slots 
 			RestSeconds:      slot.RestSeconds,
 			Note:             slot.Note,
 			SupersetGroup:    slot.SupersetGroup,
+			// Never nil, which would be NULL.
+			SubstituteIds: append([]uuid.UUID{}, slot.SubstituteIDs...),
 		}); err != nil {
 			return fmt.Errorf("add slot: %w", err)
 		}
@@ -237,10 +249,15 @@ func (s *Service) validate(ctx context.Context, callerID uuid.UUID, input Routin
 			}
 			groupSizes[*g]++
 		}
+		if err := validSubstitutes(slot); err != nil {
+			return RoutineInput{}, err
+		}
 		slot.Note = note
 		slots[i] = slot
-		if !slices.Contains(exerciseIDs, slot.ExerciseID) {
-			exerciseIDs = append(exerciseIDs, slot.ExerciseID)
+		for _, id := range append([]uuid.UUID{slot.ExerciseID}, slot.SubstituteIDs...) {
+			if !slices.Contains(exerciseIDs, id) {
+				exerciseIDs = append(exerciseIDs, id)
+			}
 		}
 	}
 	for _, size := range groupSizes {
@@ -265,6 +282,23 @@ func (s *Service) validate(ctx context.Context, callerID uuid.UUID, input Routin
 	return RoutineInput{Name: name, Slots: slots}, nil
 }
 
+// validSubstitutes checks a slot plans at most maxSubstitutes Substitutes,
+// each once and none its own Exercise.
+func validSubstitutes(slot SlotInput) error {
+	if len(slot.SubstituteIDs) > maxSubstitutes {
+		return invalid("invalid_substitutes", fmt.Sprintf("An exercise can have at most %d substitutes.", maxSubstitutes))
+	}
+	for i, id := range slot.SubstituteIDs {
+		if id == slot.ExerciseID {
+			return invalid("invalid_substitutes", "An exercise can't be its own substitute.")
+		}
+		if slices.Contains(slot.SubstituteIDs[:i], id) {
+			return invalid("invalid_substitutes", "Each substitute can be added once.")
+		}
+	}
+	return nil
+}
+
 // loadRoutine loads callerID's routine id with its slots. It returns
 // pgx.ErrNoRows when the caller has no such routine.
 func (s *Service) loadRoutine(ctx context.Context, callerID, id uuid.UUID) (Routine, error) {
@@ -276,9 +310,9 @@ func (s *Service) loadRoutine(ctx context.Context, callerID, id uuid.UUID) (Rout
 	if err != nil {
 		return Routine{}, fmt.Errorf("list slots: %w", err)
 	}
-	exerciseIDs := make([]uuid.UUID, len(slotRows))
-	for i, slot := range slotRows {
-		exerciseIDs[i] = slot.ExerciseID
+	var exerciseIDs []uuid.UUID
+	for _, slot := range slotRows {
+		exerciseIDs = append(append(exerciseIDs, slot.ExerciseID), slot.SubstituteIds...)
 	}
 	names, err := s.exercises.ExerciseNames(ctx, callerID, exerciseIDs)
 	if err != nil {
@@ -297,6 +331,10 @@ func (s *Service) loadRoutine(ctx context.Context, callerID, id uuid.UUID) (Rout
 			RestSeconds:   slot.RestSeconds,
 			Note:          slot.Note,
 			SupersetGroup: slot.SupersetGroup,
+			Substitutes:   make([]Substitute, len(slot.SubstituteIds)),
+		}
+		for j, id := range slot.SubstituteIds {
+			routine.Slots[i].Substitutes[j] = Substitute{ExerciseID: id, Name: names[id]}
 		}
 	}
 	return routine, nil
@@ -468,6 +506,7 @@ type slotBody struct {
 	RestSeconds   *int32   `json:"restSeconds"`
 	Note          string   `json:"note"`
 	SupersetGroup *int32   `json:"supersetGroup"`
+	SubstituteIDs []string `json:"substituteIds"`
 }
 
 // decodeRoutineInput reads a Routine from the request body. If it can't, it writes a
@@ -484,6 +523,13 @@ func decodeRoutineInput(w http.ResponseWriter, r *http.Request) (RoutineInput, b
 			httpx.WriteError(w, http.StatusNotFound, "exercise_not_found", "Exercise not found.")
 			return RoutineInput{}, false
 		}
+		substituteIDs := make([]uuid.UUID, len(slot.SubstituteIDs))
+		for j, raw := range slot.SubstituteIDs {
+			if substituteIDs[j], err = uuid.Parse(raw); err != nil {
+				httpx.WriteError(w, http.StatusNotFound, "exercise_not_found", "Exercise not found.")
+				return RoutineInput{}, false
+			}
+		}
 		// A missing number is out of range, so validate refuses it.
 		weight := -1.0
 		if slot.TargetWeight != nil {
@@ -498,6 +544,7 @@ func decodeRoutineInput(w http.ResponseWriter, r *http.Request) (RoutineInput, b
 			RestSeconds:   slot.RestSeconds,
 			Note:          slot.Note,
 			SupersetGroup: slot.SupersetGroup,
+			SubstituteIDs: substituteIDs,
 		}
 	}
 	return input, true

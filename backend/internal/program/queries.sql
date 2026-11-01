@@ -27,10 +27,10 @@ RETURNING id;
 
 -- name: AddSlot :exec
 INSERT INTO exercise_slots (routine_id, position, exercise_id, target_sets, target_reps, target_weight,
-                            target_weight_unit, rest_seconds, note, superset_group)
+                            target_weight_unit, rest_seconds, note, superset_group, substitute_ids)
 VALUES (sqlc.arg(routine_id), sqlc.arg(position), sqlc.arg(exercise_id), sqlc.arg(target_sets),
         sqlc.arg(target_reps), sqlc.arg(target_weight)::float8, sqlc.arg(target_weight_unit),
-        sqlc.narg(rest_seconds), sqlc.arg(note), sqlc.narg(superset_group));
+        sqlc.narg(rest_seconds), sqlc.arg(note), sqlc.narg(superset_group), sqlc.arg(substitute_ids)::uuid[]);
 
 -- name: GetRoutine :one
 SELECT r.id, r.name, r.updated_at
@@ -49,7 +49,7 @@ ORDER BY lower(r.name), r.id;
 
 -- name: ListSlotsOfRoutines :many
 SELECT id, routine_id, exercise_id, target_sets, target_reps, target_weight::float8 AS target_weight,
-       target_weight_unit, rest_seconds, note, superset_group
+       target_weight_unit, rest_seconds, note, superset_group, substitute_ids
 FROM exercise_slots
 WHERE routine_id = ANY(sqlc.arg(routine_ids)::uuid[])
 ORDER BY routine_id, position;

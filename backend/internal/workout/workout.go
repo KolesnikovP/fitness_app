@@ -72,17 +72,27 @@ type Session struct {
 }
 
 // SessionExercise is an Exercise added to a Session, with its Sets in the
-// order they were logged. SupersetID is shared by the exercises of one
-// Superset, and null for an exercise in none. Target is what its Routine's
-// slot planned, null for an exercise added during the Session.
+// order they were logged. ExerciseID and Name are the Exercise being done
+// now. SupersetID is shared by the exercises of one Superset, and null for an
+// exercise in none. Target is what its Routine's slot planned, and Planned
+// the slot's own Exercise, both null for an exercise added during the
+// Session. It can be swapped to Planned or one of its Substitutes.
 type SessionExercise struct {
-	ID         uuid.UUID  `json:"id"`
-	ExerciseID uuid.UUID  `json:"exerciseId"`
-	Name       string     `json:"name"`
-	Note       string     `json:"note"`
-	SupersetID *uuid.UUID `json:"supersetId"`
-	Target     *Target    `json:"target"`
-	Sets       []Set      `json:"sets"`
+	ID          uuid.UUID     `json:"id"`
+	ExerciseID  uuid.UUID     `json:"exerciseId"`
+	Name        string        `json:"name"`
+	Note        string        `json:"note"`
+	SupersetID  *uuid.UUID    `json:"supersetId"`
+	Target      *Target       `json:"target"`
+	Planned     *ExerciseRef  `json:"planned"`
+	Substitutes []ExerciseRef `json:"substitutes"`
+	Sets        []Set         `json:"sets"`
+}
+
+// ExerciseRef names an Exercise.
+type ExerciseRef struct {
+	ExerciseID uuid.UUID `json:"exerciseId"`
+	Name       string    `json:"name"`
 }
 
 // Target is a copy of an Exercise slot's plan, taken when the Session started.
@@ -96,11 +106,15 @@ type Target struct {
 	Note        string  `json:"note"`
 }
 
-// Set is one logged Set. Weight is in WeightUnit, the unit it was logged in.
-// RPE is null when the User left it blank. SupersetID is the Superset its
-// exercise was in when it was logged, if any.
+// Set is one logged Set. ExerciseID and Name are the Exercise actually done,
+// which differs from its Session exercise's when that's been swapped since.
+// Weight is in WeightUnit, the unit it was logged in. RPE is null when the
+// User left it blank. SupersetID is the Superset its exercise was in when it
+// was logged, if any.
 type Set struct {
 	ID         uuid.UUID  `json:"id"`
+	ExerciseID uuid.UUID  `json:"exerciseId"`
+	Name       string     `json:"name"`
 	Weight     float64    `json:"weight"`
 	WeightUnit string     `json:"weightUnit"`
 	Reps       int32      `json:"reps"`
@@ -123,7 +137,7 @@ func (s *Service) Routes(mux *http.ServeMux, accounts Accounts) {
 	mux.Handle("GET /workouts/sessions", accounts.RequireAuth(http.HandlerFunc(h.history)))
 	mux.Handle("GET /workouts/sessions/current", accounts.RequireAuth(http.HandlerFunc(h.current)))
 	mux.Handle("POST /workouts/sessions/{id}/exercises", accounts.RequireAuth(http.HandlerFunc(h.addExercise)))
-	mux.Handle("PATCH /workouts/sessions/{id}/exercises/{sessionExerciseId}", accounts.RequireAuth(http.HandlerFunc(h.setExerciseNote)))
+	mux.Handle("PATCH /workouts/sessions/{id}/exercises/{sessionExerciseId}", accounts.RequireAuth(http.HandlerFunc(h.changeExercise)))
 	mux.Handle("POST /workouts/sessions/{id}/exercises/{sessionExerciseId}/sets", accounts.RequireAuth(http.HandlerFunc(h.logSet)))
 	mux.Handle("PATCH /workouts/sessions/{id}/sets/{setId}", accounts.RequireAuth(http.HandlerFunc(h.editSet)))
 	mux.Handle("DELETE /workouts/sessions/{id}/sets/{setId}", accounts.RequireAuth(http.HandlerFunc(h.deleteSet)))
@@ -216,9 +230,14 @@ func (h handlers) startSession(ctx context.Context, caller uuid.UUID, routineID 
 			s := supersets[*slot.SupersetGroup]
 			supersetID = &s
 		}
+		substituteIDs := make([]uuid.UUID, len(slot.Substitutes))
+		for i, sub := range slot.Substitutes {
+			substituteIDs[i] = sub.ExerciseID
+		}
 		if err := q.AddPlannedSessionExercise(ctx, store.AddPlannedSessionExerciseParams{
 			SessionID:         id,
 			ExerciseID:        slot.ExerciseID,
+			SubstituteIds:     substituteIDs,
 			SupersetID:        supersetID,
 			TargetSets:        &slot.TargetSets,
 			TargetReps:        &slot.TargetReps,
@@ -346,22 +365,38 @@ func (h handlers) addExercise(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-type setExerciseNoteBody struct {
-	Note *string `json:"note"`
+type changeExerciseBody struct {
+	Note       *string `json:"note"`
+	ExerciseID *string `json:"exerciseId"`
 }
 
-func (h handlers) setExerciseNote(w http.ResponseWriter, r *http.Request) {
-	var body setExerciseNoteBody
+// changeExercise sets a session exercise's note, swaps its exercise to the
+// planned one or one of its Substitutes, or both. Sets logged after a swap
+// record the exercise swapped to; the Routine isn't changed.
+func (h handlers) changeExercise(w http.ResponseWriter, r *http.Request) {
+	var body changeExerciseBody
 	if !httpx.DecodeJSON(w, r, &body) {
 		return
 	}
-	if body.Note == nil {
-		httpx.WriteError(w, http.StatusBadRequest, "invalid_note", "Send the note, or an empty one to clear it.")
+	if body.Note == nil && body.ExerciseID == nil {
+		httpx.WriteError(w, http.StatusBadRequest, "invalid_note",
+			"Send a note (an empty one clears it), or an exerciseId to swap to.")
 		return
 	}
-	note, ok := validNote(w, *body.Note)
-	if !ok {
-		return
+	var note string
+	if body.Note != nil {
+		var ok bool
+		if note, ok = validNote(w, *body.Note); !ok {
+			return
+		}
+	}
+	var swapTo uuid.UUID
+	if body.ExerciseID != nil {
+		var err error
+		if swapTo, err = uuid.Parse(*body.ExerciseID); err != nil {
+			writeInvalidSwap(w)
+			return
+		}
 	}
 	sessionExerciseID, err := uuid.Parse(r.PathValue("sessionExerciseId"))
 	if err != nil {
@@ -370,18 +405,40 @@ func (h handlers) setExerciseNote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.changeSession(w, r, http.StatusOK, func(q *store.Queries, sessionID uuid.UUID) error {
-		updated, err := q.SetSessionExerciseNote(r.Context(), store.SetSessionExerciseNoteParams{
-			ID: sessionExerciseID, SessionID: sessionID, Note: note,
-		})
-		if err != nil {
-			return fmt.Errorf("set exercise note: %w", err)
-		}
-		if updated == 0 {
+		options, err := q.GetSwapOptions(r.Context(), store.GetSwapOptionsParams{ID: sessionExerciseID, SessionID: sessionID})
+		if errors.Is(err, pgx.ErrNoRows) {
 			writeSessionExerciseNotFound(w)
 			return errResponseWritten
 		}
+		if err != nil {
+			return fmt.Errorf("get swap options: %w", err)
+		}
+		if body.ExerciseID != nil {
+			if options.PlannedExerciseID == nil ||
+				(swapTo != *options.PlannedExerciseID && !slices.Contains(options.SubstituteIds, swapTo)) {
+				writeInvalidSwap(w)
+				return errResponseWritten
+			}
+			if err := q.SwapExercise(r.Context(), store.SwapExerciseParams{
+				ID: sessionExerciseID, SessionID: sessionID, ExerciseID: swapTo,
+			}); err != nil {
+				return fmt.Errorf("swap exercise: %w", err)
+			}
+		}
+		if body.Note != nil {
+			if _, err := q.SetSessionExerciseNote(r.Context(), store.SetSessionExerciseNoteParams{
+				ID: sessionExerciseID, SessionID: sessionID, Note: note,
+			}); err != nil {
+				return fmt.Errorf("set exercise note: %w", err)
+			}
+		}
 		return nil
 	})
+}
+
+func writeInvalidSwap(w http.ResponseWriter) {
+	httpx.WriteError(w, http.StatusBadRequest, "invalid_swap",
+		"Swap only to the exercise the routine planned, or one of its substitutes.")
 }
 
 // setBody is a Set as the client sends it, to log or to correct.
@@ -711,9 +768,10 @@ func (h handlers) saveAsRoutine(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusCreated, routine)
 }
 
-// routineInputOf describes a routine like session: a slot for each exercise that has Sets,
-// targeting as many Sets as were logged at the last one's weight and reps,
-// and the Supersets that still have two or more such exercises.
+// routineInputOf describes a routine like session: a slot for each exercise
+// that has Sets, of the Exercise its last Set was done with, targeting as many
+// Sets as were logged at the last one's weight and reps, and the Supersets
+// that still have two or more such exercises.
 func routineInputOf(name string, session Session) program.RoutineInput {
 	var logged []SessionExercise
 	supersetSizes := make(map[uuid.UUID]int)
@@ -732,7 +790,7 @@ func routineInputOf(name string, session Session) program.RoutineInput {
 	for i, e := range logged {
 		last := e.Sets[len(e.Sets)-1]
 		slot := program.SlotInput{
-			ExerciseID:   e.ExerciseID,
+			ExerciseID:   last.ExerciseID,
 			TargetSets:   int32(min(len(e.Sets), program.MaxTargetSets)),
 			TargetReps:   last.Reps,
 			TargetWeight: last.Weight,
@@ -846,9 +904,15 @@ func (h handlers) loadSession(ctx context.Context, id uuid.UUID) (Session, error
 		return Session{}, fmt.Errorf("list session sets: %w", err)
 	}
 
-	ids := make([]uuid.UUID, len(exerciseRows))
-	for i, e := range exerciseRows {
-		ids[i] = e.ExerciseID
+	var ids []uuid.UUID
+	for _, e := range exerciseRows {
+		ids = append(append(ids, e.ExerciseID), e.SubstituteIds...)
+		if e.PlannedExerciseID != nil {
+			ids = append(ids, *e.PlannedExerciseID)
+		}
+	}
+	for _, s := range setRows {
+		ids = append(ids, s.ExerciseID)
 	}
 	names, err := h.exercises.ExerciseNames(ctx, caller, ids)
 	if err != nil {
@@ -858,7 +922,7 @@ func (h handlers) loadSession(ctx context.Context, id uuid.UUID) (Session, error
 	sets := make(map[uuid.UUID][]Set)
 	for _, s := range setRows {
 		sets[s.SessionExerciseID] = append(sets[s.SessionExerciseID], Set{
-			ID: s.ID, Weight: s.Weight, WeightUnit: s.WeightUnit, Reps: s.Reps, RPE: s.Rpe, Note: s.Note,
+			ID: s.ID, ExerciseID: s.ExerciseID, Name: names[s.ExerciseID], Weight: s.Weight, WeightUnit: s.WeightUnit, Reps: s.Reps, RPE: s.Rpe, Note: s.Note,
 			SupersetID: s.SupersetID,
 		})
 	}
@@ -871,13 +935,20 @@ func (h handlers) loadSession(ctx context.Context, id uuid.UUID) (Session, error
 	}
 	for i, e := range exerciseRows {
 		session.Exercises[i] = SessionExercise{
-			ID:         e.ID,
-			ExerciseID: e.ExerciseID,
-			Name:       names[e.ExerciseID],
-			Note:       e.Note,
-			SupersetID: e.SupersetID,
-			Target:     targetOf(e),
-			Sets:       append([]Set{}, sets[e.ID]...),
+			ID:          e.ID,
+			ExerciseID:  e.ExerciseID,
+			Name:        names[e.ExerciseID],
+			Note:        e.Note,
+			SupersetID:  e.SupersetID,
+			Target:      targetOf(e),
+			Substitutes: make([]ExerciseRef, len(e.SubstituteIds)),
+			Sets:        append([]Set{}, sets[e.ID]...),
+		}
+		if e.PlannedExerciseID != nil {
+			session.Exercises[i].Planned = &ExerciseRef{ExerciseID: *e.PlannedExerciseID, Name: names[*e.PlannedExerciseID]}
+		}
+		for j, id := range e.SubstituteIds {
+			session.Exercises[i].Substitutes[j] = ExerciseRef{ExerciseID: id, Name: names[id]}
 		}
 	}
 	return session, nil

@@ -39,6 +39,18 @@ export function setExerciseNote(token: string, sessionId: string, sessionExercis
   });
 }
 
+/**
+ * Swaps a Session exercise to its planned Exercise or one of its Substitutes,
+ * for this Session only. Sets logged after record the Exercise swapped to.
+ */
+export function swapSessionExercise(token: string, sessionId: string, sessionExerciseId: string, exerciseId: string) {
+  return apiRequest<Session>(path(sessionId, 'exercises', sessionExerciseId), {
+    method: 'PATCH',
+    token,
+    body: { exerciseId },
+  });
+}
+
 /** A Set to log. rpe is null when left blank. */
 export type NewSet = { weight: number; weightUnit: WeightUnit; reps: number; rpe: number | null; note: string };
 

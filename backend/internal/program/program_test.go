@@ -273,6 +273,89 @@ func TestDeleteRoutine(t *testing.T) {
 	})
 }
 
+func TestSlotSubstitutes(t *testing.T) {
+	srv := testutil.NewServer(t)
+
+	t.Run("saves a slot's substitutes in order, with their names", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		bench := slot(t, srv, token, "Bench Press", nil)
+		bench["substituteIds"] = []string{
+			exerciseID(t, srv, token, "Dumbbell Bench Press"), exerciseID(t, srv, token, "Push-up"),
+		}
+
+		res := testutil.Do(t, srv, http.MethodPost, "/routines", token, map[string]any{
+			"name": "Push day", "slots": []any{bench, slot(t, srv, token, "Overhead Press", nil)},
+		})
+
+		if res.Status != http.StatusCreated {
+			t.Fatalf("status = %d, want 201; body %v", res.Status, res.Body)
+		}
+		got := testutil.Do(t, srv, http.MethodGet, "/routines/"+res.Body["id"].(string), token, nil)
+		slots := objects(t, got.Body, "slots")
+		subs := objects(t, slots[0], "substitutes")
+		if len(subs) != 2 || subs[0]["name"] != "Dumbbell Bench Press" || subs[1]["name"] != "Push-up" ||
+			subs[0]["exerciseId"] != bench["substituteIds"].([]string)[0] {
+			t.Errorf("Bench Press substitutes = %v, want Dumbbell Bench Press, then Push-up", subs)
+		}
+		if press := objects(t, slots[1], "substitutes"); len(press) != 0 {
+			t.Errorf("Overhead Press substitutes = %v, want none", press)
+		}
+	})
+
+	t.Run("replaces them when the routine is edited", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		bench := slot(t, srv, token, "Bench Press", nil)
+		bench["substituteIds"] = []string{exerciseID(t, srv, token, "Push-up")}
+		id := testutil.Do(t, srv, http.MethodPost, "/routines", token, map[string]any{
+			"name": "Push day", "slots": []any{bench},
+		}).Body["id"].(string)
+		bench["substituteIds"] = []string{exerciseID(t, srv, token, "Cable Crossover")}
+
+		res := testutil.Do(t, srv, http.MethodPut, "/routines/"+id, token, map[string]any{
+			"name": "Push day", "slots": []any{bench},
+		})
+
+		if res.Status != http.StatusOK {
+			t.Fatalf("status = %d, want 200; body %v", res.Status, res.Body)
+		}
+		subs := objects(t, objects(t, res.Body, "slots")[0], "substitutes")
+		if len(subs) != 1 || subs[0]["name"] != "Cable Crossover" {
+			t.Errorf("substitutes = %v, want only Cable Crossover", subs)
+		}
+	})
+
+	t.Run("refuses substitutes it can't save", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		_, _, other := testutil.SignUp(t, srv)
+		benchID := exerciseID(t, srv, token, "Bench Press")
+		pushUp := exerciseID(t, srv, token, "Push-up")
+		tooMany := make([]string, 11)
+		for i := range tooMany {
+			tooMany[i] = exerciseID(t, srv, token, "Push-up")
+		}
+		cases := []struct {
+			name   string
+			ids    any
+			status int
+			code   string
+		}{
+			{"the slot's own exercise", []string{benchID}, 400, "invalid_substitutes"},
+			{"the same one twice", []string{pushUp, pushUp}, 400, "invalid_substitutes"},
+			{"more than ten", tooMany, 400, "invalid_substitutes"},
+			{"not an id", []string{"nope"}, 404, "exercise_not_found"},
+			{"another user's exercise", []string{createCustomExercise(t, srv, other, "Hack Squat")}, 404, "exercise_not_found"},
+		}
+		for _, c := range cases {
+			bench := slot(t, srv, token, "Bench Press", nil)
+			bench["substituteIds"] = c.ids
+			res := testutil.Do(t, srv, http.MethodPost, "/routines", token, map[string]any{"name": "R", "slots": []any{bench}})
+			if res.Status != c.status || res.ErrorCode() != c.code {
+				t.Errorf("%s: got %d %q, want %d %q", c.name, res.Status, res.ErrorCode(), c.status, c.code)
+			}
+		}
+	})
+}
+
 // createRoutine creates a routine of the named library exercises, each
 // 3 x 10 at 50 kg, and returns its id.
 func createRoutine(t *testing.T, srv *httptest.Server, token, name string, exercises ...string) string {

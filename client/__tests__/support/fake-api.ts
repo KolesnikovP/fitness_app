@@ -28,6 +28,7 @@ type FakeExercise = {
 
 type FakeSet = {
   id: string;
+  exerciseId: string;
   weight: number;
   weightUnit: 'kg' | 'lb';
   reps: number;
@@ -48,6 +49,8 @@ type FakeTarget = {
 type FakeSessionExercise = {
   id: string;
   exerciseId: string;
+  plannedExerciseId: string | null;
+  substituteIds: string[];
   note: string;
   supersetId: string | null;
   target: FakeTarget | null;
@@ -73,6 +76,7 @@ type FakeSlot = {
   restSeconds: number | null;
   note: string;
   supersetGroup: number | null;
+  substituteIds: string[];
 };
 
 type FakeRoutine = {
@@ -89,9 +93,11 @@ const CANONICAL: [name: string, muscleGroup: string, equipmentType: string][] = 
   ['Bench Press', 'chest', 'barbell'],
   ['Deadlift', 'back', 'barbell'],
   ['Dumbbell Bench Press', 'chest', 'dumbbell'],
+  ['Incline Bench Press', 'chest', 'barbell'],
   ['Lat Pulldown', 'back', 'cable'],
   ['Overhead Press', 'shoulders', 'barbell'],
   ['Plank', 'abs', 'bodyweight'],
+  ['Push-up', 'chest', 'bodyweight'],
 ];
 
 const MEDIA_KINDS: Record<string, 'image' | 'animated_demo'> = {
@@ -174,6 +180,11 @@ export const fakeApi = {
     return exercises.filter((e) => e.ownerId === ownerId);
   },
 
+  /** The name of the library exercise id. */
+  exerciseName(id: string) {
+    return exerciseName(id);
+  },
+
   exerciseNamed(name: string) {
     const exercise = exercises.find((e) => e.name === name);
     if (!exercise) throw new Error(`No fake exercise named ${name}`);
@@ -199,6 +210,8 @@ export const fakeApi = {
     const sessionExercise: FakeSessionExercise = {
       id: `session-exercise-${nextId++}`,
       exerciseId: this.exerciseNamed(name).id,
+      plannedExerciseId: null,
+      substituteIds: [],
       note: '',
       supersetId: null,
       target: null,
@@ -218,6 +231,7 @@ export const fakeApi = {
   ) {
     sessionExercise.sets.push({
       id: `set-${nextId++}`,
+      exerciseId: sessionExercise.exerciseId,
       weight,
       weightUnit,
       reps,
@@ -252,6 +266,7 @@ export const fakeApi = {
         restSeconds: null,
         note: '',
         supersetGroup: null,
+        substituteIds: [],
       })),
     };
     routines.push(routine);
@@ -286,12 +301,19 @@ function exerciseJson({ ownerId: _ownerId, ...exercise }: FakeExercise) {
   return exercise;
 }
 
+function exerciseRef(exerciseId: string) {
+  return { exerciseId, name: exerciseName(exerciseId) };
+}
+
 function sessionJson({ ownerId: _ownerId, exercises: sessionExercises, ...session }: FakeSession) {
   return {
     ...session,
-    exercises: sessionExercises.map((sessionExercise) => ({
+    exercises: sessionExercises.map(({ plannedExerciseId, substituteIds, sets, ...sessionExercise }) => ({
       ...sessionExercise,
       name: exerciseName(sessionExercise.exerciseId),
+      planned: plannedExerciseId === null ? null : exerciseRef(plannedExerciseId),
+      substitutes: substituteIds.map(exerciseRef),
+      sets: sets.map((set) => ({ ...set, name: exerciseName(set.exerciseId) })),
     })),
   };
 }
@@ -316,7 +338,9 @@ function setNotFound() {
 }
 
 /** The 400 the real API sends for a Set it won't log or save, or null if it's valid. */
-function invalidSet({ weight, weightUnit, reps, rpe = null, note = '' }: Partial<Omit<FakeSet, 'id' | 'supersetId'>>) {
+type SetBody = Partial<Omit<FakeSet, 'id' | 'exerciseId' | 'supersetId'>>;
+
+function invalidSet({ weight, weightUnit, reps, rpe = null, note = '' }: SetBody) {
   if (typeof weight !== 'number' || weight < 0 || weight > 9999.99) {
     return error(400, 'invalid_weight', 'Weight must be from 0 to 9999.99.');
   }
@@ -338,7 +362,14 @@ function exerciseName(id: string) {
 }
 
 function routineJson({ ownerId: _ownerId, slots, ...routine }: FakeRoutine) {
-  return { ...routine, slots: slots.map((slot) => ({ ...slot, name: exerciseName(slot.exerciseId) })) };
+  return {
+    ...routine,
+    slots: slots.map(({ substituteIds, ...slot }) => ({
+      ...slot,
+      name: exerciseName(slot.exerciseId),
+      substitutes: substituteIds.map(exerciseRef),
+    })),
+  };
 }
 
 function routineNotFound() {
@@ -381,6 +412,16 @@ function plannedRoutine(account: FakeAccount, body: { name?: string; slots?: Slo
     if ((slot.note ?? '').trim().length > 500) {
       return { response: error(400, 'invalid_note', 'Notes can be at most 500 characters.') };
     }
+    const substituteIds = slot.substituteIds ?? [];
+    if (substituteIds.length > 10) {
+      return { response: error(400, 'invalid_substitutes', 'An exercise can have at most 10 substitutes.') };
+    }
+    if (substituteIds.includes(slot.exerciseId!)) {
+      return { response: error(400, 'invalid_substitutes', "An exercise can't be its own substitute.") };
+    }
+    if (new Set(substituteIds).size !== substituteIds.length) {
+      return { response: error(400, 'invalid_substitutes', 'Each substitute can be added once.') };
+    }
     if (supersetGroup !== null) {
       if (supersetGroup < 1) {
         return { response: error(400, 'invalid_superset', 'supersetGroup must be a positive number, or null.') };
@@ -393,7 +434,13 @@ function plannedRoutine(account: FakeAccount, body: { name?: string; slots?: Slo
     return { response: error(400, 'invalid_superset', 'A superset needs at least two exercises.') };
   }
   // As the real API does, once everything else is valid.
-  if (slots.some((slot) => !visibleExercise(account, slot.exerciseId))) {
+  if (
+    slots.some(
+      (slot) =>
+        !visibleExercise(account, slot.exerciseId) ||
+        (slot.substituteIds ?? []).some((id) => !visibleExercise(account, id)),
+    )
+  ) {
     return { response: error(404, 'exercise_not_found', 'Exercise not found.') };
   }
   return {
@@ -409,6 +456,7 @@ function plannedRoutine(account: FakeAccount, body: { name?: string; slots?: Slo
         restSeconds: slot.restSeconds ?? null,
         note: (slot.note ?? '').trim(),
         supersetGroup: slot.supersetGroup == null ? null : groupOrder.indexOf(slot.supersetGroup) + 1,
+        substituteIds: [...(slot.substituteIds ?? [])],
       }),
     ),
   };
@@ -430,7 +478,9 @@ const handlers = [
     return HttpResponse.json({
       sessions: finished.map((s) => {
         const { id, startedAt, finishedAt, exercises: sessionExercises } = sessionJson(s);
-        return { id, startedAt, finishedAt, exerciseNames: sessionExercises.map((e) => e.name) };
+        // What was done: each set's exercise, or the exercise's own if it has none.
+        const done = sessionExercises.flatMap((e) => (e.sets.length > 0 ? e.sets.map((set) => set.name) : [e.name]));
+        return { id, startedAt, finishedAt, exerciseNames: [...new Set(done)] };
       }),
     });
   }),
@@ -456,6 +506,8 @@ const handlers = [
         session.exercises.push({
           id: `session-exercise-${nextId++}`,
           exerciseId: slot.exerciseId,
+          plannedExerciseId: slot.exerciseId,
+          substituteIds: [...slot.substituteIds],
           note: '',
           supersetId: slot.supersetGroup === null ? null : supersets.get(slot.supersetGroup)!,
           target: {
@@ -490,6 +542,8 @@ const handlers = [
     session.exercises.push({
       id: `session-exercise-${nextId++}`,
       exerciseId,
+      plannedExerciseId: null,
+      substituteIds: [],
       note: '',
       supersetId: null,
       target: null,
@@ -501,28 +555,39 @@ const handlers = [
   http.patch('*/workouts/sessions/:id/exercises/:sessionExerciseId', async ({ request, params }) => {
     const account = caller(request);
     if (!account) return unauthorized();
-    const { note } = (await request.json()) as { note?: string };
-    if (typeof note !== 'string') return error(400, 'invalid_note', 'Send the note, or an empty one to clear it.');
-    if (note.trim().length > 500) return error(400, 'invalid_note', 'Notes can be at most 500 characters.');
+    const { note, exerciseId } = (await request.json()) as { note?: string; exerciseId?: string };
+    if (typeof note !== 'string' && typeof exerciseId !== 'string') {
+      return error(400, 'invalid_note', 'Send a note (an empty one clears it), or an exerciseId to swap to.');
+    }
+    if (typeof note === 'string' && note.trim().length > 500) {
+      return error(400, 'invalid_note', 'Notes can be at most 500 characters.');
+    }
     const { session, response } = sessionInProgress(account, params.id);
     if (!session) return response;
     const sessionExercise = session.exercises.find((e) => e.id === params.sessionExerciseId);
     if (!sessionExercise) return sessionExerciseNotFound();
-    sessionExercise.note = note.trim();
+    if (typeof exerciseId === 'string') {
+      const { plannedExerciseId, substituteIds } = sessionExercise;
+      if (plannedExerciseId === null || (exerciseId !== plannedExerciseId && !substituteIds.includes(exerciseId))) {
+        return error(400, 'invalid_swap', 'Swap only to the exercise the routine planned, or one of its substitutes.');
+      }
+      sessionExercise.exerciseId = exerciseId;
+    }
+    if (typeof note === 'string') sessionExercise.note = note.trim();
     return HttpResponse.json(sessionJson(session));
   }),
 
   http.post('*/workouts/sessions/:id/exercises/:sessionExerciseId/sets', async ({ request, params }) => {
     const account = caller(request);
     if (!account) return unauthorized();
-    const body = (await request.json()) as Partial<Omit<FakeSet, 'id' | 'supersetId'>>;
+    const body = (await request.json()) as SetBody;
     const invalid = invalidSet(body);
     if (invalid) return invalid;
     const { session, response } = sessionInProgress(account, params.id);
     if (!session) return response;
     const sessionExercise = session.exercises.find((e) => e.id === params.sessionExerciseId);
     if (!sessionExercise) return sessionExerciseNotFound();
-    const { weight, weightUnit, reps, rpe = null, note = '' } = body as Omit<FakeSet, 'id' | 'supersetId'>;
+    const { weight, weightUnit, reps, rpe = null, note = '' } = body as Required<SetBody>;
     fakeApi.addSet(sessionExercise, weight, weightUnit, reps, note.trim(), rpe);
     return HttpResponse.json(sessionJson(session), { status: 201 });
   }),
@@ -530,7 +595,7 @@ const handlers = [
   http.patch('*/workouts/sessions/:id/sets/:setId', async ({ request, params }) => {
     const account = caller(request);
     if (!account) return unauthorized();
-    const body = (await request.json()) as Partial<Omit<FakeSet, 'id' | 'supersetId'>>;
+    const body = (await request.json()) as SetBody;
     const invalid = invalidSet(body);
     if (invalid) return invalid;
     const { session, response } = sessionInProgress(account, params.id);
@@ -630,7 +695,7 @@ const handlers = [
         const grouped = e.supersetId !== null && supersetSizes.get(e.supersetId)! >= 2;
         if (grouped && !groups.includes(e.supersetId!)) groups.push(e.supersetId!);
         return {
-          exerciseId: e.exerciseId,
+          exerciseId: last.exerciseId,
           targetSets: Math.min(e.sets.length, 20),
           targetReps: last.reps,
           targetWeight: last.weight,
@@ -761,6 +826,21 @@ const handlers = [
     if (!name?.trim()) return error(400, 'invalid_name', 'Name must be 1 to 100 characters.');
     const exercise = fakeApi.addCustomExercise(account.id, name.trim(), muscleGroup, equipmentType);
     return HttpResponse.json(exerciseJson(exercise), { status: 201 });
+  }),
+
+  http.get('*/exercises/:id/substitutes', ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const exercise = visibleExercise(account, params.id);
+    if (!exercise) return error(404, 'exercise_not_found', 'Exercise not found.');
+    const sameEquipment = (e: FakeExercise) => (e.equipmentType === exercise.equipmentType ? 0 : 1);
+    const found = exercises
+      .filter((e) => (e.ownerId === null || e.ownerId === account.id) && e.id !== exercise.id)
+      .filter((e) => e.muscleGroup === exercise.muscleGroup)
+      .sort(
+        (a, b) => sameEquipment(a) - sameEquipment(b) || a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
+      );
+    return HttpResponse.json({ exercises: found.map(exerciseJson) });
   }),
 
   http.get('*/exercises/:id', ({ request, params }) => {
