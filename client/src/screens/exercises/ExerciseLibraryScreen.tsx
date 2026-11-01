@@ -42,7 +42,7 @@ export function ExerciseLibraryScreen() {
   return (
     <Screen title="Exercises">
       <Button label="New exercise" variant="secondary" onPress={() => router.push('/exercises/new')} />
-      <ExerciseSearch filters={filters} onChange={setFilters} />
+      <ExerciseSearch filters={filters} onChange={setFilters} appearance="cards" />
       {error ? (
         <Text accessibilityRole="alert" style={styles.error}>
           {error}

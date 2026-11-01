@@ -17,5 +17,6 @@ export {
   type MediaFile,
   type NewExercise,
 } from './api';
+export { EQUIPMENT_ART, MUSCLE_GROUP_ART } from './filterArt';
 export { ExerciseListItem } from './ExerciseListItem';
 export { ExerciseMedia } from './ExerciseMedia';
