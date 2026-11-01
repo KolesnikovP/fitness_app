@@ -132,7 +132,7 @@ export function RoutineEditor({ initial, onSave }: RoutineEditorProps) {
       ) : null}
       <Button label="Save routine" onPress={save} loading={saving} disabled={!routine} />
       {draft.slots.length > 0 && !routine ? (
-        <Text style={styles.muted}>Give the routine a name, and each exercise its sets, reps and weight.</Text>
+        <Text style={styles.muted}>Give the routine a name, and each exercise its sets and reps.</Text>
       ) : null}
     </View>
   );

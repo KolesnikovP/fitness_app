@@ -2,6 +2,7 @@
 export {
   emptyRoutineDraft,
   MAX_TARGET_SETS,
+  needsStartingWeight,
   parseRoutineDraft,
   parseSets,
   REST_OPTIONS,
@@ -13,6 +14,7 @@ export {
   withSlotAdded,
   withSlotChanged,
   withSlotRemoved,
+  withStartingWeights,
   withSuperset,
   type Routine,
   type RoutineDraft,

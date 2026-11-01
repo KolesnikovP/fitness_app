@@ -109,9 +109,10 @@ export function formatSet(set: Pick<SessionSet, 'weight' | 'weightUnit' | 'reps'
   return set.rpe === null ? base : `${base} @ RPE ${set.rpe}`;
 }
 
-/** "3 × 5 · 100 kg" */
+/** "3 × 5 · 100 kg", or "3 × 5" with no weight (0) planned. */
 export function formatTarget(target: { sets: number; reps: number; weight: number; weightUnit: WeightUnit }): string {
-  return `${target.sets} × ${target.reps} · ${target.weight} ${target.weightUnit}`;
+  const base = `${target.sets} × ${target.reps}`;
+  return target.weight === 0 ? base : `${base} · ${target.weight} ${target.weightUnit}`;
 }
 
 /** "1:30" */
@@ -121,13 +122,13 @@ export function formatRest(seconds: number): string {
 
 /**
  * The draft to log the next Set from: the target's reps, and its weight when
- * it's in the unit the Set is logged in.
+ * one is planned (not 0) in the unit the Set is logged in.
  */
 export function setDraftFromTarget(target: SessionTarget | null, weightUnit: WeightUnit): SetDraft {
   if (!target) return emptySetDraft;
   return {
     ...emptySetDraft,
-    weight: target.weightUnit === weightUnit ? String(target.weight) : '',
+    weight: target.weight !== 0 && target.weightUnit === weightUnit ? String(target.weight) : '',
     reps: String(target.reps),
   };
 }

@@ -113,6 +113,53 @@ describe('routines', () => {
     ]);
   });
 
+  it('plans an exercise without a weight, and asks for it when the routine is started', async () => {
+    const accountId = await openWorkoutTab();
+    await fireEvent.press(await screen.findByRole('button', { name: 'New routine' }));
+    await fireEvent.changeText(await screen.findByLabelText('Routine name'), 'First day');
+    // A new lifter doesn't know their squat yet: the weight is left blank.
+    const squat = await addSlot('squat', 'Back Squat');
+    await fireEvent.changeText(squat.getByLabelText('Reps'), '8');
+    const press = await addSlot('overhead', 'Overhead Press');
+    await fireEvent.changeText(press.getByLabelText('Weight (kg)'), '30');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save routine' }));
+
+    await screen.findByRole('header', { name: 'Workout' });
+    expect(fakeApi.routines(accountId)[0].slots.map((s) => s.targetWeight)).toEqual([0, 30]);
+    await fireEvent.press(within(await screen.findByLabelText('Routines')).getByRole('button', { name: 'First day' }));
+    await screen.findByRole('header', { name: 'First day' });
+    expect(screen.getByText('3 × 8')).toBeVisible();
+    // Only the exercise with no weight is asked about.
+    const starting = within(screen.getByLabelText('Starting weights'));
+    expect(starting.queryByLabelText('Overhead Press weight (kg)')).toBeNull();
+    await fireEvent.changeText(starting.getByLabelText('Back Squat weight (kg)'), '60');
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Start workout' }));
+
+    await screen.findByRole('header', { name: 'Current workout' });
+    const card = within(screen.getByLabelText('Back Squat card'));
+    expect(card.getByText('Target 3 × 8 · 60 kg')).toBeVisible();
+    expect(card.getByLabelText('Weight (kg)')).toHaveDisplayValue('60');
+    // Saved to the routine, so it isn't asked again.
+    expect(fakeApi.routines(accountId)[0].slots.map((s) => s.targetWeight)).toEqual([60, 30]);
+  });
+
+  it('starts a routine without a starting weight, leaving the weight to fill in while logging', async () => {
+    const accountId = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg').id;
+    fakeApi.addRoutine(accountId, 'First day', ['Back Squat']).slots[0].targetWeight = 0;
+    await openWorkoutTab(accountId);
+    await fireEvent.press(within(await screen.findByLabelText('Routines')).getByRole('button', { name: 'First day' }));
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Start workout' }));
+
+    await screen.findByRole('header', { name: 'Current workout' });
+    const card = within(screen.getByLabelText('Back Squat card'));
+    expect(card.getByText('Target 3 × 10')).toBeVisible();
+    expect(card.getByLabelText('Weight (kg)')).toHaveDisplayValue('');
+    expect(card.getByLabelText('Reps')).toHaveDisplayValue('10');
+    expect(fakeApi.routines(accountId)[0].slots[0].targetWeight).toBe(0);
+  });
+
   it('plans a superset in a routine, and starts the workout with it grouped', async () => {
     const accountId = await openWorkoutTab();
     await fireEvent.press(await screen.findByRole('button', { name: 'New routine' }));

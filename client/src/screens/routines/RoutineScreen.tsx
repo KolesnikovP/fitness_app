@@ -3,10 +3,19 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
-import { deleteRoutine, getRoutine, slotBlocks, type Routine, type RoutineSlot } from '@/entities/routine';
-import { formatRest, formatTarget, startSession } from '@/entities/workout';
+import {
+  deleteRoutine,
+  getRoutine,
+  needsStartingWeight,
+  slotBlocks,
+  updateRoutine,
+  withStartingWeights,
+  type Routine,
+  type RoutineSlot,
+} from '@/entities/routine';
+import { formatRest, formatTarget, parseWeight, startSession, weightInput } from '@/entities/workout';
 import { errorMessage } from '@/shared/api';
-import { Button, colors, Screen, spacing } from '@/shared/ui';
+import { Button, colors, Screen, spacing, TextField } from '@/shared/ui';
 
 /** "Rest 3:00 · Pause on the chest", or "" with neither. */
 function slotDetail(slot: RoutineSlot): string {
@@ -32,7 +41,26 @@ function SlotSummary({ slot }: { slot: RoutineSlot }) {
   );
 }
 
-/** One Routine: what it plans, starting a workout from it, editing and deleting it. */
+/**
+ * The weights typed for slots with none yet, by slot id, leaving out blank
+ * ones (and 0, which is still none); null while one isn't a number.
+ */
+function parseStartingWeights(typed: Record<string, string>): Record<string, number> | null {
+  const weights: Record<string, number> = {};
+  for (const [slotId, text] of Object.entries(typed)) {
+    if (text.trim() === '') continue;
+    const weight = parseWeight(text);
+    if (weight === null) return null;
+    if (weight > 0) weights[slotId] = weight;
+  }
+  return weights;
+}
+
+/**
+ * One Routine: what it plans, starting a workout from it (asking first for a
+ * starting weight for any exercise planned without one), editing and
+ * deleting it.
+ */
 export function RoutineScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state } = useAuth();
@@ -40,6 +68,7 @@ export function RoutineScreen() {
   const [routine, setRoutine] = useState<Routine | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  const [typedWeights, setTypedWeights] = useState<Record<string, string>>({});
 
   // Reload on focus, so an edit saved on the next screen shows here.
   useFocusEffect(
@@ -74,11 +103,19 @@ export function RoutineScreen() {
     );
   }
 
+  const unweighted = routine.slots.filter(needsStartingWeight);
+  const startingWeights = parseStartingWeights(typedWeights);
+
   async function start() {
-    if (!token || !routine) return;
+    if (!token || !routine || !startingWeights) return;
     setError(null);
     setStarting(true);
     try {
+      // Saved to the Routine, so they aren't asked for again.
+      if (Object.keys(startingWeights).length > 0) {
+        setRoutine(await updateRoutine(token, routine.id, withStartingWeights(routine, startingWeights)));
+        setTypedWeights({});
+      }
       await startSession(token, routine.id);
       // In place of this screen, so finishing goes back to the Workout tab.
       router.replace('/workout/session');
@@ -123,12 +160,31 @@ export function RoutineScreen() {
           ),
         )}
       </View>
+      {unweighted.length > 0 ? (
+        <View accessibilityLabel="Starting weights" style={styles.startingWeights}>
+          <Text style={styles.heading}>Starting weights</Text>
+          <Text style={styles.muted}>
+            What will you start with? It's saved to the routine. Not sure yet? Leave it blank and fill it in as
+            you log.
+          </Text>
+          {unweighted.map((slot) => (
+            <TextField
+              key={slot.id}
+              label={`${slot.name} weight (${slot.weightUnit})`}
+              placeholder="Optional"
+              value={typedWeights[slot.id] ?? ''}
+              onChangeText={(text) => setTypedWeights((typed) => ({ ...typed, [slot.id]: weightInput(text) }))}
+              keyboardType="decimal-pad"
+            />
+          ))}
+        </View>
+      ) : null}
       {error ? (
         <Text accessibilityRole="alert" style={styles.error}>
           {error}
         </Text>
       ) : null}
-      <Button label="Start workout" onPress={start} loading={starting} />
+      <Button label="Start workout" onPress={start} loading={starting} disabled={!startingWeights} />
       <Button
         label="Edit routine"
         variant="secondary"
@@ -157,6 +213,8 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color: colors.primary,
   },
+  startingWeights: { gap: spacing.sm },
+  heading: { fontSize: 20, fontWeight: '600', color: colors.text },
   error: { color: colors.danger, fontSize: 15 },
   muted: { fontSize: 15, color: colors.muted },
 });

@@ -75,7 +75,7 @@ One Exercise planned in a Routine: its Target, and optionally a rest, a note, an
 _Avoid_: Slot exercise, routine exercise, entry
 
 **Target**:
-What an Exercise slot plans: a number of Sets, each of so many reps at a weight (in kg or lb). A Session started from a Routine keeps a copy of each slot's Target on its Session exercise, and the User logs the Sets they actually did against it.
+What an Exercise slot plans: a number of Sets, each of so many reps at a weight (in kg or lb). A weight of 0 means none is planned yet, as for a new lifter who doesn't know theirs: starting the Routine asks for one and saves it. A Session started from a Routine keeps a copy of each slot's Target on its Session exercise, and the User logs the Sets they actually did against it.
 _Avoid_: Goal, prescription, planned set
 
 **Program**:

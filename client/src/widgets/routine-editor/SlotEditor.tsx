@@ -48,6 +48,7 @@ export function SlotEditor({ slot, onChange, onMove, onRemove, canMoveUp, canMov
         <View style={styles.weight}>
           <TextField
             label={`Weight (${slot.weightUnit})`}
+            placeholder="Optional"
             value={slot.weight}
             onChangeText={(text) => onChange({ weight: weightInput(text) })}
             keyboardType="decimal-pad"

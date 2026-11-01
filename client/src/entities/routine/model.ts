@@ -2,7 +2,8 @@ import { parseReps, parseWeight, type WeightUnit } from '@/entities/workout';
 
 /**
  * One Exercise slot of a Routine: the Exercise and its Target. targetWeight
- * is in weightUnit. restSeconds is null when no rest is planned. Slots
+ * is in weightUnit, and 0 until the User knows what to start with (or for a
+ * bodyweight exercise). restSeconds is null when no rest is planned. Slots
  * sharing a supersetGroup are a planned Superset.
  */
 export type RoutineSlot = {
@@ -101,7 +102,8 @@ export function routineDraftOf(routine: Routine): RoutineDraft {
       name: slot.name,
       sets: String(slot.targetSets),
       reps: String(slot.targetReps),
-      weight: String(slot.targetWeight),
+      // 0 is no weight yet: shown blank, as it was left.
+      weight: slot.targetWeight === 0 ? '' : String(slot.targetWeight),
       weightUnit: slot.weightUnit,
       restSeconds: slot.restSeconds,
       note: slot.note,
@@ -123,7 +125,10 @@ export function parseSets(text: string): number | null {
   return sets !== null && sets <= MAX_TARGET_SETS ? sets : null;
 }
 
-/** The Routine a draft describes, or null while it has no name, no slots or an incomplete slot. */
+/**
+ * The Routine a draft describes, or null while it has no name, no slots or an
+ * incomplete slot. A blank weight is 0: not known yet.
+ */
 export function parseRoutineDraft(draft: RoutineDraft): RoutineInput | null {
   const name = draft.name.trim();
   if (name === '' || draft.slots.length === 0) return null;
@@ -131,7 +136,7 @@ export function parseRoutineDraft(draft: RoutineDraft): RoutineInput | null {
   for (const slot of draft.slots) {
     const targetSets = parseSets(slot.sets);
     const targetReps = parseReps(slot.reps);
-    const targetWeight = parseWeight(slot.weight);
+    const targetWeight = slot.weight.trim() === '' ? 0 : parseWeight(slot.weight);
     if (targetSets === null || targetReps === null || targetWeight === null) return null;
     slots.push({
       exerciseId: slot.exerciseId,
@@ -147,7 +152,7 @@ export function parseRoutineDraft(draft: RoutineDraft): RoutineInput | null {
   return { name, slots };
 }
 
-/** The draft with a slot for exercise added at the end, 3 × 10 at a weight still to fill in. */
+/** The draft with a slot for exercise added at the end: 3 × 10, with the weight blank. */
 export function withSlotAdded(
   draft: RoutineDraft,
   exercise: { id: string; name: string },
@@ -166,6 +171,22 @@ export function withSlotAdded(
     supersetGroup: null,
   };
   return { ...draft, slots: [...draft.slots, slot] };
+}
+
+/** Whether a slot has no target weight yet, so the User is asked for one when starting the Routine. */
+export function needsStartingWeight(slot: RoutineSlot): boolean {
+  return slot.targetWeight === 0;
+}
+
+/** The Routine as it's saved, with the weights in startingWeights (by slot id) filled in. */
+export function withStartingWeights(routine: Routine, startingWeights: Record<string, number>): RoutineInput {
+  return {
+    name: routine.name,
+    slots: routine.slots.map(({ id, name: _name, ...slot }) => ({
+      ...slot,
+      targetWeight: startingWeights[id] ?? slot.targetWeight,
+    })),
+  };
 }
 
 export function withSlotChanged(draft: RoutineDraft, key: string, patch: Partial<SlotDraft>): RoutineDraft {
