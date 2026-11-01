@@ -9,16 +9,16 @@ import {
   type ExerciseFilters,
   type MuscleGroup,
 } from '@/entities/exercise';
-import { ChipGroup, spacing, TextField } from '@/shared/ui';
+import { Button, ChipGroup, spacing, TextField } from '@/shared/ui';
 
-import { FilterCardGroup } from './FilterCards';
+import { FilterCardButton } from './FilterCards';
 
 type ExerciseSearchProps = {
   filters: ExerciseFilters;
   onChange: (filters: ExerciseFilters) => void;
   /**
-   * 'chips' (default) keeps the filters compact; 'cards' shows each option as
-   * a dark card with its art, for browsing the library.
+   * 'chips' (default) shows the options inline; 'cards' shows a button per
+   * filter that opens a sheet of art cards, for browsing the library.
    */
   appearance?: 'chips' | 'cards';
 };
@@ -40,22 +40,31 @@ export function ExerciseSearch({ filters, onChange, appearance = 'chips' }: Exer
       />
       {appearance === 'cards' ? (
         <>
-          <FilterCardGroup
-            label="Muscle group"
-            options={MUSCLE_GROUPS}
-            art={MUSCLE_GROUP_ART}
-            value={filters.muscleGroup}
-            onChange={setMuscleGroup}
-            layout="list"
-          />
-          <FilterCardGroup
-            label="Equipment"
-            options={EQUIPMENT_TYPES}
-            art={EQUIPMENT_ART}
-            value={filters.equipmentType}
-            onChange={setEquipmentType}
-            layout="row"
-          />
+          <View style={styles.filterRow}>
+            <FilterCardButton
+              label="Muscle group"
+              options={MUSCLE_GROUPS}
+              art={MUSCLE_GROUP_ART}
+              value={filters.muscleGroup}
+              onChange={setMuscleGroup}
+              artFit="crop"
+            />
+            <FilterCardButton
+              label="Equipment"
+              options={EQUIPMENT_TYPES}
+              art={EQUIPMENT_ART}
+              value={filters.equipmentType}
+              onChange={setEquipmentType}
+              artFit="whole"
+            />
+          </View>
+          {filters.muscleGroup || filters.equipmentType ? (
+            <Button
+              label="Clear filters"
+              variant="link"
+              onPress={() => onChange({ ...filters, muscleGroup: null, equipmentType: null })}
+            />
+          ) : null}
         </>
       ) : (
         <>
@@ -81,4 +90,5 @@ export function ExerciseSearch({ filters, onChange, appearance = 'chips' }: Exer
 
 const styles = StyleSheet.create({
   container: { gap: spacing.md },
+  filterRow: { flexDirection: 'row', gap: spacing.sm },
 });
