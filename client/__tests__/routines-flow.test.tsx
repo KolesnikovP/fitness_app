@@ -4,6 +4,7 @@ import { Alert } from 'react-native';
 
 import { fakeApi } from './support/fake-api';
 import { secureStore } from './support/secure-store';
+import { loggedSets } from './support/set-table';
 
 /** Launches the app signed in as an onboarded kg user (made unless given), on the Workout tab. */
 async function openWorkoutTab(accountId?: string) {
@@ -81,24 +82,33 @@ describe('routines', () => {
     const benchCard = within(screen.getByLabelText('Bench Press card'));
     expect(benchCard.getByText('Target 3 × 5 · 100 kg')).toBeVisible();
     expect(benchCard.getByText('Pause on the chest')).toBeVisible();
-    // The set form starts at the target, ready to log as planned or adjust.
-    expect(benchCard.getByLabelText('Weight (kg)')).toHaveDisplayValue('100');
-    expect(benchCard.getByLabelText('Reps')).toHaveDisplayValue('5');
+    // A row for each planned set, at the target, ready to log as planned or adjust.
+    for (const set of [1, 2, 3]) {
+      expect(benchCard.getByLabelText(`Set ${set} weight (kg)`)).toHaveDisplayValue('100');
+      expect(benchCard.getByLabelText(`Set ${set} reps`)).toHaveDisplayValue('5');
+    }
+    expect(benchCard.queryByLabelText('Set 4 reps')).toBeNull();
     // The planned rest is offered on the rest timer.
     expect(screen.getByRole('button', { name: 'Rest 3:00' })).toBeVisible();
 
-    await fireEvent.press(benchCard.getByRole('button', { name: 'Log set' }));
-    expect(await benchCard.findByText('100 kg × 5')).toBeVisible();
-    expect(benchCard.getByText('1 of 3 sets')).toBeVisible();
-    await fireEvent.changeText(benchCard.getByLabelText('Reps'), '4');
-    await fireEvent.press(benchCard.getByRole('button', { name: 'Log set' }));
-    expect(await benchCard.findByText('100 kg × 4')).toBeVisible();
-    expect(benchCard.getByText('2 of 3 sets')).toBeVisible();
+    await fireEvent.press(benchCard.getByRole('button', { name: 'Log set 1' }));
+    await waitFor(() => expect(loggedSets(benchCard)).toEqual(['100 kg × 5']));
+    await fireEvent.changeText(benchCard.getByLabelText('Set 2 reps'), '4');
+    await fireEvent.press(benchCard.getByRole('button', { name: 'Log set 2' }));
+    await waitFor(() => expect(loggedSets(benchCard)).toEqual(['100 kg × 5', '100 kg × 4']));
+    // One planned set left.
+    expect(benchCard.getByLabelText('Set 3 reps')).toHaveDisplayValue('5');
+    expect(benchCard.queryByLabelText('Set 4 reps')).toBeNull();
 
     const pressCard = within(screen.getByLabelText('Overhead Press card'));
-    await fireEvent.changeText(pressCard.getByLabelText('Weight (kg)'), '42,5');
-    await fireEvent.press(pressCard.getByRole('button', { name: 'Log set' }));
-    expect(await pressCard.findByText('42.5 kg × 8')).toBeVisible();
+    await fireEvent.changeText(pressCard.getByLabelText('Set 1 weight (kg)'), '42,5');
+    await fireEvent.press(pressCard.getByRole('button', { name: 'Log set 1' }));
+    await waitFor(() => expect(loggedSets(pressCard)).toEqual(['42.5 kg × 8']));
+    // The next planned sets follow the weight just done.
+    expect(pressCard.getByLabelText('Set 2 weight (kg)')).toHaveDisplayValue('42.5');
+    // One more than planned.
+    await fireEvent.press(pressCard.getByRole('button', { name: '+ Add set' }));
+    expect(pressCard.getByLabelText('Set 4 reps')).toHaveDisplayValue('8');
 
     await fireEvent.press(screen.getByRole('button', { name: 'Finish workout' }));
 
@@ -181,8 +191,8 @@ describe('routines', () => {
 
     await screen.findByRole('header', { name: 'Current workout' });
     let card = within(screen.getByLabelText('Bench Press card'));
-    await fireEvent.press(card.getByRole('button', { name: 'Log set' }));
-    expect(await card.findByText('100 kg × 5')).toBeVisible();
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
+    await waitFor(() => expect(loggedSets(card)).toEqual(['100 kg × 5']));
 
     // The bench is taken: Swap shows the substitutes, saying what they're for.
     expect(card.getByText('Equipment taken?')).toBeVisible();
@@ -196,8 +206,10 @@ describe('routines', () => {
     card = within(await screen.findByLabelText('Dumbbell Bench Press card'));
     expect(screen.queryByLabelText('Substitutes for Bench Press')).toBeNull();
     expect(card.getByText('Instead of Bench Press')).toBeVisible();
-    // The set already logged keeps the exercise it was done with.
-    expect(within(card.getByRole('button', { name: 'Edit set 1' })).getByText('Bench Press')).toBeVisible();
+    // The set already logged keeps the exercise it was done with; each
+    // exercise's sets are labelled, the rows still to do too.
+    const runLabels = () => within(card.getByLabelText('Sets')).getAllByRole('header').map((h) => h.props.children);
+    expect(runLabels()).toEqual(['Bench Press', 'Dumbbell Bench Press']);
     // Back to the bench is a swap away, once it's free.
     await fireEvent.press(card.getByRole('button', { name: 'Swap Dumbbell Bench Press' }));
     sheet = within(await screen.findByLabelText('Substitutes for Bench Press'));
@@ -207,12 +219,13 @@ describe('routines', () => {
     expect(screen.queryByLabelText('Substitutes for Bench Press')).toBeNull();
     // The planned sets and reps still stand, but not the barbell's weight.
     expect(card.getByText('Target 3 × 5')).toBeVisible();
-    expect(card.getByLabelText('Weight (kg)')).toHaveDisplayValue('');
-    expect(card.getByLabelText('Reps')).toHaveDisplayValue('5');
-    await fireEvent.changeText(card.getByLabelText('Weight (kg)'), '35');
-    await fireEvent.changeText(card.getByLabelText('Reps'), '10');
-    await fireEvent.press(card.getByRole('button', { name: 'Log set' }));
-    expect(await card.findByText('35 kg × 10')).toBeVisible();
+    expect(card.getByLabelText('Set 2 weight (kg)')).toHaveDisplayValue('');
+    expect(card.getByLabelText('Set 2 reps')).toHaveDisplayValue('5');
+    await fireEvent.changeText(card.getByLabelText('Set 2 weight (kg)'), '35');
+    await fireEvent.changeText(card.getByLabelText('Set 2 reps'), '10');
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 2' }));
+    await waitFor(() => expect(loggedSets(card)).toEqual(['100 kg × 5', '35 kg × 10']));
+    expect(runLabels()).toEqual(['Bench Press', 'Dumbbell Bench Press']);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Finish workout' }));
     await screen.findByRole('header', { name: 'Workout' });
@@ -291,7 +304,7 @@ describe('routines', () => {
     await screen.findByRole('header', { name: 'Current workout' });
     const card = within(screen.getByLabelText('Back Squat card'));
     expect(card.getByText('Target 3 × 8 · 60 kg')).toBeVisible();
-    expect(card.getByLabelText('Weight (kg)')).toHaveDisplayValue('60');
+    expect(card.getByLabelText('Set 1 weight (kg)')).toHaveDisplayValue('60');
     // Saved to the routine, so it isn't asked again.
     expect(fakeApi.routines(accountId)[0].slots.map((s) => s.targetWeight)).toEqual([60, 30]);
   });
@@ -307,8 +320,8 @@ describe('routines', () => {
     await screen.findByRole('header', { name: 'Current workout' });
     const card = within(screen.getByLabelText('Back Squat card'));
     expect(card.getByText('Target 3 × 10')).toBeVisible();
-    expect(card.getByLabelText('Weight (kg)')).toHaveDisplayValue('');
-    expect(card.getByLabelText('Reps')).toHaveDisplayValue('10');
+    expect(card.getByLabelText('Set 1 weight (kg)')).toHaveDisplayValue('');
+    expect(card.getByLabelText('Set 1 reps')).toHaveDisplayValue('10');
     expect(fakeApi.routines(accountId)[0].slots[0].targetWeight).toBe(0);
   });
 

@@ -1,6 +1,7 @@
 // Workout entity: Session types, formatting and API bindings
 export {
   emptySetDraft,
+  addedAfterLogging,
   currentTarget,
   formatClockTime,
   formatDuration,
@@ -9,7 +10,9 @@ export {
   formatSet,
   formatTarget,
   hasSets,
+  nextSetDraft,
   parseReps,
+  pendingSetCount,
   parseSetDraft,
   parseWeight,
   repsInput,
@@ -17,6 +20,7 @@ export {
   sessionBlocks,
   setDraftFromTarget,
   setDraftOf,
+  setRuns,
   supersetProgress,
   swapChoices,
   swappedFrom,
@@ -26,6 +30,7 @@ export {
   type SessionSet,
   type SessionSummary,
   type SessionTarget,
+  type SetRun,
   type SetDraft,
   type SupersetProgress,
   type WeightUnit,
@@ -51,3 +56,4 @@ export {
 } from './api';
 export { SessionSummaryItem } from './SessionSummaryItem';
 export { SetFields } from './SetFields';
+export { setColumns } from './setColumns';

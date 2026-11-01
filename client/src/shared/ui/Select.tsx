@@ -15,6 +15,8 @@ type SelectProps<T> = {
   placeholder?: string;
   /** Offers a button to clear the value, for an optional field. */
   clearLabel?: string;
+  /** For a table cell: the label only for screen readers and the sheet's title, no chevron, centred. */
+  dense?: boolean;
 };
 
 /**
@@ -22,7 +24,15 @@ type SelectProps<T> = {
  * saying what it means to help the User choose. Once picked, the field shows
  * only the option's label.
  */
-export function Select<T>({ label, options, value, onChange, placeholder = 'Choose', clearLabel }: SelectProps<T>) {
+export function Select<T>({
+  label,
+  options,
+  value,
+  onChange,
+  placeholder = 'Choose',
+  clearLabel,
+  dense,
+}: SelectProps<T>) {
   const [open, setOpen] = useState(false);
   const selected = options.find((o) => o.value === value) ?? null;
   const shown = selected ? selected.label : placeholder;
@@ -34,18 +44,18 @@ export function Select<T>({ label, options, value, onChange, placeholder = 'Choo
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      {dense ? null : <Text style={styles.label}>{label}</Text>}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityValue={{ text: shown }}
         onPress={() => setOpen(true)}
-        style={styles.field}
+        style={[styles.field, dense && styles.denseField]}
       >
-        <Text style={[styles.value, !selected && styles.placeholder]} numberOfLines={1}>
+        <Text style={[styles.value, !selected && styles.placeholder, dense && styles.denseValue]} numberOfLines={1}>
           {shown}
         </Text>
-        <Text style={styles.chevron}>▾</Text>
+        {dense ? null : <Text style={styles.chevron}>▾</Text>}
       </Pressable>
       <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
         <Pressable accessibilityLabel={`Close ${label}`} style={styles.backdrop} onPress={() => setOpen(false)} />
@@ -96,6 +106,8 @@ const styles = StyleSheet.create({
   value: { flex: 1, fontSize: 17, color: colors.text },
   placeholder: { color: colors.muted },
   chevron: { fontSize: 15, color: colors.muted },
+  denseField: { minHeight: 40, paddingHorizontal: spacing.xs },
+  denseValue: { textAlign: 'center' },
   backdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.3)' },
   sheet: {
     maxHeight: '70%',

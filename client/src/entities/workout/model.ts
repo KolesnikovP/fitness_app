@@ -166,6 +166,50 @@ export function setDraftFromTarget(target: SessionTarget | null, weightUnit: Wei
 }
 
 /**
+ * How many rows a Session exercise shows for Sets still to log: one for each
+ * Set its Target has left (or one, with no Target), plus the ones the User
+ * added.
+ */
+export function pendingSetCount(exercise: SessionExercise, added: number): number {
+  const planned = exercise.target ? Math.max(exercise.target.sets - exercise.sets.length, 0) : 1;
+  return planned + added;
+}
+
+/**
+ * The added rows left once a Set is logged: logging uses up a planned row
+ * while the Target has some left, and an added one after.
+ */
+export function addedAfterLogging(exercise: SessionExercise, added: number): number {
+  const plannedLeft = exercise.target ? exercise.target.sets - exercise.sets.length : 0;
+  return plannedLeft > 0 ? added : Math.max(added - 1, 0);
+}
+
+/**
+ * What a row for the next Set starts at: the Target's reps, and the weight of
+ * the last Set logged for this Exercise, else the Target's.
+ */
+export function nextSetDraft(exercise: SessionExercise, weightUnit: WeightUnit): SetDraft {
+  const draft = setDraftFromTarget(currentTarget(exercise), weightUnit);
+  const last = exercise.sets.findLast((s) => s.exerciseId === exercise.exerciseId && s.weightUnit === weightUnit);
+  return last ? { ...draft, weight: String(last.weight) } : draft;
+}
+
+/** Logged Sets of a Session exercise in a row done with one Exercise, each with its number in the exercise, from 1. */
+export type SetRun = { exerciseId: string; name: string; sets: { set: SessionSet; number: number }[] };
+
+/** A Session exercise's logged Sets, in runs done with the same Exercise, as swaps split them. */
+export function setRuns(exercise: SessionExercise): SetRun[] {
+  const runs: SetRun[] = [];
+  exercise.sets.forEach((set, i) => {
+    const last = runs.at(-1);
+    const entry = { set, number: i + 1 };
+    if (last && last.exerciseId === set.exerciseId) last.sets.push(entry);
+    else runs.push({ exerciseId: set.exerciseId, name: set.name, sets: [entry] });
+  });
+  return runs;
+}
+
+/**
  * Groups the exercises of a Session into blocks. A Superset takes the place
  * of its first exercise, with the rest of its exercises right after it.
  */

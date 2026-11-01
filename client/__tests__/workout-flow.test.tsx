@@ -4,6 +4,7 @@ import { Alert } from 'react-native';
 
 import { fakeApi } from './support/fake-api';
 import { secureStore } from './support/secure-store';
+import { loggedSets } from './support/set-table';
 
 /** Launches the app signed in as an onboarded kg user, on the Workout tab. */
 async function openWorkoutTab() {
@@ -51,20 +52,32 @@ describe('freeform workout', () => {
 
     await screen.findByRole('header', { name: 'Current workout' });
     const card = exerciseCard('Dumbbell Bench Press');
-    await fireEvent.changeText(card.getByLabelText('Weight (kg)'), '32,5');
-    await fireEvent.changeText(card.getByLabelText('Reps'), '10');
+    // A table of sets, a column each for weight, reps and RPE; with nothing
+    // planned, one row is ready for the first set.
+    expect(card.getByText('KG')).toBeVisible();
+    expect(card.getByText('REPS')).toBeVisible();
+    expect(card.getByText('RPE')).toBeVisible();
+    expect(card.queryByLabelText('Set 2 reps')).toBeNull();
+    await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '32,5');
+    await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '10');
     // Notes stay out of the way until asked for.
-    expect(card.queryByLabelText('Set note')).toBeNull();
     expect(card.queryByLabelText('Exercise note')).toBeNull();
-    await fireEvent.press(card.getByRole('button', { name: 'Add set note' }));
-    await fireEvent.changeText(card.getByLabelText('Set note'), 'Slow negatives');
-    await fireEvent.press(card.getByRole('button', { name: 'Log set' }));
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
 
-    expect(await card.findByText('32.5 kg × 10')).toBeVisible();
-    expect(card.getByText('Slow negatives')).toBeVisible();
-    // The form clears for the next set.
-    expect(card.getByLabelText('Reps')).toHaveDisplayValue('');
-    expect(card.queryByLabelText('Set note')).toBeNull();
+    await waitFor(() => expect(loggedSets(card)).toEqual(['32.5 kg × 10']));
+    // Done with one exercise, the sets need no label.
+    expect(within(card.getByLabelText('Sets')).queryAllByRole('header')).toEqual([]);
+    // A row is ready for the next set, at the same weight.
+    expect(card.getByLabelText('Set 2 weight (kg)')).toHaveDisplayValue('32.5');
+    expect(card.getByLabelText('Set 2 reps')).toHaveDisplayValue('');
+
+    // A set's note is added by tapping it.
+    await fireEvent.press(card.getByRole('button', { name: 'Edit set 1' }));
+    const editing = within(card.getByLabelText('Editing set 1'));
+    await fireEvent.press(editing.getByRole('button', { name: 'Add set note' }));
+    await fireEvent.changeText(editing.getByLabelText('Set note'), 'Slow negatives');
+    await fireEvent.press(editing.getByRole('button', { name: 'Save' }));
+    expect(await card.findByText('Slow negatives')).toBeVisible();
 
     await fireEvent.press(card.getByRole('button', { name: 'Add exercise note' }));
     await fireEvent.changeText(card.getByLabelText('Exercise note'), 'Bench 3 was free');
@@ -104,7 +117,7 @@ describe('freeform workout', () => {
     await fireEvent.press(await screen.findByRole('button', { name: 'Resume workout' }));
 
     await screen.findByRole('header', { name: 'Current workout' });
-    expect(exerciseCard('Deadlift').getByText('140 kg × 3')).toBeVisible();
+    expect(loggedSets(exerciseCard('Deadlift'))).toEqual(['140 kg × 3']);
     // A note already written is shown open.
     expect(exerciseCard('Deadlift').getByLabelText('Exercise note')).toHaveDisplayValue('Mixed grip');
     expect(screen.getByRole('button', { name: 'Finish workout' })).toBeEnabled();
@@ -116,14 +129,14 @@ describe('freeform workout', () => {
     await resumeWorkout(account.id);
     const card = exerciseCard('Back Squat');
 
-    await fireEvent.changeText(card.getByLabelText('Weight (kg)'), '1a4o0,5.2kg');
-    await fireEvent.changeText(card.getByLabelText('Reps'), '1x0.5');
+    await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '1a4o0,5.2kg');
+    await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '1x0.5');
 
     // Letters are dropped, and so are a second decimal point and a third decimal.
-    expect(card.getByLabelText('Weight (kg)')).toHaveDisplayValue('140,52');
-    expect(card.getByLabelText('Reps')).toHaveDisplayValue('105');
-    await fireEvent.changeText(card.getByLabelText('Weight (kg)'), '12345');
-    expect(card.getByLabelText('Weight (kg)')).toHaveDisplayValue('1234');
+    expect(card.getByLabelText('Set 1 weight (kg)')).toHaveDisplayValue('140,52');
+    expect(card.getByLabelText('Set 1 reps')).toHaveDisplayValue('105');
+    await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '12345');
+    expect(card.getByLabelText('Set 1 weight (kg)')).toHaveDisplayValue('1234');
   });
 
   it('logs a set with an optional RPE, picked from a scale that says what each value means', async () => {
@@ -132,11 +145,11 @@ describe('freeform workout', () => {
     await resumeWorkout(account.id);
     const card = exerciseCard('Back Squat');
 
-    await fireEvent.changeText(card.getByLabelText('Weight (kg)'), '140');
-    await fireEvent.changeText(card.getByLabelText('Reps'), '5');
-    await fireEvent.press(card.getByRole('button', { name: 'RPE' }));
+    await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '140');
+    await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '5');
+    await fireEvent.press(card.getByRole('button', { name: 'Set 1 RPE' }));
 
-    const scale = within(screen.getByLabelText('RPE options'));
+    const scale = within(screen.getByLabelText('Set 1 RPE options'));
     expect(scale.getAllByRole('radio').map((option) => option.props.accessibilityLabel)).toEqual([
       '5',
       '6',
@@ -150,17 +163,17 @@ describe('freeform workout', () => {
     await fireEvent.press(scale.getByRole('radio', { name: '6' }));
 
     // The meanings help pick a value; once picked, only the value is shown.
-    expect(screen.queryByLabelText('RPE options')).toBeNull();
-    expect(within(card.getByRole('button', { name: 'RPE' })).getByText('6')).toBeVisible();
+    expect(screen.queryByLabelText('Set 1 RPE options')).toBeNull();
+    expect(within(card.getByRole('button', { name: 'Set 1 RPE' })).getByText('6')).toBeVisible();
     expect(card.queryByText(/more reps/)).toBeNull();
-    await fireEvent.press(card.getByRole('button', { name: 'Log set' }));
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
 
-    expect(await card.findByText('140 kg × 5 @ RPE 6')).toBeVisible();
-    // RPE resets for the next set; left unset, the set has none.
-    expect(within(card.getByRole('button', { name: 'RPE' })).getByText('–')).toBeVisible();
-    await fireEvent.changeText(card.getByLabelText('Reps'), '4');
-    await fireEvent.press(card.getByRole('button', { name: 'Log set' }));
-    expect(await card.findByText('140 kg × 4')).toBeVisible();
+    await waitFor(() => expect(loggedSets(card)).toEqual(['140 kg × 5 @ RPE 6']));
+    // The next set's RPE starts blank; left unset, the set has none.
+    expect(within(card.getByRole('button', { name: 'Set 2 RPE' })).getByText('–')).toBeVisible();
+    await fireEvent.changeText(card.getByLabelText('Set 2 reps'), '4');
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 2' }));
+    await waitFor(() => expect(loggedSets(card)).toEqual(['140 kg × 5 @ RPE 6', '140 kg × 4']));
 
     const [saved] = fakeApi.sessions(account.id);
     expect(saved.exercises[0].sets).toMatchObject([
@@ -175,14 +188,14 @@ describe('freeform workout', () => {
     await resumeWorkout(account.id);
     const card = exerciseCard('Back Squat');
 
-    await fireEvent.press(card.getByRole('button', { name: 'RPE' }));
-    await fireEvent.press(within(screen.getByLabelText('RPE options')).getByRole('radio', { name: '9' }));
-    expect(within(card.getByRole('button', { name: 'RPE' })).getByText('9')).toBeVisible();
+    await fireEvent.press(card.getByRole('button', { name: 'Set 1 RPE' }));
+    await fireEvent.press(within(screen.getByLabelText('Set 1 RPE options')).getByRole('radio', { name: '9' }));
+    expect(within(card.getByRole('button', { name: 'Set 1 RPE' })).getByText('9')).toBeVisible();
 
-    await fireEvent.press(card.getByRole('button', { name: 'RPE' }));
-    await fireEvent.press(within(screen.getByLabelText('RPE options')).getByRole('button', { name: 'No RPE' }));
+    await fireEvent.press(card.getByRole('button', { name: 'Set 1 RPE' }));
+    await fireEvent.press(within(screen.getByLabelText('Set 1 RPE options')).getByRole('button', { name: 'No RPE' }));
 
-    expect(within(card.getByRole('button', { name: 'RPE' })).getByText('–')).toBeVisible();
+    expect(within(card.getByRole('button', { name: 'Set 1 RPE' })).getByText('–')).toBeVisible();
   });
 
   it('groups exercises into a superset, logged back to back with rest after the round', async () => {
@@ -211,16 +224,16 @@ describe('freeform workout', () => {
     expect(superset.getByText('Next: Bench Press')).toBeVisible();
 
     const bench = within(superset.getByLabelText('Bench Press card'));
-    await fireEvent.changeText(bench.getByLabelText('Weight (kg)'), '80');
-    await fireEvent.changeText(bench.getByLabelText('Reps'), '8');
-    await fireEvent.press(bench.getByRole('button', { name: 'Log set' }));
+    await fireEvent.changeText(bench.getByLabelText('Set 1 weight (kg)'), '80');
+    await fireEvent.changeText(bench.getByLabelText('Set 1 reps'), '8');
+    await fireEvent.press(bench.getByRole('button', { name: 'Log set 1' }));
     // No rest between the exercises of a superset...
     expect(await superset.findByText('Next: Lat Pulldown, no rest')).toBeVisible();
 
     const pulldown = within(superset.getByLabelText('Lat Pulldown card'));
-    await fireEvent.changeText(pulldown.getByLabelText('Weight (kg)'), '60');
-    await fireEvent.changeText(pulldown.getByLabelText('Reps'), '10');
-    await fireEvent.press(pulldown.getByRole('button', { name: 'Log set' }));
+    await fireEvent.changeText(pulldown.getByLabelText('Set 1 weight (kg)'), '60');
+    await fireEvent.changeText(pulldown.getByLabelText('Set 1 reps'), '10');
+    await fireEvent.press(pulldown.getByRole('button', { name: 'Log set 1' }));
     // ...only after the whole round.
     expect(await superset.findByText('Round 1 done. Rest now.')).toBeVisible();
 
@@ -251,14 +264,14 @@ describe('freeform workout', () => {
     await fireEvent.press(within(screen.getByLabelText('RPE options')).getByRole('radio', { name: '8' }));
     await fireEvent.press(editing.getByRole('button', { name: 'Save' }));
 
-    expect(await card.findByText('140 kg × 6 @ RPE 8')).toBeVisible();
+    await waitFor(() => expect(loggedSets(card)).toEqual(['140 kg × 6 @ RPE 8']));
     expect(card.queryByLabelText('Editing set 1')).toBeNull();
 
     // Cancelling leaves the set as it was.
     await fireEvent.press(card.getByRole('button', { name: 'Edit set 1' }));
     await fireEvent.changeText(within(card.getByLabelText('Editing set 1')).getByLabelText('Reps'), '9');
     await fireEvent.press(within(card.getByLabelText('Editing set 1')).getByRole('button', { name: 'Cancel' }));
-    expect(card.getByText('140 kg × 6 @ RPE 8')).toBeVisible();
+    expect(loggedSets(card)).toEqual(['140 kg × 6 @ RPE 8']);
 
     expect(fakeApi.sessions(account.id)[0].exercises[0].sets).toMatchObject([{ weight: 140, reps: 6, rpe: 8 }]);
   });
@@ -276,13 +289,12 @@ describe('freeform workout', () => {
       await fireEvent.press(card.getByRole('button', { name: 'Edit set 1' }));
       await fireEvent.press(card.getByRole('button', { name: 'Delete set' }));
 
-      expect(card.queryByText('140 kg × 5')).toBeNull();
       // The sets left are renumbered.
-      expect(card.getByRole('button', { name: 'Edit set 1' })).toHaveTextContent(/140 kg × 3/);
+      expect(loggedSets(card)).toEqual(['140 kg × 3']);
       expect(screen.getByText('Set deleted.')).toBeVisible();
 
       await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
-      expect(card.getByText('140 kg × 5')).toBeVisible();
+      expect(loggedSets(card)).toEqual(['140 kg × 5', '140 kg × 3']);
       expect(screen.queryByText('Set deleted.')).toBeNull();
 
       await fireEvent.press(card.getByRole('button', { name: 'Edit set 1' }));
@@ -294,7 +306,7 @@ describe('freeform workout', () => {
       await waitFor(() => expect(squat.sets).toHaveLength(1));
       expect(squat.sets[0]).toMatchObject({ reps: 3 });
       expect(screen.queryByText('Set deleted.')).toBeNull();
-      expect(card.queryByText('140 kg × 5')).toBeNull();
+      expect(loggedSets(card)).toEqual(['140 kg × 3']);
     } finally {
       jest.useRealTimers();
     }

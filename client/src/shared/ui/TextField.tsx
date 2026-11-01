@@ -4,16 +4,19 @@ import { colors, spacing } from './theme';
 
 type TextFieldProps = Omit<TextInputProps, 'style'> & {
   label: string;
+  /** For a table cell: the label only for screen readers (a column header shows it), less padding, centred. */
+  dense?: boolean;
 };
 
-export function TextField({ label, ...inputProps }: TextFieldProps) {
+export function TextField({ label, dense, ...inputProps }: TextFieldProps) {
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      {dense ? null : <Text style={styles.label}>{label}</Text>}
       <TextInput
         accessibilityLabel={label}
         placeholderTextColor={colors.muted}
-        style={styles.input}
+        style={[styles.input, dense && styles.dense]}
+        textAlign={dense ? 'center' : undefined}
         {...inputProps}
       />
     </View>
@@ -32,4 +35,5 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: colors.text,
   },
+  dense: { minHeight: 40, paddingHorizontal: spacing.xs },
 });
