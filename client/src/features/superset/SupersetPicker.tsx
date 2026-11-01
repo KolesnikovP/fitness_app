@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Button, colors, spacing } from '@/shared/ui';
+import { Button, makeStyles, spacing } from '@/shared/ui';
 
 type SupersetPickerProps = {
   /** The exercises not yet in a Superset, in order. */
@@ -15,6 +15,7 @@ type SupersetPickerProps = {
 
 /** Picks two or more exercises to group into a Superset. */
 export function SupersetPicker({ exercises, onGroup, onCancel, saving, error }: SupersetPickerProps) {
+  const styles = useStyles();
   const [selected, setSelected] = useState<string[]>([]);
 
   function toggle(id: string) {
@@ -60,7 +61,7 @@ export function SupersetPicker({ exercises, onGroup, onCancel, saving, error }: 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: {
     gap: spacing.sm,
     padding: spacing.md,
@@ -84,4 +85,4 @@ const styles = StyleSheet.create({
   check: { color: colors.primaryText, fontWeight: '700' },
   optionText: { fontSize: 17, color: colors.text },
   error: { color: colors.danger, fontSize: 15 },
-});
+}));

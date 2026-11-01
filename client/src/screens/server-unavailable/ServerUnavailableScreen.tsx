@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { Text } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
-import { Button, colors, Screen } from '@/shared/ui';
+import { Button, makeStyles, Screen } from '@/shared/ui';
 
 /** Shown on launch when a login is stored but the server can't be reached. */
 export function ServerUnavailableScreen() {
+  const styles = useStyles();
   const { retry } = useAuth();
   const [retrying, setRetrying] = useState(false);
 
@@ -23,6 +24,6 @@ export function ServerUnavailableScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   body: { fontSize: 17, color: colors.muted },
-});
+}));

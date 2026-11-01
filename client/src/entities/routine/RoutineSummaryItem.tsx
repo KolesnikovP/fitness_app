@@ -1,11 +1,12 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
 
-import { colors, spacing } from '@/shared/ui';
+import { makeStyles, spacing } from '@/shared/ui';
 
 import type { RoutineSummary } from './model';
 
 /** One Routine in the list of them: its name and exercises. */
 export function RoutineSummaryItem({ routine, onPress }: { routine: RoutineSummary; onPress: () => void }) {
+  const styles = useStyles();
   return (
     <Pressable
       accessibilityRole="button"
@@ -19,7 +20,7 @@ export function RoutineSummaryItem({ routine, onPress }: { routine: RoutineSumma
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: {
     gap: 2,
     paddingVertical: spacing.sm,
@@ -29,4 +30,4 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.6 },
   name: { fontSize: 17, fontWeight: '600', color: colors.text },
   exercises: { fontSize: 15, color: colors.muted },
-});
+}));

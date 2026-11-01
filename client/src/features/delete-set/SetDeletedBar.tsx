@@ -1,9 +1,10 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
-import { Button, colors, spacing } from '@/shared/ui';
+import { Button, makeStyles, spacing } from '@/shared/ui';
 
 /** Says a Set was deleted, with a button to undo it. */
 export function SetDeletedBar({ onUndo }: { onUndo: () => void }) {
+  const styles = useStyles();
   return (
     <View accessibilityLiveRegion="polite" style={styles.bar}>
       <Text style={styles.text}>Set deleted.</Text>
@@ -12,7 +13,7 @@ export function SetDeletedBar({ onUndo }: { onUndo: () => void }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -23,4 +24,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.text,
   },
   text: { fontSize: 15, color: colors.background },
-});
+}));

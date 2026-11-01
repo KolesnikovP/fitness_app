@@ -10,7 +10,7 @@ import {
   type SlotDraft,
 } from '@/entities/routine';
 import { formatRest, repsInput, weightInput } from '@/entities/workout';
-import { Button, colors, Select, spacing, TextField } from '@/shared/ui';
+import { Button, makeStyles, Select, spacing, TextField } from '@/shared/ui';
 import { listNames } from '@/shared/utils';
 
 const REST_SELECT_OPTIONS = REST_OPTIONS.map((seconds) => ({ value: seconds, label: formatRest(seconds) }));
@@ -40,6 +40,7 @@ export function SlotEditor({
   canMoveUp,
   canMoveDown,
 }: SlotEditorProps) {
+  const styles = useStyles();
   const [noteOpen, setNoteOpen] = useState(slot.note !== '');
 
   return (
@@ -131,13 +132,13 @@ export function SlotEditor({
       <View style={styles.actions}>
         {canMoveUp ? <Button label="Move up" variant="link" onPress={() => onMove(-1)} /> : null}
         {canMoveDown ? <Button label="Move down" variant="link" onPress={() => onMove(1)} /> : null}
-        <Button label="Remove" variant="link" onPress={onRemove} />
+        <Button label="Remove" variant="link" tone="danger" onPress={onRemove} />
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   card: {
     gap: spacing.sm,
     padding: spacing.md,
@@ -157,4 +158,4 @@ const styles = StyleSheet.create({
   label: { fontSize: 15, fontWeight: '600', color: colors.muted },
   substitute: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   substituteName: { flex: 1, fontSize: 17, color: colors.text },
-});
+}));

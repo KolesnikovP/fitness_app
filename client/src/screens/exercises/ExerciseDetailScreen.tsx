@@ -1,14 +1,15 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { equipmentLabel, ExerciseMedia, getExercise, muscleGroupLabel, type Exercise } from '@/entities/exercise';
 import { UploadMediaButton } from '@/features/upload-exercise-media';
 import { errorMessage } from '@/shared/api';
-import { colors, Screen, spacing } from '@/shared/ui';
+import { makeStyles, Screen, spacing, Spinner } from '@/shared/ui';
 
 export function ExerciseDetailScreen() {
+  const styles = useStyles();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state } = useAuth();
   const token = state.status === 'signedIn' ? state.token : null;
@@ -35,7 +36,7 @@ export function ExerciseDetailScreen() {
             {error}
           </Text>
         ) : (
-          <ActivityIndicator />
+          <Spinner />
         )}
       </Screen>
     );
@@ -63,10 +64,10 @@ export function ExerciseDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   error: { color: colors.danger, fontSize: 15 },
   badge: { fontSize: 15, color: colors.primary, fontWeight: '600' },
   row: { gap: spacing.xs },
   label: { fontSize: 15, color: colors.muted },
   value: { fontSize: 17, color: colors.text },
-});
+}));

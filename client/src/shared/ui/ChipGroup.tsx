@@ -1,6 +1,7 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { colors, spacing } from './theme';
+import { spacing } from './theme';
+import { makeStyles } from './ThemeProvider';
 
 export type ChipOption<T extends string> = { value: T; label: string };
 
@@ -15,6 +16,7 @@ type ChipGroupProps<T extends string> = {
 
 /** A labelled, horizontally scrolling row of single-choice chips. */
 export function ChipGroup<T extends string>({ label, options, value, onChange, allowDeselect }: ChipGroupProps<T>) {
+  const styles = useStyles();
   return (
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
@@ -41,7 +43,7 @@ export function ChipGroup<T extends string>({ label, options, value, onChange, a
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { gap: spacing.xs },
   label: { fontSize: 15, fontWeight: '500', color: colors.text },
   row: { flexDirection: 'row', gap: spacing.sm },
@@ -55,4 +57,4 @@ const styles = StyleSheet.create({
   chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: 15, color: colors.text },
   chipTextSelected: { color: colors.primaryText, fontWeight: '600' },
-});
+}));

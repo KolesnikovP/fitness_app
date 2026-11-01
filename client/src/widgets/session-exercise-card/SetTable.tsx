@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import {
@@ -16,7 +16,7 @@ import {
 } from '@/entities/workout';
 import { EditSetForm } from '@/features/edit-set';
 import { PendingSetRow } from '@/features/log-set';
-import { Button, colors, spacing } from '@/shared/ui';
+import { Button, makeStyles, spacing } from '@/shared/ui';
 
 type SetTableProps = {
   sessionId: string;
@@ -34,6 +34,7 @@ type SetTableProps = {
  * the rows still to do.
  */
 export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: SetTableProps) {
+  const styles = useStyles();
   const { state } = useAuth();
   const unit = state.status === 'signedIn' ? (state.me.unitPreference ?? 'kg') : 'kg';
   const [editingSetId, setEditingSetId] = useState<string | null>(null);
@@ -127,6 +128,7 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
 
 /** The Exercise a run of Sets was done with, above them. */
 function RunLabel({ name }: { name: string }) {
+  const styles = useStyles();
   return (
     <Text accessibilityRole="header" style={styles.runLabel}>
       {name}
@@ -144,6 +146,7 @@ type LoggedSetRowProps = {
 
 /** A logged Set as a row of the table, its values in their columns, and its note below. */
 function LoggedSetRow({ set, number, unit, onPress }: LoggedSetRowProps) {
+  const styles = useStyles();
   return (
     <Pressable
       accessibilityRole="button"
@@ -171,11 +174,11 @@ function LoggedSetRow({ set, number, unit, onPress }: LoggedSetRowProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   table: { gap: spacing.xs },
   header: { paddingBottom: 2 },
   heading: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5, color: colors.muted, textAlign: 'center' },
-  logged: { minHeight: 40, borderRadius: 8, backgroundColor: '#EEF7EE' },
+  logged: { minHeight: 40, borderRadius: 8, backgroundColor: colors.successSubtle },
   runLabel: { fontSize: 13, fontWeight: '600', color: colors.text, paddingTop: spacing.xs },
   pressed: { opacity: 0.5 },
   number: { fontSize: 17, color: colors.muted, textAlign: 'center' },
@@ -187,8 +190,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2E9E44',
+    backgroundColor: colors.success,
   },
-  checkMark: { fontSize: 17, fontWeight: '700', color: colors.primaryText },
+  checkMark: { fontSize: 17, fontWeight: '700', color: colors.successText },
   note: { fontSize: 15, color: colors.muted, paddingLeft: 34, paddingTop: 2 },
-});
+}));

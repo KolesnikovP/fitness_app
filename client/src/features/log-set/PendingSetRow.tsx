@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import {
@@ -14,7 +14,7 @@ import {
   type WeightUnit,
 } from '@/entities/workout';
 import { errorMessage } from '@/shared/api';
-import { colors, Select, spacing, TextField } from '@/shared/ui';
+import { makeStyles, Select, spacing, TextField } from '@/shared/ui';
 
 const RPE_OPTIONS = RPE_SCALE.map(({ rpe, meaning }) => ({ value: rpe, label: String(rpe), description: meaning }));
 
@@ -42,6 +42,7 @@ export function PendingSetRow({
   weightUnit,
   onLogged,
 }: PendingSetRowProps) {
+  const styles = useStyles();
   const { state } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -117,11 +118,11 @@ export function PendingSetRow({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   number: { fontSize: 17, color: colors.muted, textAlign: 'center' },
   // An unchecked box; a logged Set's row shows it ticked.
   box: { width: 30, height: 30, borderRadius: 8, borderWidth: 2, borderColor: colors.primary },
   dimmed: { borderColor: colors.border },
-  pressed: { backgroundColor: '#EAF3FF' },
+  pressed: { backgroundColor: colors.primarySubtle },
   error: { color: colors.danger, fontSize: 15, marginTop: spacing.xs },
-});
+}));

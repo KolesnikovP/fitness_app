@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { setExerciseNote, type Session, type SessionExercise } from '@/entities/workout';
 import { errorMessage } from '@/shared/api';
-import { Button, colors, spacing, TextField } from '@/shared/ui';
+import { Button, makeStyles, spacing, TextField } from '@/shared/ui';
 
 type ExerciseNoteFieldProps = {
   sessionId: string;
@@ -14,6 +14,7 @@ type ExerciseNoteFieldProps = {
 
 /** The optional note on a Session exercise, saved on request. */
 export function ExerciseNoteField({ sessionId, sessionExercise, onSaved }: ExerciseNoteFieldProps) {
+  const styles = useStyles();
   const { state } = useAuth();
   const [note, setNote] = useState(sessionExercise.note);
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
@@ -65,8 +66,8 @@ export function ExerciseNoteField({ sessionId, sessionExercise, onSaved }: Exerc
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { gap: spacing.xs },
   error: { color: colors.danger, fontSize: 15 },
   saved: { fontSize: 15, color: colors.muted },
-});
+}));

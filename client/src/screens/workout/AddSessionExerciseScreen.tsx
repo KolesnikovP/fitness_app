@@ -1,16 +1,17 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { Text } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import type { Exercise } from '@/entities/exercise';
 import { addExerciseToSession } from '@/entities/workout';
 import { ExercisePicker } from '@/features/search-exercises';
 import { errorMessage } from '@/shared/api';
-import { colors, Screen } from '@/shared/ui';
+import { makeStyles, Screen } from '@/shared/ui';
 
 /** Picks an exercise from the library and adds it to the workout in progress. */
 export function AddSessionExerciseScreen() {
+  const styles = useStyles();
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const { state } = useAuth();
   const token = state.status === 'signedIn' ? state.token : null;
@@ -42,6 +43,6 @@ export function AddSessionExerciseScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   error: { color: colors.danger, fontSize: 15 },
-});
+}));

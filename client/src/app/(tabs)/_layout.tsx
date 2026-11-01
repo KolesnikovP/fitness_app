@@ -1,8 +1,15 @@
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 
+import { useTheme } from '@/shared/ui';
+
 export default function TabsLayout() {
+  const { colors } = useTheme();
   return (
-    <NativeTabs>
+    <NativeTabs
+      tintColor={colors.tabActive}
+      iconColor={colors.muted}
+      backgroundColor={colors.background}
+    >
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Icon sf="newspaper.fill" md="dynamic_feed" />
         <NativeTabs.Trigger.Label>Feed</NativeTabs.Trigger.Label>

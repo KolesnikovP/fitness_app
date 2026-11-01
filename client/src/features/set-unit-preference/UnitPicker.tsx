@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import type { UnitPreference } from '@/entities/user';
-import { colors, spacing } from '@/shared/ui';
+import { makeStyles, spacing } from '@/shared/ui';
 
 const OPTIONS: { value: UnitPreference; title: string; detail: string }[] = [
   { value: 'kg', title: 'Kilograms', detail: 'kg' },
@@ -12,6 +12,7 @@ const OPTIONS: { value: UnitPreference; title: string; detail: string }[] = [
 
 /** Saves the unit preference as soon as an option is tapped. */
 export function UnitPicker() {
+  const styles = useStyles();
   const { setUnitPreference } = useAuth();
   const [saving, setSaving] = useState<UnitPreference | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +53,7 @@ export function UnitPicker() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   list: { gap: spacing.md },
   option: {
     flexDirection: 'row',
@@ -63,8 +64,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  optionActive: { borderColor: colors.primary, backgroundColor: '#EEF5FF' },
+  optionActive: { borderColor: colors.primary, backgroundColor: colors.primarySubtle },
   optionTitle: { fontSize: 19, fontWeight: '600', color: colors.text },
   optionDetail: { fontSize: 17, color: colors.muted },
   error: { color: colors.danger, fontSize: 15 },
-});
+}));

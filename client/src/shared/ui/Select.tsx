@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { Button } from './Button';
-import { colors, spacing } from './theme';
+import { spacing } from './theme';
+import { makeStyles } from './ThemeProvider';
 
 export type SelectOption<T> = { value: T; label: string; description?: string };
 
@@ -33,6 +34,7 @@ export function Select<T>({
   clearLabel,
   dense,
 }: SelectProps<T>) {
+  const styles = useStyles();
   const [open, setOpen] = useState(false);
   const selected = options.find((o) => o.value === value) ?? null;
   const shown = selected ? selected.label : placeholder;
@@ -90,7 +92,7 @@ export function Select<T>({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { gap: spacing.xs },
   label: { fontSize: 15, fontWeight: '500', color: colors.text },
   field: {
@@ -98,8 +100,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    borderWidth: 1,
+    borderColor: colors.fieldBorder,
+    backgroundColor: colors.background,
     borderRadius: 10,
     paddingHorizontal: spacing.sm,
   },
@@ -108,7 +111,7 @@ const styles = StyleSheet.create({
   chevron: { fontSize: 15, color: colors.muted },
   denseField: { minHeight: 40, paddingHorizontal: spacing.xs },
   denseValue: { textAlign: 'center' },
-  backdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.3)' },
+  backdrop: { flex: 1, backgroundColor: colors.backdrop },
   sheet: {
     maxHeight: '70%',
     gap: spacing.sm,
@@ -131,4 +134,4 @@ const styles = StyleSheet.create({
   optionLabel: { width: 28, fontSize: 20, fontWeight: '700', color: colors.text },
   optionLabelChecked: { color: colors.primaryText },
   description: { flex: 1, fontSize: 15, color: colors.muted },
-});
+}));

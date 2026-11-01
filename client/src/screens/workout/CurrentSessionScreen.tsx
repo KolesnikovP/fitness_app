@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text } from 'react-native';
+import { Alert, Text } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import {
@@ -17,7 +17,7 @@ import { SetDeletedBar, usePendingSetDeletion } from '@/features/delete-set';
 import { RestTimer } from '@/features/rest-timer';
 import { CreateSupersetForm } from '@/features/superset';
 import { errorMessage } from '@/shared/api';
-import { Button, colors, Screen } from '@/shared/ui';
+import { Button, makeStyles, Screen, Spinner } from '@/shared/ui';
 import { SessionExerciseCard, SupersetBlock } from '@/widgets/session-exercise-card';
 
 /**
@@ -25,6 +25,7 @@ import { SessionExerciseCard, SupersetBlock } from '@/widgets/session-exercise-c
  * rest timer, and finishing or discarding it.
  */
 export function CurrentSessionScreen() {
+  const styles = useStyles();
   const { state } = useAuth();
   const token = state.status === 'signedIn' ? state.token : null;
   const [session, setSession] = useState<Session | null>(null);
@@ -61,7 +62,7 @@ export function CurrentSessionScreen() {
             {error}
           </Text>
         ) : (
-          <ActivityIndicator />
+          <Spinner />
         )}
       </Screen>
     );
@@ -164,12 +165,12 @@ export function CurrentSessionScreen() {
       ) : null}
       <Button label="Finish workout" onPress={finish} loading={finishing} disabled={!canFinish} />
       {canFinish ? null : <Text style={styles.muted}>Log a set to finish the workout.</Text>}
-      <Button label="Discard workout" variant="secondary" onPress={confirmDiscard} />
+      <Button label="Discard workout" variant="secondary" tone="danger" onPress={confirmDiscard} />
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   error: { color: colors.danger, fontSize: 15 },
   muted: { fontSize: 15, color: colors.muted },
-});
+}));

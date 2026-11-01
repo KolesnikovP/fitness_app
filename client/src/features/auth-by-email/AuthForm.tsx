@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { Text } from 'react-native';
 
 import { errorMessage } from '@/shared/api';
-import { Button, colors, TextField } from '@/shared/ui';
+import { Button, makeStyles, TextField } from '@/shared/ui';
 
 type AuthFormProps = {
   submitLabel: string;
@@ -13,6 +13,7 @@ type AuthFormProps = {
 
 /** Email + password form shared by sign-up and log-in. */
 export function AuthForm({ submitLabel, onSubmit, passwordAutoComplete }: AuthFormProps) {
+  const styles = useStyles();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +65,6 @@ export function AuthForm({ submitLabel, onSubmit, passwordAutoComplete }: AuthFo
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   error: { color: colors.danger, fontSize: 15 },
-});
+}));

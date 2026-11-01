@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, Vibration, View } from 'react-native';
+import { Text, Vibration, View } from 'react-native';
 
 import { formatRest } from '@/entities/workout';
-import { Button, colors, spacing } from '@/shared/ui';
+import { Button, makeStyles, spacing } from '@/shared/ui';
 
 const DURATIONS_S = [60, 90, 120, 180];
 const TICK_MS = 250;
@@ -13,6 +13,7 @@ const TICK_MS = 250;
  * time from its end time, so it stays right while the app is in the background.
  */
 export function RestTimer({ plannedSeconds = [] }: { plannedSeconds?: number[] }) {
+  const styles = useStyles();
   // The planned rests come first, then the usual ones not already planned.
   const durations = [...new Set([...plannedSeconds, ...DURATIONS_S])];
   const [endsAt, setEndsAt] = useState<number | null>(null);
@@ -74,11 +75,11 @@ export function RestTimer({ plannedSeconds = [] }: { plannedSeconds?: number[] }
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { gap: spacing.xs },
   label: { fontSize: 15, fontWeight: '500', color: colors.text },
   countdown: { fontSize: 40, fontWeight: '700', color: colors.text, textAlign: 'center' },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   preset: { flexGrow: 1, flexBasis: '45%' },
   flex: { flex: 1 },
-});
+}));

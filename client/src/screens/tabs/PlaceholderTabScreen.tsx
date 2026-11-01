@@ -1,8 +1,9 @@
-import { StyleSheet, Text } from 'react-native';
+import { Text } from 'react-native';
 
-import { colors, Screen } from '@/shared/ui';
+import { makeStyles, Screen } from '@/shared/ui';
 
 function PlaceholderTabScreen({ title, comingIn }: { title: string; comingIn: string }) {
+  const styles = useStyles();
   return (
     <Screen title={title}>
       <Text style={styles.body}>Coming in {comingIn}.</Text>
@@ -12,6 +13,6 @@ function PlaceholderTabScreen({ title, comingIn }: { title: string; comingIn: st
 
 export const FeedScreen = () => <PlaceholderTabScreen title="Feed" comingIn="#9" />;
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   body: { fontSize: 17, color: colors.muted },
-});
+}));
