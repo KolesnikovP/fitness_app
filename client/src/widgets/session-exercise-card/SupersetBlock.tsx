@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { supersetProgress, type Session, type SessionExercise } from '@/entities/workout';
 import { UngroupSupersetButton } from '@/features/superset';
 import { colors, spacing } from '@/shared/ui';
+import { listNames } from '@/shared/utils';
 
 import { SessionExerciseCard } from './SessionExerciseCard';
 
@@ -13,11 +14,6 @@ type SupersetBlockProps = {
   onChange: (session: Session) => void;
   onDeleteSet: (setId: string) => void;
 };
-
-/** "A and B", "A, B and C" */
-function listNames(names: string[]): string {
-  return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
-}
 
 /**
  * A Superset in the workout in progress: its exercises back to back, and

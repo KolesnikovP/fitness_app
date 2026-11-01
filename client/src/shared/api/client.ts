@@ -45,7 +45,7 @@ export function errorMessage(e: unknown): string {
 }
 
 type RequestOptions = {
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   /** Sent as JSON, or as a multipart form when it's FormData. */
   body?: unknown;
   /** Sent as "Authorization: Bearer <token>". */

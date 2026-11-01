@@ -37,7 +37,7 @@ A Session is in progress from when the User starts it until they finish it, and 
 _Avoid_: Active, open, completed, saved
 
 **Freeform session**:
-A Session started empty, with Exercises added as the User goes, rather than from a planned routine.
+A Session started empty, with Exercises added as the User goes, rather than from a Routine. Once finished, it can be saved as a new Routine.
 _Avoid_: Empty workout, quick start
 
 **Session exercise**:
@@ -63,6 +63,24 @@ _Avoid_: Cycle, lap
 **Rest timer**:
 An optional countdown a User starts between Sets. It lives only on the device and is not part of the Session.
 _Avoid_: Rest period (as a stored value), break
+
+### Planning
+
+**Routine**:
+A named, reusable plan for a Session: an ordered list of Exercise slots. Starting a Session from a Routine fills it with a Session exercise per slot, in order, with the slots' Supersets.
+_Avoid_: Template, workout plan, saved workout
+
+**Exercise slot**:
+One Exercise planned in a Routine: its Target, and optionally a rest, a note, and the Superset it's planned in. Editing a Routine replaces its slots.
+_Avoid_: Slot exercise, routine exercise, entry
+
+**Target**:
+What an Exercise slot plans: a number of Sets, each of so many reps at a weight (in kg or lb). A Session started from a Routine keeps a copy of each slot's Target on its Session exercise, and the User logs the Sets they actually did against it.
+_Avoid_: Goal, prescription, planned set
+
+**Program**:
+A training plan of weeks, each holding Routines. In v1 every User has one Program with one week that holds all their Routines, and the app shows neither.
+_Avoid_: Plan, block, mesocycle
 
 ### Exercise library
 

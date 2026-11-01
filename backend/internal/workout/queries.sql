@@ -1,15 +1,17 @@
 -- name: StartSession :one
-INSERT INTO workout_sessions (account_id)
-VALUES ($1)
+-- Starts a session, from a routine unless routine_id is null.
+INSERT INTO workout_sessions (account_id, routine_id)
+VALUES (sqlc.arg(account_id), sqlc.narg(routine_id))
 RETURNING id;
 
 -- name: GetSession :one
-SELECT id, started_at, finished_at
+SELECT id, routine_id, started_at, finished_at
 FROM workout_sessions
 WHERE id = $1 AND account_id = $2;
 
 -- name: ListSessionExercises :many
-SELECT id, exercise_id, note, superset_id
+SELECT id, exercise_id, note, superset_id, target_sets, target_reps, target_weight, target_weight_unit,
+       target_rest_seconds, target_note
 FROM session_exercises
 WHERE session_id = $1
 ORDER BY created_at, id;
@@ -37,6 +39,14 @@ FOR UPDATE;
 -- name: AddSessionExercise :exec
 INSERT INTO session_exercises (session_id, exercise_id)
 VALUES ($1, $2);
+
+-- name: AddPlannedSessionExercise :exec
+-- Adds an exercise from a routine's slot, with a copy of its target.
+INSERT INTO session_exercises (session_id, exercise_id, superset_id, target_sets, target_reps, target_weight,
+                               target_weight_unit, target_rest_seconds, target_note)
+VALUES (sqlc.arg(session_id), sqlc.arg(exercise_id), sqlc.narg(superset_id), sqlc.arg(target_sets),
+        sqlc.arg(target_reps), sqlc.arg(target_weight)::float8, sqlc.arg(target_weight_unit),
+        sqlc.narg(target_rest_seconds), sqlc.arg(target_note));
 
 -- name: LogSet :execrows
 -- Logs a set, provided the session exercise belongs to the session. The set

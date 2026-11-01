@@ -46,6 +46,7 @@ sql:
       - migrations/00003_exercise_glossary_names.sql
       - migrations/00004_workout_sessions.sql
       - migrations/00005_rpe_and_supersets.sql
+      - migrations/00006_programs.sql
     queries: internal/workout/queries.sql
     gen:
       go:
@@ -66,6 +67,10 @@ sql:
             go_type:
               type: float64
               pointer: true
+          - column: session_exercises.target_weight
+            go_type:
+              type: float64
+              pointer: true
           - db_type: timestamptz
             go_type: time.Time
           - db_type: timestamptz
@@ -73,3 +78,23 @@ sql:
             go_type:
               type: time.Time
               pointer: true
+  - engine: postgresql
+    schema:
+      - migrations/00001_accounts.sql
+      - migrations/00002_exercises.sql
+      - migrations/00003_exercise_glossary_names.sql
+      - migrations/00004_workout_sessions.sql
+      - migrations/00005_rpe_and_supersets.sql
+      - migrations/00006_programs.sql
+    queries: internal/program/queries.sql
+    gen:
+      go:
+        package: store
+        out: internal/program/store
+        sql_package: pgx/v5
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: uuid
+            go_type: github.com/google/uuid.UUID
+          - db_type: timestamptz
+            go_type: time.Time

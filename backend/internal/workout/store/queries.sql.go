@@ -12,6 +12,42 @@ import (
 	"github.com/google/uuid"
 )
 
+const addPlannedSessionExercise = `-- name: AddPlannedSessionExercise :exec
+INSERT INTO session_exercises (session_id, exercise_id, superset_id, target_sets, target_reps, target_weight,
+                               target_weight_unit, target_rest_seconds, target_note)
+VALUES ($1, $2, $3, $4,
+        $5, $6::float8, $7,
+        $8, $9)
+`
+
+type AddPlannedSessionExerciseParams struct {
+	SessionID         uuid.UUID
+	ExerciseID        uuid.UUID
+	SupersetID        *uuid.UUID
+	TargetSets        *int32
+	TargetReps        *int32
+	TargetWeight      float64
+	TargetWeightUnit  *string
+	TargetRestSeconds *int32
+	TargetNote        *string
+}
+
+// Adds an exercise from a routine's slot, with a copy of its target.
+func (q *Queries) AddPlannedSessionExercise(ctx context.Context, arg AddPlannedSessionExerciseParams) error {
+	_, err := q.db.Exec(ctx, addPlannedSessionExercise,
+		arg.SessionID,
+		arg.ExerciseID,
+		arg.SupersetID,
+		arg.TargetSets,
+		arg.TargetReps,
+		arg.TargetWeight,
+		arg.TargetWeightUnit,
+		arg.TargetRestSeconds,
+		arg.TargetNote,
+	)
+	return err
+}
+
 const addSessionExercise = `-- name: AddSessionExercise :exec
 INSERT INTO session_exercises (session_id, exercise_id)
 VALUES ($1, $2)
@@ -100,7 +136,7 @@ func (q *Queries) FinishSession(ctx context.Context, id uuid.UUID) error {
 }
 
 const getSession = `-- name: GetSession :one
-SELECT id, started_at, finished_at
+SELECT id, routine_id, started_at, finished_at
 FROM workout_sessions
 WHERE id = $1 AND account_id = $2
 `
@@ -112,6 +148,7 @@ type GetSessionParams struct {
 
 type GetSessionRow struct {
 	ID         uuid.UUID
+	RoutineID  *uuid.UUID
 	StartedAt  time.Time
 	FinishedAt *time.Time
 }
@@ -119,7 +156,12 @@ type GetSessionRow struct {
 func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (GetSessionRow, error) {
 	row := q.db.QueryRow(ctx, getSession, arg.ID, arg.AccountID)
 	var i GetSessionRow
-	err := row.Scan(&i.ID, &i.StartedAt, &i.FinishedAt)
+	err := row.Scan(
+		&i.ID,
+		&i.RoutineID,
+		&i.StartedAt,
+		&i.FinishedAt,
+	)
 	return i, err
 }
 
@@ -202,17 +244,24 @@ func (q *Queries) ListFinishedSessions(ctx context.Context, accountID uuid.UUID)
 }
 
 const listSessionExercises = `-- name: ListSessionExercises :many
-SELECT id, exercise_id, note, superset_id
+SELECT id, exercise_id, note, superset_id, target_sets, target_reps, target_weight, target_weight_unit,
+       target_rest_seconds, target_note
 FROM session_exercises
 WHERE session_id = $1
 ORDER BY created_at, id
 `
 
 type ListSessionExercisesRow struct {
-	ID         uuid.UUID
-	ExerciseID uuid.UUID
-	Note       string
-	SupersetID *uuid.UUID
+	ID                uuid.UUID
+	ExerciseID        uuid.UUID
+	Note              string
+	SupersetID        *uuid.UUID
+	TargetSets        *int32
+	TargetReps        *int32
+	TargetWeight      *float64
+	TargetWeightUnit  *string
+	TargetRestSeconds *int32
+	TargetNote        *string
 }
 
 func (q *Queries) ListSessionExercises(ctx context.Context, sessionID uuid.UUID) ([]ListSessionExercisesRow, error) {
@@ -229,6 +278,12 @@ func (q *Queries) ListSessionExercises(ctx context.Context, sessionID uuid.UUID)
 			&i.ExerciseID,
 			&i.Note,
 			&i.SupersetID,
+			&i.TargetSets,
+			&i.TargetReps,
+			&i.TargetWeight,
+			&i.TargetWeightUnit,
+			&i.TargetRestSeconds,
+			&i.TargetNote,
 		); err != nil {
 			return nil, err
 		}
@@ -403,13 +458,19 @@ func (q *Queries) SetSessionExerciseNote(ctx context.Context, arg SetSessionExer
 }
 
 const startSession = `-- name: StartSession :one
-INSERT INTO workout_sessions (account_id)
-VALUES ($1)
+INSERT INTO workout_sessions (account_id, routine_id)
+VALUES ($1, $2)
 RETURNING id
 `
 
-func (q *Queries) StartSession(ctx context.Context, accountID uuid.UUID) (uuid.UUID, error) {
-	row := q.db.QueryRow(ctx, startSession, accountID)
+type StartSessionParams struct {
+	AccountID uuid.UUID
+	RoutineID *uuid.UUID
+}
+
+// Starts a session, from a routine unless routine_id is null.
+func (q *Queries) StartSession(ctx context.Context, arg StartSessionParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, startSession, arg.AccountID, arg.RoutineID)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err

@@ -1,22 +1,20 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, Vibration, View } from 'react-native';
 
+import { formatRest } from '@/entities/workout';
 import { Button, colors, spacing } from '@/shared/ui';
 
 const DURATIONS_S = [60, 90, 120, 180];
 const TICK_MS = 250;
 
-function formatSeconds(total: number): string {
-  const minutes = Math.floor(total / 60);
-  const seconds = total % 60;
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
-}
-
 /**
- * An optional countdown between Sets. It lives on the device only, and keeps
+ * An optional countdown between Sets, offering the rests the Routine planned
+ * (plannedSeconds) as well as the usual ones. It lives on the device only, and keeps
  * time from its end time, so it stays right while the app is in the background.
  */
-export function RestTimer() {
+export function RestTimer({ plannedSeconds = [] }: { plannedSeconds?: number[] }) {
+  // The planned rests come first, then the usual ones not already planned.
+  const durations = [...new Set([...plannedSeconds, ...DURATIONS_S])];
   const [endsAt, setEndsAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [over, setOver] = useState(false);
@@ -48,7 +46,7 @@ export function RestTimer() {
     return (
       <View style={styles.container}>
         <Text accessibilityLabel="Rest time left" style={styles.countdown}>
-          {formatSeconds(remaining)}
+          {formatRest(remaining)}
         </Text>
         <View style={styles.row}>
           <View style={styles.flex}>
@@ -66,9 +64,9 @@ export function RestTimer() {
     <View style={styles.container}>
       <Text style={styles.label}>{over ? 'Rest over.' : 'Rest timer'}</Text>
       <View style={styles.row}>
-        {DURATIONS_S.map((seconds) => (
+        {durations.map((seconds) => (
           <View key={seconds} style={styles.preset}>
-            <Button label={`Rest ${formatSeconds(seconds)}`} variant="secondary" onPress={() => start(seconds)} />
+            <Button label={`Rest ${formatRest(seconds)}`} variant="secondary" onPress={() => start(seconds)} />
           </View>
         ))}
       </View>

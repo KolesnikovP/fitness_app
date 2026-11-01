@@ -4,8 +4,9 @@ import { setupServer } from 'msw/node';
 /**
  * An in-memory fake of the backend API, served at the network boundary with
  * MSW. It follows the real API's contract (see backend/internal/auth,
- * backend/internal/user, backend/internal/exercise and
- * backend/internal/workout): same paths, bodies, status codes and error shape.
+ * backend/internal/user, backend/internal/exercise, backend/internal/workout
+ * and backend/internal/program): same paths, bodies, status codes and error
+ * shape.
  */
 type FakeAccount = {
   id: string;
@@ -35,20 +36,51 @@ type FakeSet = {
   supersetId: string | null;
 };
 
+type FakeTarget = {
+  sets: number;
+  reps: number;
+  weight: number;
+  weightUnit: 'kg' | 'lb';
+  restSeconds: number | null;
+  note: string;
+};
+
 type FakeSessionExercise = {
   id: string;
   exerciseId: string;
   note: string;
   supersetId: string | null;
+  target: FakeTarget | null;
   sets: FakeSet[];
 };
 
 type FakeSession = {
   id: string;
   ownerId: string;
+  routineId: string | null;
   startedAt: string;
   finishedAt: string | null;
   exercises: FakeSessionExercise[];
+};
+
+type FakeSlot = {
+  id: string;
+  exerciseId: string;
+  targetSets: number;
+  targetReps: number;
+  targetWeight: number;
+  weightUnit: 'kg' | 'lb';
+  restSeconds: number | null;
+  note: string;
+  supersetGroup: number | null;
+};
+
+type FakeRoutine = {
+  id: string;
+  ownerId: string;
+  name: string;
+  updatedAt: string;
+  slots: FakeSlot[];
 };
 
 /** A slice of the real seeded library, enough to search and filter. */
@@ -73,6 +105,7 @@ let accounts: FakeAccount[] = [];
 let tokens = new Map<string, string>(); // token -> account id
 let exercises: FakeExercise[] = [];
 let sessions: FakeSession[] = [];
+let routines: FakeRoutine[] = [];
 let nextId = 1;
 
 function seedExercises() {
@@ -100,6 +133,7 @@ export const fakeApi = {
     tokens = new Map();
     seedExercises();
     sessions = [];
+    routines = [];
     nextId = 1;
     this.authHeaders = [];
     this.uploads = [];
@@ -151,6 +185,7 @@ export const fakeApi = {
     const session: FakeSession = {
       id: `session-${nextId++}`,
       ownerId,
+      routineId: null,
       startedAt: startedAt.toISOString(),
       finishedAt: null,
       exercises: [],
@@ -166,6 +201,7 @@ export const fakeApi = {
       exerciseId: this.exerciseNamed(name).id,
       note: '',
       supersetId: null,
+      target: null,
       sets: [],
     };
     session.exercises.push(sessionExercise);
@@ -198,6 +234,33 @@ export const fakeApi = {
   sessions(ownerId: string) {
     return sessions.filter((s) => s.ownerId === ownerId);
   },
+
+  /** Saves a routine for ownerId of the named library exercises, each 3 × 10 at 50 kg. */
+  addRoutine(ownerId: string, name: string, exerciseNames: string[]) {
+    const routine: FakeRoutine = {
+      id: `routine-${nextId++}`,
+      ownerId,
+      name,
+      updatedAt: new Date().toISOString(),
+      slots: exerciseNames.map((exerciseName) => ({
+        id: `slot-${nextId++}`,
+        exerciseId: this.exerciseNamed(exerciseName).id,
+        targetSets: 3,
+        targetReps: 10,
+        targetWeight: 50,
+        weightUnit: 'kg',
+        restSeconds: null,
+        note: '',
+        supersetGroup: null,
+      })),
+    };
+    routines.push(routine);
+    return routine;
+  },
+
+  routines(ownerId: string) {
+    return routines.filter((r) => r.ownerId === ownerId);
+  },
 };
 
 function error(status: number, code: string, message: string) {
@@ -228,7 +291,7 @@ function sessionJson({ ownerId: _ownerId, exercises: sessionExercises, ...sessio
     ...session,
     exercises: sessionExercises.map((sessionExercise) => ({
       ...sessionExercise,
-      name: exercises.find((e) => e.id === sessionExercise.exerciseId)?.name ?? '',
+      name: exerciseName(sessionExercise.exerciseId),
     })),
   };
 }
@@ -270,6 +333,87 @@ function invalidSet({ weight, weightUnit, reps, rpe = null, note = '' }: Partial
   return null;
 }
 
+function exerciseName(id: string) {
+  return exercises.find((e) => e.id === id)?.name ?? '';
+}
+
+function routineJson({ ownerId: _ownerId, slots, ...routine }: FakeRoutine) {
+  return { ...routine, slots: slots.map((slot) => ({ ...slot, name: exerciseName(slot.exerciseId) })) };
+}
+
+function routineNotFound() {
+  return error(404, 'routine_not_found', 'Routine not found.');
+}
+
+type SlotBody = Partial<Omit<FakeSlot, 'id'>>;
+
+/**
+ * The routine the real API would save from body, tidied as it does, or the
+ * error response it sends instead.
+ */
+function plannedRoutine(account: FakeAccount, body: { name?: string; slots?: SlotBody[] }) {
+  const name = (body.name ?? '').trim();
+  if (name.length < 1 || name.length > 100) {
+    return { response: error(400, 'invalid_name', 'Name must be 1 to 100 characters.') };
+  }
+  const slots = body.slots ?? [];
+  if (slots.length === 0) return { response: error(400, 'invalid_slots', 'Add at least one exercise.') };
+  if (slots.length > 50) return { response: error(400, 'invalid_slots', 'A routine can have at most 50 exercises.') };
+  const groupOrder: number[] = [];
+  const groupSizes = new Map<number, number>();
+  for (const slot of slots) {
+    const { targetSets, targetReps, targetWeight, weightUnit, restSeconds = null, supersetGroup = null } = slot;
+    if (!Number.isInteger(targetSets) || targetSets! < 1 || targetSets! > 20) {
+      return { response: error(400, 'invalid_target_sets', 'Target sets must be from 1 to 20.') };
+    }
+    if (!Number.isInteger(targetReps) || targetReps! < 1 || targetReps! > 1000) {
+      return { response: error(400, 'invalid_target_reps', 'Target reps must be from 1 to 1000.') };
+    }
+    if (typeof targetWeight !== 'number' || targetWeight < 0 || targetWeight > 9999.99) {
+      return { response: error(400, 'invalid_target_weight', 'Target weight must be from 0 to 9999.99.') };
+    }
+    if (weightUnit !== 'kg' && weightUnit !== 'lb') {
+      return { response: error(400, 'invalid_weight_unit', 'weightUnit must be "kg" or "lb".') };
+    }
+    if (restSeconds !== null && (restSeconds < 1 || restSeconds > 3600)) {
+      return { response: error(400, 'invalid_rest', 'Rest must be from 1 to 3600 seconds, or left blank.') };
+    }
+    if ((slot.note ?? '').trim().length > 500) {
+      return { response: error(400, 'invalid_note', 'Notes can be at most 500 characters.') };
+    }
+    if (supersetGroup !== null) {
+      if (supersetGroup < 1) {
+        return { response: error(400, 'invalid_superset', 'supersetGroup must be a positive number, or null.') };
+      }
+      if (!groupSizes.has(supersetGroup)) groupOrder.push(supersetGroup);
+      groupSizes.set(supersetGroup, (groupSizes.get(supersetGroup) ?? 0) + 1);
+    }
+  }
+  if ([...groupSizes.values()].some((size) => size < 2)) {
+    return { response: error(400, 'invalid_superset', 'A superset needs at least two exercises.') };
+  }
+  // As the real API does, once everything else is valid.
+  if (slots.some((slot) => !visibleExercise(account, slot.exerciseId))) {
+    return { response: error(404, 'exercise_not_found', 'Exercise not found.') };
+  }
+  return {
+    name,
+    slots: slots.map(
+      (slot): FakeSlot => ({
+        id: `slot-${nextId++}`,
+        exerciseId: slot.exerciseId!,
+        targetSets: slot.targetSets!,
+        targetReps: slot.targetReps!,
+        targetWeight: slot.targetWeight!,
+        weightUnit: slot.weightUnit!,
+        restSeconds: slot.restSeconds ?? null,
+        note: (slot.note ?? '').trim(),
+        supersetGroup: slot.supersetGroup == null ? null : groupOrder.indexOf(slot.supersetGroup) + 1,
+      }),
+    ),
+  };
+}
+
 function me(account: FakeAccount) {
   return { id: account.id, email: account.email, unitPreference: account.unitPreference };
 }
@@ -291,13 +435,42 @@ const handlers = [
     });
   }),
 
-  http.post('*/workouts/sessions', ({ request }) => {
+  http.post('*/workouts/sessions', async ({ request }) => {
     const account = caller(request);
     if (!account) return unauthorized();
+    const text = await request.text();
+    const { routineId } = (text ? JSON.parse(text) : {}) as { routineId?: string };
+    const routine = routineId == null ? null : routines.find((r) => r.id === routineId && r.ownerId === account.id);
+    if (routine === undefined) return routineNotFound();
     if (sessions.some((s) => s.ownerId === account.id && !s.finishedAt)) {
       return error(409, 'session_in_progress', 'Finish or discard your current workout before starting another.');
     }
-    return HttpResponse.json(sessionJson(fakeApi.addSession(account.id)), { status: 201 });
+    const session = fakeApi.addSession(account.id);
+    if (routine) {
+      session.routineId = routine.id;
+      const supersets = new Map<number, string>();
+      for (const slot of routine.slots) {
+        if (slot.supersetGroup !== null && !supersets.has(slot.supersetGroup)) {
+          supersets.set(slot.supersetGroup, `superset-${nextId++}`);
+        }
+        session.exercises.push({
+          id: `session-exercise-${nextId++}`,
+          exerciseId: slot.exerciseId,
+          note: '',
+          supersetId: slot.supersetGroup === null ? null : supersets.get(slot.supersetGroup)!,
+          target: {
+            sets: slot.targetSets,
+            reps: slot.targetReps,
+            weight: slot.targetWeight,
+            weightUnit: slot.weightUnit,
+            restSeconds: slot.restSeconds,
+            note: slot.note,
+          },
+          sets: [],
+        });
+      }
+    }
+    return HttpResponse.json(sessionJson(session), { status: 201 });
   }),
 
   http.get('*/workouts/sessions/current', ({ request }) => {
@@ -314,7 +487,14 @@ const handlers = [
     if (!visibleExercise(account, exerciseId)) return error(404, 'exercise_not_found', 'Exercise not found.');
     const { session, response } = sessionInProgress(account, params.id);
     if (!session) return response;
-    session.exercises.push({ id: `session-exercise-${nextId++}`, exerciseId, note: '', supersetId: null, sets: [] });
+    session.exercises.push({
+      id: `session-exercise-${nextId++}`,
+      exerciseId,
+      note: '',
+      supersetId: null,
+      target: null,
+      sets: [],
+    });
     return HttpResponse.json(sessionJson(session), { status: 201 });
   }),
 
@@ -427,6 +607,95 @@ const handlers = [
     const { session, response } = sessionInProgress(account, params.id);
     if (!session) return response;
     sessions = sessions.filter((s) => s !== session);
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.post('*/workouts/sessions/:id/routine', async ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const { name } = (await request.json()) as { name?: string };
+    const session = sessions.find((s) => s.id === params.id && s.ownerId === account.id);
+    if (!session) return error(404, 'session_not_found', 'Workout not found.');
+    if (!session.finishedAt) {
+      return error(409, 'session_not_finished', 'Finish the workout before saving it as a routine.');
+    }
+    const logged = session.exercises.filter((e) => e.sets.length > 0);
+    const supersetSizes = new Map<string, number>();
+    logged.forEach((e) => e.supersetId && supersetSizes.set(e.supersetId, (supersetSizes.get(e.supersetId) ?? 0) + 1));
+    const groups: string[] = [];
+    const planned = plannedRoutine(account, {
+      name,
+      slots: logged.map((e) => {
+        const last = e.sets.at(-1)!;
+        const grouped = e.supersetId !== null && supersetSizes.get(e.supersetId)! >= 2;
+        if (grouped && !groups.includes(e.supersetId!)) groups.push(e.supersetId!);
+        return {
+          exerciseId: e.exerciseId,
+          targetSets: Math.min(e.sets.length, 20),
+          targetReps: last.reps,
+          targetWeight: last.weight,
+          weightUnit: last.weightUnit,
+          supersetGroup: grouped ? groups.indexOf(e.supersetId!) + 1 : null,
+        };
+      }),
+    });
+    if ('response' in planned) return planned.response;
+    const routine = { id: `routine-${nextId++}`, ownerId: account.id, updatedAt: new Date().toISOString(), ...planned };
+    routines.push(routine);
+    return HttpResponse.json(routineJson(routine), { status: 201 });
+  }),
+
+  http.get('*/routines', ({ request }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const own = fakeApi
+      .routines(account.id)
+      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+    return HttpResponse.json({
+      routines: own.map(({ id, name, updatedAt, slots }) => ({
+        id,
+        name,
+        updatedAt,
+        exerciseNames: [...new Set(slots.map((slot) => exerciseName(slot.exerciseId)))],
+      })),
+    });
+  }),
+
+  http.post('*/routines', async ({ request }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const planned = plannedRoutine(account, (await request.json()) as { name?: string; slots?: SlotBody[] });
+    if ('response' in planned) return planned.response;
+    const routine = { id: `routine-${nextId++}`, ownerId: account.id, updatedAt: new Date().toISOString(), ...planned };
+    routines.push(routine);
+    return HttpResponse.json(routineJson(routine), { status: 201 });
+  }),
+
+  http.get('*/routines/:id', ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const routine = routines.find((r) => r.id === params.id && r.ownerId === account.id);
+    return routine ? HttpResponse.json(routineJson(routine)) : routineNotFound();
+  }),
+
+  http.put('*/routines/:id', async ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const planned = plannedRoutine(account, (await request.json()) as { name?: string; slots?: SlotBody[] });
+    if ('response' in planned) return planned.response;
+    const routine = routines.find((r) => r.id === params.id && r.ownerId === account.id);
+    if (!routine) return routineNotFound();
+    Object.assign(routine, planned, { updatedAt: new Date().toISOString() });
+    return HttpResponse.json(routineJson(routine));
+  }),
+
+  http.delete('*/routines/:id', ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const routine = routines.find((r) => r.id === params.id && r.ownerId === account.id);
+    if (!routine) return routineNotFound();
+    routines = routines.filter((r) => r !== routine);
+    sessions.forEach((s) => s.routineId === routine.id && (s.routineId = null));
     return new HttpResponse(null, { status: 204 });
   }),
 

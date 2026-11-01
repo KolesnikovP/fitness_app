@@ -1,7 +1,8 @@
 // Package workout owns Sessions: the workouts a User logs, the Exercises
 // added to each, the Supersets they're in, and the Sets logged for them.
-// Exercise names come from the exercise module through Exercises; this module
-// never reads its tables.
+// Exercise names come from the exercise module through Exercises, and
+// Routines from the program module through Routines; this module never reads
+// their tables.
 package workout
 
 import (
@@ -22,6 +23,7 @@ import (
 
 	"github.com/KolesnikovP/fitness_app/backend/internal/auth"
 	"github.com/KolesnikovP/fitness_app/backend/internal/platform/httpx"
+	"github.com/KolesnikovP/fitness_app/backend/internal/program"
 	"github.com/KolesnikovP/fitness_app/backend/internal/workout/store"
 )
 
@@ -37,20 +39,33 @@ type Exercises interface {
 	ExerciseNames(ctx context.Context, callerID uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]string, error)
 }
 
+// Routines is the part of the program module this module depends on.
+type Routines interface {
+	// GetRoutine returns callerID's routine, or program.ErrRoutineNotFound if
+	// the caller has no such routine.
+	GetRoutine(ctx context.Context, callerID, routineID uuid.UUID) (program.Routine, error)
+	// CreateRoutine saves a new routine for callerID, or returns a
+	// *program.InvalidRoutineError if input can't be saved.
+	CreateRoutine(ctx context.Context, callerID uuid.UUID, input program.RoutineInput) (program.Routine, error)
+}
+
 type Service struct {
 	pool      *pgxpool.Pool
 	queries   *store.Queries
 	exercises Exercises
+	routines  Routines
 }
 
-func NewService(pool *pgxpool.Pool, exercises Exercises) *Service {
-	return &Service{pool: pool, queries: store.New(pool), exercises: exercises}
+func NewService(pool *pgxpool.Pool, exercises Exercises, routines Routines) *Service {
+	return &Service{pool: pool, queries: store.New(pool), exercises: exercises, routines: routines}
 }
 
-// Session is one logged workout as the API returns it. FinishedAt is null
-// while the Session is in progress.
+// Session is one logged workout as the API returns it. RoutineID is the
+// Routine it was started from, null for a freeform Session (or once that
+// Routine is deleted). FinishedAt is null while the Session is in progress.
 type Session struct {
 	ID         uuid.UUID         `json:"id"`
+	RoutineID  *uuid.UUID        `json:"routineId"`
 	StartedAt  time.Time         `json:"startedAt"`
 	FinishedAt *time.Time        `json:"finishedAt"`
 	Exercises  []SessionExercise `json:"exercises"`
@@ -58,14 +73,27 @@ type Session struct {
 
 // SessionExercise is an Exercise added to a Session, with its Sets in the
 // order they were logged. SupersetID is shared by the exercises of one
-// Superset, and null for an exercise in none.
+// Superset, and null for an exercise in none. Target is what its Routine's
+// slot planned, null for an exercise added during the Session.
 type SessionExercise struct {
 	ID         uuid.UUID  `json:"id"`
 	ExerciseID uuid.UUID  `json:"exerciseId"`
 	Name       string     `json:"name"`
 	Note       string     `json:"note"`
 	SupersetID *uuid.UUID `json:"supersetId"`
+	Target     *Target    `json:"target"`
 	Sets       []Set      `json:"sets"`
+}
+
+// Target is a copy of an Exercise slot's plan, taken when the Session started.
+// Weight is in WeightUnit; RestSeconds is null when no rest was planned.
+type Target struct {
+	Sets        int32   `json:"sets"`
+	Reps        int32   `json:"reps"`
+	Weight      float64 `json:"weight"`
+	WeightUnit  string  `json:"weightUnit"`
+	RestSeconds *int32  `json:"restSeconds"`
+	Note        string  `json:"note"`
 }
 
 // Set is one logged Set. Weight is in WeightUnit, the unit it was logged in.
@@ -90,7 +118,7 @@ type SessionSummary struct {
 }
 
 func (s *Service) Routes(mux *http.ServeMux, accounts Accounts) {
-	h := handlers{pool: s.pool, queries: s.queries, exercises: s.exercises}
+	h := handlers{pool: s.pool, queries: s.queries, exercises: s.exercises, routines: s.routines}
 	mux.Handle("POST /workouts/sessions", accounts.RequireAuth(http.HandlerFunc(h.start)))
 	mux.Handle("GET /workouts/sessions", accounts.RequireAuth(http.HandlerFunc(h.history)))
 	mux.Handle("GET /workouts/sessions/current", accounts.RequireAuth(http.HandlerFunc(h.current)))
@@ -103,17 +131,50 @@ func (s *Service) Routes(mux *http.ServeMux, accounts Accounts) {
 	mux.Handle("DELETE /workouts/sessions/{id}/supersets/{supersetId}", accounts.RequireAuth(http.HandlerFunc(h.ungroupSuperset)))
 	mux.Handle("POST /workouts/sessions/{id}/finish", accounts.RequireAuth(http.HandlerFunc(h.finish)))
 	mux.Handle("DELETE /workouts/sessions/{id}", accounts.RequireAuth(http.HandlerFunc(h.discard)))
+	mux.Handle("POST /workouts/sessions/{id}/routine", accounts.RequireAuth(http.HandlerFunc(h.saveAsRoutine)))
 }
 
 type handlers struct {
 	pool      *pgxpool.Pool
 	queries   *store.Queries
 	exercises Exercises
+	routines  Routines
 }
 
+type startBody struct {
+	RoutineID *string `json:"routineId"`
+}
+
+// start starts a session: freeform with no body, or from {"routineId": ...},
+// pre-populated with the routine's slots and their targets.
 func (h handlers) start(w http.ResponseWriter, r *http.Request) {
-	caller, _ := auth.AccountID(r.Context())
-	id, err := h.queries.StartSession(r.Context(), caller)
+	ctx := r.Context()
+	caller, _ := auth.AccountID(ctx)
+	var body startBody
+	if r.ContentLength != 0 && !httpx.DecodeJSON(w, r, &body) {
+		return
+	}
+	var routineID *uuid.UUID
+	var routine program.Routine
+	if body.RoutineID != nil {
+		id, err := uuid.Parse(*body.RoutineID)
+		if err != nil {
+			writeRoutineNotFound(w)
+			return
+		}
+		routine, err = h.routines.GetRoutine(ctx, caller, id)
+		if errors.Is(err, program.ErrRoutineNotFound) {
+			writeRoutineNotFound(w)
+			return
+		}
+		if err != nil {
+			httpx.WriteInternalError(w, r, err)
+			return
+		}
+		routineID = &id
+	}
+
+	id, err := h.startSession(ctx, caller, routineID, routine.Slots)
 	switch {
 	case isViolation(err, "23505"):
 		httpx.WriteError(w, http.StatusConflict, "session_in_progress",
@@ -128,6 +189,55 @@ func (h handlers) start(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.writeSession(w, r, http.StatusCreated, id)
+}
+
+// startSession starts a session with an exercise for each slot, in order.
+// Slots sharing a superset group start in one new Superset.
+func (h handlers) startSession(ctx context.Context, caller uuid.UUID, routineID *uuid.UUID,
+	slots []program.Slot) (uuid.UUID, error) {
+	tx, err := h.pool.Begin(ctx)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("begin: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	q := h.queries.WithTx(tx)
+
+	id, err := q.StartSession(ctx, store.StartSessionParams{AccountID: caller, RoutineID: routineID})
+	if err != nil {
+		return uuid.Nil, err
+	}
+	supersets := make(map[int32]uuid.UUID)
+	for _, slot := range slots {
+		var supersetID *uuid.UUID
+		if slot.SupersetGroup != nil {
+			if _, ok := supersets[*slot.SupersetGroup]; !ok {
+				supersets[*slot.SupersetGroup] = uuid.New()
+			}
+			s := supersets[*slot.SupersetGroup]
+			supersetID = &s
+		}
+		if err := q.AddPlannedSessionExercise(ctx, store.AddPlannedSessionExerciseParams{
+			SessionID:         id,
+			ExerciseID:        slot.ExerciseID,
+			SupersetID:        supersetID,
+			TargetSets:        &slot.TargetSets,
+			TargetReps:        &slot.TargetReps,
+			TargetWeight:      slot.TargetWeight,
+			TargetWeightUnit:  &slot.WeightUnit,
+			TargetRestSeconds: slot.RestSeconds,
+			TargetNote:        &slot.Note,
+		}); err != nil {
+			return uuid.Nil, fmt.Errorf("add planned exercise: %w", err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return uuid.Nil, fmt.Errorf("commit: %w", err)
+	}
+	return id, nil
+}
+
+func writeRoutineNotFound(w http.ResponseWriter) {
+	httpx.WriteError(w, http.StatusNotFound, "routine_not_found", "Routine not found.")
 }
 
 type historyResponse struct {
@@ -555,6 +665,91 @@ func (h handlers) discard(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type saveAsRoutineBody struct {
+	Name string `json:"name"`
+}
+
+// saveAsRoutine saves a finished session as a new routine, and returns the
+// routine as POST /routines does.
+func (h handlers) saveAsRoutine(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	caller, _ := auth.AccountID(ctx)
+	var body saveAsRoutineBody
+	if !httpx.DecodeJSON(w, r, &body) {
+		return
+	}
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		writeSessionNotFound(w)
+		return
+	}
+	session, err := h.loadSession(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeSessionNotFound(w)
+		return
+	}
+	if err != nil {
+		httpx.WriteInternalError(w, r, err)
+		return
+	}
+	if session.FinishedAt == nil {
+		httpx.WriteError(w, http.StatusConflict, "session_not_finished",
+			"Finish the workout before saving it as a routine.")
+		return
+	}
+
+	routine, err := h.routines.CreateRoutine(ctx, caller, routineInputOf(body.Name, session))
+	var bad *program.InvalidRoutineError
+	if errors.As(err, &bad) {
+		bad.Write(w)
+		return
+	}
+	if err != nil {
+		httpx.WriteInternalError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusCreated, routine)
+}
+
+// routineInputOf describes a routine like session: a slot for each exercise that has Sets,
+// targeting as many Sets as were logged at the last one's weight and reps,
+// and the Supersets that still have two or more such exercises.
+func routineInputOf(name string, session Session) program.RoutineInput {
+	var logged []SessionExercise
+	supersetSizes := make(map[uuid.UUID]int)
+	for _, e := range session.Exercises {
+		if len(e.Sets) == 0 {
+			continue
+		}
+		logged = append(logged, e)
+		if e.SupersetID != nil {
+			supersetSizes[*e.SupersetID]++
+		}
+	}
+
+	input := program.RoutineInput{Name: name, Slots: make([]program.SlotInput, len(logged))}
+	groups := make(map[uuid.UUID]int32)
+	for i, e := range logged {
+		last := e.Sets[len(e.Sets)-1]
+		slot := program.SlotInput{
+			ExerciseID:   e.ExerciseID,
+			TargetSets:   int32(min(len(e.Sets), program.MaxTargetSets)),
+			TargetReps:   last.Reps,
+			TargetWeight: last.Weight,
+			WeightUnit:   last.WeightUnit,
+		}
+		if e.SupersetID != nil && supersetSizes[*e.SupersetID] >= 2 {
+			if _, ok := groups[*e.SupersetID]; !ok {
+				groups[*e.SupersetID] = int32(len(groups) + 1)
+			}
+			g := groups[*e.SupersetID]
+			slot.SupersetGroup = &g
+		}
+		input.Slots[i] = slot
+	}
+	return input
+}
+
 // errResponseWritten is returned by a changeSession callback that has
 // already written its own error response.
 var errResponseWritten = errors.New("response written")
@@ -669,6 +864,7 @@ func (h handlers) loadSession(ctx context.Context, id uuid.UUID) (Session, error
 	}
 	session := Session{
 		ID:         row.ID,
+		RoutineID:  row.RoutineID,
 		StartedAt:  row.StartedAt,
 		FinishedAt: row.FinishedAt,
 		Exercises:  make([]SessionExercise, len(exerciseRows)),
@@ -680,10 +876,26 @@ func (h handlers) loadSession(ctx context.Context, id uuid.UUID) (Session, error
 			Name:       names[e.ExerciseID],
 			Note:       e.Note,
 			SupersetID: e.SupersetID,
+			Target:     targetOf(e),
 			Sets:       append([]Set{}, sets[e.ID]...),
 		}
 	}
 	return session, nil
+}
+
+// targetOf returns a session exercise's target, or nil if it has none.
+func targetOf(e store.ListSessionExercisesRow) *Target {
+	if e.TargetSets == nil {
+		return nil
+	}
+	return &Target{
+		Sets:        *e.TargetSets,
+		Reps:        *e.TargetReps,
+		Weight:      *e.TargetWeight,
+		WeightUnit:  *e.TargetWeightUnit,
+		RestSeconds: e.TargetRestSeconds,
+		Note:        *e.TargetNote,
+	}
 }
 
 func isViolation(err error, code string) bool {

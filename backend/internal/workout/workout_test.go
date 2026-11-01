@@ -843,6 +843,252 @@ func TestDeleteSet(t *testing.T) {
 	})
 }
 
+func TestStartSessionFromRoutine(t *testing.T) {
+	srv := testutil.NewServer(t)
+
+	t.Run("pre-populates the session with the routine's slots and their targets", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		routine := createRoutine(t, srv, token, map[string]any{
+			"name": "Push day",
+			"slots": []map[string]any{
+				{"exerciseId": exerciseID(t, srv, token, "Bench Press"), "targetSets": 3, "targetReps": 5,
+					"targetWeight": 100, "weightUnit": "kg", "restSeconds": 180, "note": "Pause on the chest"},
+				{"exerciseId": exerciseID(t, srv, token, "Lat Pulldown"), "targetSets": 3, "targetReps": 10,
+					"targetWeight": 120, "weightUnit": "lb", "supersetGroup": 1},
+				{"exerciseId": exerciseID(t, srv, token, "Overhead Press"), "targetSets": 3, "targetReps": 8,
+					"targetWeight": 40, "weightUnit": "kg", "supersetGroup": 1},
+			},
+		})
+
+		res := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions", token, map[string]any{"routineId": routine})
+
+		if res.Status != http.StatusCreated {
+			t.Fatalf("status = %d, want 201; body %v", res.Status, res.Body)
+		}
+		if res.Body["routineId"] != routine {
+			t.Errorf("routineId = %v, want %s", res.Body["routineId"], routine)
+		}
+		got := sessionExercises(t, res)
+		if len(got) != 3 || got[0]["name"] != "Bench Press" || got[1]["name"] != "Lat Pulldown" ||
+			got[2]["name"] != "Overhead Press" {
+			t.Fatalf("exercises = %v, want Bench Press, Lat Pulldown, Overhead Press", got)
+		}
+		bench, _ := got[0]["target"].(map[string]any)
+		if bench["sets"] != 3.0 || bench["reps"] != 5.0 || bench["weight"] != 100.0 || bench["weightUnit"] != "kg" ||
+			bench["restSeconds"] != 180.0 || bench["note"] != "Pause on the chest" {
+			t.Errorf("Bench Press target = %v, want 3 x 5 at 100 kg, 3 min rest, noted", got[0]["target"])
+		}
+		if got[0]["note"] != "" || len(objects(t, got[0], "sets")) != 0 {
+			t.Errorf("Bench Press = %v, want no note or sets yet", got[0])
+		}
+		if pulldown, _ := got[1]["target"].(map[string]any); pulldown["weightUnit"] != "lb" || pulldown["restSeconds"] != nil {
+			t.Errorf("Lat Pulldown target = %v, want in lb with no rest", got[1]["target"])
+		}
+		if got[0]["supersetId"] != nil || got[1]["supersetId"] == nil || got[1]["supersetId"] != got[2]["supersetId"] {
+			t.Errorf("supersets = %v, %v, %v; want Lat Pulldown and Overhead Press in one",
+				got[0]["supersetId"], got[1]["supersetId"], got[2]["supersetId"])
+		}
+	})
+
+	t.Run("a freeform session has no routine or targets", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+
+		addExercise(t, srv, token, id, "Deadlift")
+
+		res := testutil.Do(t, srv, http.MethodGet, "/workouts/sessions/current", token, nil)
+		session := res.Body["session"].(map[string]any)
+		if v, ok := session["routineId"]; !ok || v != nil {
+			t.Errorf("routineId = %v, want null", v)
+		}
+		if v, ok := objects(t, session, "exercises")[0]["target"]; !ok || v != nil {
+			t.Errorf("target = %v, want null", v)
+		}
+	})
+
+	t.Run("logs actual sets alongside the planned target", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		routine := createRoutine(t, srv, token, map[string]any{"name": "Push day", "slots": []map[string]any{
+			{"exerciseId": exerciseID(t, srv, token, "Bench Press"), "targetSets": 3, "targetReps": 5,
+				"targetWeight": 100, "weightUnit": "kg"},
+		}})
+		res := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions", token, map[string]any{"routineId": routine})
+		id, bench := res.Body["id"].(string), sessionExercises(t, res)[0]["id"].(string)
+
+		res = testutil.Do(t, srv, http.MethodPost, "/workouts/sessions/"+id+"/exercises/"+bench+"/sets", token,
+			map[string]any{"weight": 97.5, "weightUnit": "kg", "reps": 6, "rpe": 9})
+
+		if res.Status != http.StatusCreated {
+			t.Fatalf("status = %d, want 201; body %v", res.Status, res.Body)
+		}
+		exercise := sessionExercises(t, res)[0]
+		target, _ := exercise["target"].(map[string]any)
+		sets := objects(t, exercise, "sets")
+		if target["weight"] != 100.0 || target["reps"] != 5.0 {
+			t.Errorf("target = %v, want 100 kg x 5", target)
+		}
+		if len(sets) != 1 || sets[0]["weight"] != 97.5 || sets[0]["reps"] != 6.0 || sets[0]["rpe"] != 9.0 {
+			t.Errorf("sets = %v, want 97.5 kg x 6 @ 9", sets)
+		}
+	})
+
+	t.Run("keeps the targets it started with when the routine is edited or deleted", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		bench := map[string]any{"exerciseId": exerciseID(t, srv, token, "Bench Press"), "targetSets": 3,
+			"targetReps": 5, "targetWeight": 100, "weightUnit": "kg"}
+		routine := createRoutine(t, srv, token, map[string]any{"name": "Push day", "slots": []any{bench}})
+		testutil.Do(t, srv, http.MethodPost, "/workouts/sessions", token, map[string]any{"routineId": routine})
+
+		bench["targetWeight"] = 110
+		if res := testutil.Do(t, srv, http.MethodPut, "/routines/"+routine, token,
+			map[string]any{"name": "Push day", "slots": []any{bench}}); res.Status != http.StatusOK {
+			t.Fatalf("edit routine: status %d, body %v", res.Status, res.Body)
+		}
+		if target, _ := currentExercises(t, srv, token)[0]["target"].(map[string]any); target["weight"] != 100.0 {
+			t.Errorf("target after edit = %v, want still 100 kg", target)
+		}
+
+		testutil.Do(t, srv, http.MethodDelete, "/routines/"+routine, token, nil)
+		res := testutil.Do(t, srv, http.MethodGet, "/workouts/sessions/current", token, nil)
+		session := res.Body["session"].(map[string]any)
+		if session["routineId"] != nil {
+			t.Errorf("routineId after delete = %v, want null", session["routineId"])
+		}
+		if target, _ := objects(t, session, "exercises")[0]["target"].(map[string]any); target["weight"] != 100.0 {
+			t.Errorf("target after delete = %v, want still 100 kg", target)
+		}
+	})
+
+	t.Run("refuses another user's routine", func(t *testing.T) {
+		_, _, owner := testutil.SignUp(t, srv)
+		routine := createRoutine(t, srv, owner, map[string]any{"name": "Push day", "slots": []map[string]any{
+			{"exerciseId": exerciseID(t, srv, owner, "Bench Press"), "targetSets": 3, "targetReps": 5,
+				"targetWeight": 100, "weightUnit": "kg"},
+		}})
+		_, _, token := testutil.SignUp(t, srv)
+
+		res := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions", token, map[string]any{"routineId": routine})
+
+		if res.Status != http.StatusNotFound || res.ErrorCode() != "routine_not_found" {
+			t.Fatalf("got %d %q, want 404 routine_not_found", res.Status, res.ErrorCode())
+		}
+	})
+
+	t.Run("refuses while another session is in progress", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		routine := createRoutine(t, srv, token, map[string]any{"name": "Push day", "slots": []map[string]any{
+			{"exerciseId": exerciseID(t, srv, token, "Bench Press"), "targetSets": 3, "targetReps": 5,
+				"targetWeight": 100, "weightUnit": "kg"},
+		}})
+		startSession(t, srv, token)
+
+		res := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions", token, map[string]any{"routineId": routine})
+
+		if res.Status != http.StatusConflict || res.ErrorCode() != "session_in_progress" {
+			t.Fatalf("got %d %q, want 409 session_in_progress", res.Status, res.ErrorCode())
+		}
+	})
+}
+
+func TestSaveSessionAsRoutine(t *testing.T) {
+	srv := testutil.NewServer(t)
+
+	t.Run("saves a finished session's logged exercises as a new routine", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		bench := addExercise(t, srv, token, id, "Bench Press")
+		logSet(t, srv, token, id, bench, 100, 5)
+		logSet(t, srv, token, id, bench, 105, 3)
+		addExercise(t, srv, token, id, "Deadlift") // No sets: left out.
+		pulldown := addExercise(t, srv, token, id, "Lat Pulldown")
+		press := addExercise(t, srv, token, id, "Overhead Press")
+		createSuperset(t, srv, token, id, pulldown, press)
+		logSet(t, srv, token, id, pulldown, 60, 10)
+		logSet(t, srv, token, id, press, 40, 8)
+		finishSession(t, srv, token, id)
+
+		res := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions/"+id+"/routine", token,
+			map[string]any{"name": " Saturday push "})
+
+		if res.Status != http.StatusCreated {
+			t.Fatalf("status = %d, want 201; body %v", res.Status, res.Body)
+		}
+		if res.Body["name"] != "Saturday push" {
+			t.Errorf("name = %v, want Saturday push", res.Body["name"])
+		}
+		slots := objects(t, res.Body, "slots")
+		if len(slots) != 3 || slots[0]["name"] != "Bench Press" || slots[1]["name"] != "Lat Pulldown" ||
+			slots[2]["name"] != "Overhead Press" {
+			t.Fatalf("slots = %v, want Bench Press, Lat Pulldown, Overhead Press", slots)
+		}
+		// The target is as many sets as were logged, at the last set's weight and reps.
+		if b := slots[0]; b["targetSets"] != 2.0 || b["targetReps"] != 3.0 || b["targetWeight"] != 105.0 ||
+			b["weightUnit"] != "kg" || b["supersetGroup"] != nil {
+			t.Errorf("Bench Press slot = %v, want 2 x 3 at 105 kg, in no superset", b)
+		}
+		if slots[1]["supersetGroup"] != 1.0 || slots[2]["supersetGroup"] != 1.0 {
+			t.Errorf("superset groups = %v, %v; want both 1", slots[1]["supersetGroup"], slots[2]["supersetGroup"])
+		}
+
+		list := testutil.Do(t, srv, http.MethodGet, "/routines", token, nil)
+		if routines := objects(t, list.Body, "routines"); len(routines) != 1 || routines[0]["id"] != res.Body["id"] {
+			t.Errorf("routines = %v, want the new one", routines)
+		}
+	})
+
+	t.Run("refuses a session still in progress", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		logOneSet(t, srv, token, id)
+
+		res := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions/"+id+"/routine", token,
+			map[string]any{"name": "Too soon"})
+
+		if res.Status != http.StatusConflict || res.ErrorCode() != "session_not_finished" {
+			t.Fatalf("got %d %q, want 409 session_not_finished", res.Status, res.ErrorCode())
+		}
+	})
+
+	t.Run("refuses a blank name", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		logOneSet(t, srv, token, id)
+		finishSession(t, srv, token, id)
+
+		res := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions/"+id+"/routine", token,
+			map[string]any{"name": " "})
+
+		if res.Status != http.StatusBadRequest || res.ErrorCode() != "invalid_name" {
+			t.Fatalf("got %d %q, want 400 invalid_name", res.Status, res.ErrorCode())
+		}
+	})
+
+	t.Run("refuses another user's session", func(t *testing.T) {
+		_, _, owner := testutil.SignUp(t, srv)
+		id := startSession(t, srv, owner)
+		logOneSet(t, srv, owner, id)
+		finishSession(t, srv, owner, id)
+		_, _, token := testutil.SignUp(t, srv)
+
+		res := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions/"+id+"/routine", token,
+			map[string]any{"name": "Mine now"})
+
+		if res.Status != http.StatusNotFound || res.ErrorCode() != "session_not_found" {
+			t.Fatalf("got %d %q, want 404 session_not_found", res.Status, res.ErrorCode())
+		}
+	})
+}
+
+// createRoutine creates a routine from body and returns its id.
+func createRoutine(t *testing.T, srv *httptest.Server, token string, body map[string]any) string {
+	t.Helper()
+	res := testutil.Do(t, srv, http.MethodPost, "/routines", token, body)
+	if res.Status != http.StatusCreated {
+		t.Fatalf("create routine: status %d, body %v", res.Status, res.Body)
+	}
+	return res.Body["id"].(string)
+}
+
 // logOneSet adds Bench Press to a session, logs 100 kg x 5 and returns the
 // set's id.
 func logOneSet(t *testing.T, srv *httptest.Server, token, sessionID string) string {

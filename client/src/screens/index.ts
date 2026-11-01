@@ -7,8 +7,12 @@ export { ServerUnavailableScreen } from './server-unavailable/ServerUnavailableS
 export { ExerciseDetailScreen } from './exercises/ExerciseDetailScreen';
 export { ExerciseLibraryScreen } from './exercises/ExerciseLibraryScreen';
 export { NewExerciseScreen } from './exercises/NewExerciseScreen';
+export { EditRoutineScreen } from './routines/EditRoutineScreen';
+export { NewRoutineScreen } from './routines/NewRoutineScreen';
+export { RoutineScreen } from './routines/RoutineScreen';
 export { FeedScreen } from './tabs/PlaceholderTabScreen';
 export { ProfileScreen } from './tabs/ProfileScreen';
 export { AddSessionExerciseScreen } from './workout/AddSessionExerciseScreen';
 export { CurrentSessionScreen } from './workout/CurrentSessionScreen';
+export { FinishedSessionScreen } from './workout/FinishedSessionScreen';
 export { WorkoutHomeScreen } from './workout/WorkoutHomeScreen';

@@ -6,9 +6,12 @@ const base = '/workouts/sessions';
 const path = (sessionId: string, ...rest: string[]) =>
   [base, sessionId, ...rest].map((part, i) => (i === 0 ? part : encodeURIComponent(part))).join('/');
 
-/** Starts an empty, freeform Session. Fails with session_in_progress if one already is. */
-export function startSession(token: string): Promise<Session> {
-  return apiRequest<Session>(base, { method: 'POST', token });
+/**
+ * Starts a Session: a Freeform session, or one pre-populated from routineId.
+ * Fails with session_in_progress if one already is.
+ */
+export function startSession(token: string, routineId?: string): Promise<Session> {
+  return apiRequest<Session>(base, { method: 'POST', token, body: routineId ? { routineId } : undefined });
 }
 
 /** The Session in progress, or null. */
@@ -74,6 +77,12 @@ export function ungroupSuperset(token: string, sessionId: string, supersetId: st
 /** Finishes and saves a Session. It needs at least one Set. */
 export function finishSession(token: string, sessionId: string): Promise<Session> {
   return apiRequest<Session>(path(sessionId, 'finish'), { method: 'POST', token });
+}
+
+/** Saves a finished Session's logged exercises as a new Routine, and returns its id. */
+export async function saveSessionAsRoutine(token: string, sessionId: string, name: string): Promise<string> {
+  const { id } = await apiRequest<{ id: string }>(path(sessionId, 'routine'), { method: 'POST', token, body: { name } });
+  return id;
 }
 
 /** Deletes a Session in progress. */

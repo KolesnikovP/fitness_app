@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { formatSet, type Session, type SessionExercise } from '@/entities/workout';
+import { formatSet, formatTarget, type Session, type SessionExercise } from '@/entities/workout';
 import { EditSetForm } from '@/features/edit-set';
 import { ExerciseNoteField } from '@/features/exercise-note';
 import { LogSetForm } from '@/features/log-set';
@@ -15,15 +15,28 @@ type SessionExerciseCardProps = {
 };
 
 /**
- * One exercise in the workout in progress: its logged Sets (tap one to
- * correct or delete it), a note, and the form for the next Set.
+ * One exercise in the workout in progress: what its Routine planned, if
+ * anything, its logged Sets (tap one to correct or delete it), a note, and the
+ * form for the next Set.
  */
 export function SessionExerciseCard({ sessionId, sessionExercise, onChange, onDeleteSet }: SessionExerciseCardProps) {
   const [editingSetId, setEditingSetId] = useState<string | null>(null);
+  const { target } = sessionExercise;
 
   return (
     <View accessibilityLabel={`${sessionExercise.name} card`} style={styles.card}>
       <Text style={styles.name}>{sessionExercise.name}</Text>
+      {target ? (
+        <View style={styles.target}>
+          <Text style={styles.targetValue}>Target {formatTarget(target)}</Text>
+          {target.note ? <Text style={styles.setNote}>{target.note}</Text> : null}
+          {sessionExercise.sets.length > 0 ? (
+            <Text style={styles.setNote}>
+              {sessionExercise.sets.length} of {target.sets} sets
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
       {sessionExercise.sets.map((set, i) =>
         set.id === editingSetId ? (
           <EditSetForm
@@ -57,7 +70,12 @@ export function SessionExerciseCard({ sessionId, sessionExercise, onChange, onDe
           </Pressable>
         ),
       )}
-      <LogSetForm sessionId={sessionId} sessionExerciseId={sessionExercise.id} onLogged={onChange} />
+      <LogSetForm
+        sessionId={sessionId}
+        sessionExerciseId={sessionExercise.id}
+        target={target}
+        onLogged={onChange}
+      />
       <ExerciseNoteField sessionId={sessionId} sessionExercise={sessionExercise} onSaved={onChange} />
     </View>
   );
@@ -72,6 +90,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   name: { fontSize: 20, fontWeight: '600', color: colors.text },
+  target: { gap: 2 },
+  targetValue: { fontSize: 15, fontWeight: '600', color: colors.primary },
   set: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start', paddingVertical: 2 },
   pressed: { opacity: 0.5 },
   setNumber: { width: 20, fontSize: 17, color: colors.muted },

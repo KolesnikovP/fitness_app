@@ -17,8 +17,23 @@ export type SessionSet = {
 };
 
 /**
+ * What a Routine's Exercise slot planned for a Session exercise, copied when
+ * the Session started. weight is in weightUnit. restSeconds is null when no
+ * rest was planned.
+ */
+export type SessionTarget = {
+  sets: number;
+  reps: number;
+  weight: number;
+  weightUnit: WeightUnit;
+  restSeconds: number | null;
+  note: string;
+};
+
+/**
  * An Exercise added to a Session, with its Sets in the order they were
- * logged. Exercises of one Superset share its supersetId.
+ * logged. Exercises of one Superset share its supersetId. target is null for
+ * an exercise not started from a Routine.
  */
 export type SessionExercise = {
   id: string;
@@ -26,6 +41,7 @@ export type SessionExercise = {
   name: string;
   note: string;
   supersetId: string | null;
+  target: SessionTarget | null;
   sets: SessionSet[];
 };
 
@@ -34,9 +50,13 @@ export type SessionBlock =
   | { kind: 'exercise'; exercise: SessionExercise }
   | { kind: 'superset'; supersetId: string; exercises: SessionExercise[] };
 
-/** One logged workout. finishedAt is null while it's in progress. */
+/**
+ * One logged workout. routineId is the Routine it was started from, null for
+ * a Freeform session. finishedAt is null while it's in progress.
+ */
 export type Session = {
   id: string;
+  routineId: string | null;
   startedAt: string;
   finishedAt: string | null;
   exercises: SessionExercise[];
@@ -87,6 +107,29 @@ export function parseSetDraft(
 export function formatSet(set: Pick<SessionSet, 'weight' | 'weightUnit' | 'reps' | 'rpe'>): string {
   const base = `${set.weight} ${set.weightUnit} × ${set.reps}`;
   return set.rpe === null ? base : `${base} @ RPE ${set.rpe}`;
+}
+
+/** "3 × 5 · 100 kg" */
+export function formatTarget(target: { sets: number; reps: number; weight: number; weightUnit: WeightUnit }): string {
+  return `${target.sets} × ${target.reps} · ${target.weight} ${target.weightUnit}`;
+}
+
+/** "1:30" */
+export function formatRest(seconds: number): string {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
+/**
+ * The draft to log the next Set from: the target's reps, and its weight when
+ * it's in the unit the Set is logged in.
+ */
+export function setDraftFromTarget(target: SessionTarget | null, weightUnit: WeightUnit): SetDraft {
+  if (!target) return emptySetDraft;
+  return {
+    ...emptySetDraft,
+    weight: target.weightUnit === weightUnit ? String(target.weight) : '',
+    reps: String(target.reps),
+  };
 }
 
 /**

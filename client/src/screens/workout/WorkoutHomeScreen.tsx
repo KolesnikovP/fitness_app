@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
+import { listRoutines, RoutineSummaryItem, type RoutineSummary } from '@/entities/routine';
 import {
   formatClockTime,
   getCurrentSession,
@@ -15,9 +16,12 @@ import {
 import { ApiError, errorMessage } from '@/shared/api';
 import { Button, colors, Screen, spacing } from '@/shared/ui';
 
-type Loaded = { current: Session | null; history: SessionSummary[] };
+type Loaded = { current: Session | null; routines: RoutineSummary[]; history: SessionSummary[] };
 
-/** The Workout tab: start or resume a workout, and the list of finished ones. */
+/**
+ * The Workout tab: start or resume a workout, the Routines to start one from,
+ * and the list of finished ones.
+ */
 export function WorkoutHomeScreen() {
   const { state } = useAuth();
   const token = state.status === 'signedIn' ? state.token : null;
@@ -25,15 +29,15 @@ export function WorkoutHomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
 
-  // Reload on focus, so a workout finished or discarded on the next screen shows here.
+  // Reload on focus, so a workout or routine changed on another screen shows here.
   useFocusEffect(
     useCallback(() => {
       if (!token) return;
       let current = true;
-      Promise.all([getCurrentSession(token), listSessionHistory(token)])
-        .then(([session, history]) => {
+      Promise.all([getCurrentSession(token), listRoutines(token), listSessionHistory(token)])
+        .then(([session, routines, history]) => {
           if (!current) return;
-          setLoaded({ current: session, history });
+          setLoaded({ current: session, routines, history });
           setError(null);
         })
         .catch((e) => current && setError(errorMessage(e)));
@@ -82,6 +86,20 @@ export function WorkoutHomeScreen() {
           ) : (
             <Button label="Start Workout" onPress={start} loading={starting} />
           )}
+          <Text accessibilityRole="header" style={styles.heading}>
+            Routines
+          </Text>
+          <View accessibilityLabel="Routines">
+            {loaded.routines.map((routine) => (
+              <RoutineSummaryItem
+                key={routine.id}
+                routine={routine}
+                onPress={() => router.push({ pathname: '/workout/routines/[id]', params: { id: routine.id } })}
+              />
+            ))}
+            {loaded.routines.length === 0 ? <Text style={styles.muted}>No routines yet.</Text> : null}
+          </View>
+          <Button label="New routine" variant="secondary" onPress={() => router.push('/workout/routines/new')} />
           <Text accessibilityRole="header" style={styles.heading}>
             History
           </Text>

@@ -75,7 +75,12 @@ export function CurrentSessionScreen() {
       // A Set deleted just now goes before the workout is finished.
       await deletion.flush();
       await finishSession(token, session.id);
-      router.back();
+      if (session.routineId === null) {
+        // A Freeform session can be saved as a Routine.
+        router.replace({ pathname: '/workout/finished', params: { sessionId: session.id } });
+      } else {
+        router.back();
+      }
     } catch (e) {
       setError(errorMessage(e));
       setFinishing(false);
@@ -105,6 +110,7 @@ export function CurrentSessionScreen() {
   const shown = deletion.pendingSetId ? withoutSet(session, deletion.pendingSetId) : session;
   const canFinish = hasSets(shown);
   const ungrouped = shown.exercises.filter((e) => e.supersetId === null);
+  const plannedRests = shown.exercises.flatMap((e) => (e.target?.restSeconds ? [e.target.restSeconds] : []));
 
   return (
     <Screen
@@ -150,7 +156,7 @@ export function CurrentSessionScreen() {
         variant="secondary"
         onPress={() => router.push({ pathname: '/workout/add-exercise', params: { sessionId: session.id } })}
       />
-      <RestTimer />
+      <RestTimer plannedSeconds={plannedRests} />
       {error ? (
         <Text accessibilityRole="alert" style={styles.error}>
           {error}

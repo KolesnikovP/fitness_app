@@ -73,6 +73,9 @@ describe('freeform workout', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Finish workout' }));
 
+    // A freeform workout can be saved as a routine; not this time.
+    await screen.findByRole('header', { name: 'Workout finished' });
+    await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
     await screen.findByRole('header', { name: 'Workout' });
     const history = within(await screen.findByLabelText('Past workouts'));
     expect(await history.findByText('Dumbbell Bench Press')).toBeVisible();
@@ -309,7 +312,7 @@ describe('freeform workout', () => {
     await fireEvent.press(card.getByRole('button', { name: 'Delete set' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Finish workout' }));
 
-    await screen.findByRole('header', { name: 'Workout' });
+    await screen.findByRole('header', { name: 'Workout finished' });
     const [saved] = fakeApi.sessions(account.id);
     expect(saved.finishedAt).not.toBeNull();
     expect(saved.exercises[0].sets).toMatchObject([{ reps: 5 }]);

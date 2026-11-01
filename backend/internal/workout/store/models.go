@@ -36,6 +36,20 @@ type ExerciseMedium struct {
 	UpdatedAt   time.Time
 }
 
+type ExerciseSlot struct {
+	ID               uuid.UUID
+	RoutineID        uuid.UUID
+	Position         int32
+	ExerciseID       uuid.UUID
+	TargetSets       int32
+	TargetReps       int32
+	TargetWeight     pgtype.Numeric
+	TargetWeightUnit string
+	RestSeconds      *int32
+	Note             string
+	SupersetGroup    *int32
+}
+
 type Profile struct {
 	AccountID      uuid.UUID
 	UnitPreference *string
@@ -43,13 +57,41 @@ type Profile struct {
 	UpdatedAt      time.Time
 }
 
+type Program struct {
+	ID        uuid.UUID
+	AccountID uuid.UUID
+	Name      string
+	IsDefault bool
+	CreatedAt time.Time
+}
+
+type ProgramWeek struct {
+	ID        uuid.UUID
+	ProgramID uuid.UUID
+	Position  int32
+}
+
+type Routine struct {
+	ID        uuid.UUID
+	WeekID    uuid.UUID
+	Name      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 type SessionExercise struct {
-	ID         uuid.UUID
-	SessionID  uuid.UUID
-	ExerciseID uuid.UUID
-	Note       string
-	CreatedAt  time.Time
-	SupersetID *uuid.UUID
+	ID                uuid.UUID
+	SessionID         uuid.UUID
+	ExerciseID        uuid.UUID
+	Note              string
+	CreatedAt         time.Time
+	SupersetID        *uuid.UUID
+	TargetSets        *int32
+	TargetReps        *int32
+	TargetWeight      *float64
+	TargetWeightUnit  *string
+	TargetRestSeconds *int32
+	TargetNote        *string
 }
 
 type SessionSet struct {
