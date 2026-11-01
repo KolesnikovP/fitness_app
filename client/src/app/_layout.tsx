@@ -4,7 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
 import { AuthProvider, useAuth } from '@/entities/auth';
-import { ThemeProvider, useTheme } from '@/shared/ui';
+import { ThemeProvider, useTheme, useThemedStackOptions } from '@/shared/ui';
 
 // Keep the splash screen up until the stored login has been checked, so a
 // signed-in user never sees the login screen flash.
@@ -22,7 +22,8 @@ export default function RootLayout() {
 
 function RootNavigator() {
   const { state } = useAuth();
-  const { colors, scheme } = useTheme();
+  const { scheme } = useTheme();
+  const themed = useThemedStackOptions();
 
   useEffect(() => {
     if (state.status !== 'loading') SplashScreen.hide();
@@ -36,7 +37,7 @@ function RootNavigator() {
   return (
     <>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+      <Stack screenOptions={{ ...themed, headerShown: false }}>
         <Stack.Protected guard={state.status === 'loading' || state.status === 'signedOut'}>
           <Stack.Screen name="(auth)" />
         </Stack.Protected>

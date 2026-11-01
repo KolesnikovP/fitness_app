@@ -1,13 +1,13 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { ExerciseListItem, listExercises, type Exercise, type ExerciseFilters } from '@/entities/exercise';
 import { ExerciseSearch } from '@/features/search-exercises';
 import { errorMessage } from '@/shared/api';
 import { useDebouncedValue } from '@/shared/hooks';
-import { Button, makeStyles, Screen } from '@/shared/ui';
+import { Button, makeStyles, Screen, Spinner } from '@/shared/ui';
 
 const SEARCH_DELAY_MS = 250;
 
@@ -50,7 +50,7 @@ export function ExerciseLibraryScreen() {
         </Text>
       ) : null}
       {exercises === null ? (
-        error ? null : <ActivityIndicator />
+        error ? null : <Spinner />
       ) : (
         <View accessibilityLabel="Exercise list">
           {exercises.map((exercise) => (

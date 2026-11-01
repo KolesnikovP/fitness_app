@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
-import { useColorScheme } from 'react-native';
+import { Appearance, useColorScheme } from 'react-native';
 
 import { darkColors, lightColors } from '@/shared/ui';
 
@@ -79,6 +79,20 @@ describe('theme', () => {
     await fireEvent.press(screen.getByRole('radio', { name: 'System' }));
     expect(screen.getByRole('header', { name: 'Profile' })).toHaveStyle({ color: lightColors.text });
     expect(secureStore.get(THEME_KEY)).toBe('system');
+  });
+
+  it("hands the user's pick to the phone, so its own dialogs match", async () => {
+    const setColorScheme = jest.spyOn(Appearance, 'setColorScheme').mockImplementation(() => {});
+    await launchSignedIn();
+    expect(setColorScheme).toHaveBeenLastCalledWith('unspecified');
+
+    await openProfile();
+    await fireEvent.press(screen.getByRole('radio', { name: 'Dark' }));
+    expect(setColorScheme).toHaveBeenLastCalledWith('dark');
+
+    await fireEvent.press(screen.getByRole('radio', { name: 'System' }));
+    expect(setColorScheme).toHaveBeenLastCalledWith('unspecified');
+    setColorScheme.mockRestore();
   });
 
   it('themes the log in screen too, before anyone signs in', async () => {

@@ -1,13 +1,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Text } from 'react-native';
+import { Text } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { getExercise, type Exercise } from '@/entities/exercise';
 import { MAX_SUBSTITUTES } from '@/entities/routine';
 import { ExercisePicker } from '@/features/search-exercises';
 import { errorMessage } from '@/shared/api';
-import { Button, makeStyles, Screen } from '@/shared/ui';
+import { Button, makeStyles, Screen, Spinner } from '@/shared/ui';
 
 /**
  * Picks Substitutes for one Exercise slot of a Routine being built, from the
@@ -69,7 +69,7 @@ export function AddSubstitutesScreen() {
           {error}
         </Text>
       ) : !exercise ? (
-        <ActivityIndicator />
+        <Spinner />
       ) : (
         <>
           <Text style={styles.muted}>

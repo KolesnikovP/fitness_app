@@ -3,11 +3,10 @@ import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useTheme } from '@/shared/ui';
 
 export default function TabsLayout() {
-  const { colors, scheme } = useTheme();
+  const { colors } = useTheme();
   return (
     <NativeTabs
-      // Gold marks the open tab in the dark; in the light, charcoal does.
-      tintColor={scheme === 'dark' ? colors.primary : colors.text}
+      tintColor={colors.tabActive}
       iconColor={colors.muted}
       backgroundColor={colors.background}
     >

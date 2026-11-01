@@ -1,9 +1,9 @@
-import { useSyncExternalStore } from 'react';
-
 /**
  * Stand-in for the phone's light or dark mode. Under jest-expo, useColorScheme is a jest.fn
  * that always says light; tests point it at useFakeColorScheme so the mode can change.
  */
+import { useSyncExternalStore } from 'react';
+
 type Scheme = 'light' | 'dark';
 
 const listeners = new Set<() => void>();

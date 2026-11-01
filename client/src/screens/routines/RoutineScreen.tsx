@@ -1,6 +1,6 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Text, View } from 'react-native';
+import { Alert, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import {
@@ -15,7 +15,7 @@ import {
 } from '@/entities/routine';
 import { formatRest, formatTarget, parseWeight, startSession, weightInput } from '@/entities/workout';
 import { errorMessage } from '@/shared/api';
-import { Button, makeStyles, Screen, spacing, TextField } from '@/shared/ui';
+import { Button, makeStyles, Screen, spacing, Spinner, TextField } from '@/shared/ui';
 
 /** "Rest 3:00 · Pause on the chest", or "" with neither. */
 function slotDetail(slot: RoutineSlot): string {
@@ -102,7 +102,7 @@ export function RoutineScreen() {
             {error}
           </Text>
         ) : (
-          <ActivityIndicator />
+          <Spinner />
         )}
       </Screen>
     );

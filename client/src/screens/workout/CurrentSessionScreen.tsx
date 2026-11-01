@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Text } from 'react-native';
+import { Alert, Text } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import {
@@ -17,7 +17,7 @@ import { SetDeletedBar, usePendingSetDeletion } from '@/features/delete-set';
 import { RestTimer } from '@/features/rest-timer';
 import { CreateSupersetForm } from '@/features/superset';
 import { errorMessage } from '@/shared/api';
-import { Button, makeStyles, Screen } from '@/shared/ui';
+import { Button, makeStyles, Screen, Spinner } from '@/shared/ui';
 import { SessionExerciseCard, SupersetBlock } from '@/widgets/session-exercise-card';
 
 /**
@@ -62,7 +62,7 @@ export function CurrentSessionScreen() {
             {error}
           </Text>
         ) : (
-          <ActivityIndicator />
+          <Spinner />
         )}
       </Screen>
     );

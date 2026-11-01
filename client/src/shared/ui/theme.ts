@@ -30,6 +30,8 @@ export type Colors = {
   featureMuted: string;
   /** Dims the screen behind a sheet. */
   backdrop: string;
+  /** The open tab in the tab bar. */
+  tabActive: string;
 };
 
 /** Ink & gold: charcoal does the work, gold only marks what's selected. */
@@ -50,6 +52,7 @@ export const lightColors: Colors = {
   featureText: '#FFF6EC',
   featureMuted: '#F3D6CF',
   backdrop: 'rgba(0, 0, 0, 0.3)',
+  tabActive: CHARCOAL,
 };
 
 /** Charcoal night: charcoal is the room, gold is the light in it. */
@@ -70,6 +73,7 @@ export const darkColors: Colors = {
   featureText: '#FFF6EC',
   featureMuted: '#F0CFC8',
   backdrop: 'rgba(0, 0, 0, 0.6)',
+  tabActive: GOLD,
 };
 
 export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 };

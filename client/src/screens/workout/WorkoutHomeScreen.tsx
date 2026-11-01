@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { listRoutines, RoutineSummaryItem, type RoutineSummary } from '@/entities/routine';
@@ -14,7 +14,7 @@ import {
   type SessionSummary,
 } from '@/entities/workout';
 import { ApiError, errorMessage } from '@/shared/api';
-import { Button, makeStyles, Screen, spacing } from '@/shared/ui';
+import { Button, makeStyles, Screen, spacing, Spinner } from '@/shared/ui';
 
 type Loaded = { current: Session | null; routines: RoutineSummary[]; history: SessionSummary[] };
 
@@ -75,7 +75,7 @@ export function WorkoutHomeScreen() {
       ) : null}
       {loaded === null ? (
         error ? null : (
-          <ActivityIndicator />
+          <Spinner />
         )
       ) : (
         <>

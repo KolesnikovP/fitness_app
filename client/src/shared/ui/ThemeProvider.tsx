@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-import { StyleSheet, useColorScheme } from 'react-native';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Appearance, StyleSheet, useColorScheme } from 'react-native';
 
 import { darkColors, lightColors, type Colors } from './theme';
 
@@ -42,6 +42,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const phoneScheme = useColorScheme();
   const [preference, setPreferenceState] = useState(storedPreference);
   const scheme: ColorScheme = preference === 'system' ? (phoneScheme === 'dark' ? 'dark' : 'light') : preference;
+
+  // What the phone draws itself (alerts, scroll bars) follows the pick too.
+  useEffect(() => {
+    Appearance.setColorScheme(preference === 'system' ? 'unspecified' : preference);
+  }, [preference]);
 
   const theme = useMemo<Theme>(
     () => ({

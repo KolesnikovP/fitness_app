@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { ExerciseListItem, listExercises, type Exercise, type ExerciseFilters } from '@/entities/exercise';
 import { errorMessage } from '@/shared/api';
 import { useDebouncedValue } from '@/shared/hooks';
-import { makeStyles, spacing } from '@/shared/ui';
+import { makeStyles, spacing, Spinner } from '@/shared/ui';
 
 import { ExerciseSearch } from './ExerciseSearch';
 
@@ -67,7 +67,7 @@ export function ExercisePicker({ onPick, selectedIds, busy, initialFilters, hidd
       ) : null}
       {exercises === null || busy ? (
         error ? null : (
-          <ActivityIndicator />
+          <Spinner />
         )
       ) : (
         <View accessibilityLabel="Exercise list">

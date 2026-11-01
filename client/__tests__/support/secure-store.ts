@@ -3,9 +3,6 @@ export const secureStore = new Map<string, string>();
 
 export const secureStoreModule = {
   getItem: (key: string) => secureStore.get(key) ?? null,
-  setItem: (key: string, value: string) => {
-    secureStore.set(key, value);
-  },
   getItemAsync: async (key: string) => secureStore.get(key) ?? null,
   setItemAsync: async (key: string, value: string) => {
     secureStore.set(key, value);

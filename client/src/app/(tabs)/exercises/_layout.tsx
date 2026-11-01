@@ -1,19 +1,11 @@
 import { Stack } from 'expo-router';
 
-import { useTheme } from '@/shared/ui';
+import { useThemedStackOptions } from '@/shared/ui';
 
 export default function ExercisesLayout() {
-  const { colors } = useTheme();
+  const themed = useThemedStackOptions();
   return (
-    <Stack
-      screenOptions={{
-        title: '',
-        headerShadowVisible: false,
-        headerStyle: { backgroundColor: colors.background },
-        headerTintColor: colors.primary,
-        contentStyle: { backgroundColor: colors.background },
-      }}
-    >
+    <Stack screenOptions={{ ...themed, title: '', headerShadowVisible: false }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
     </Stack>
   );

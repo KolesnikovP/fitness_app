@@ -1,12 +1,12 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { equipmentLabel, ExerciseMedia, getExercise, muscleGroupLabel, type Exercise } from '@/entities/exercise';
 import { UploadMediaButton } from '@/features/upload-exercise-media';
 import { errorMessage } from '@/shared/api';
-import { makeStyles, Screen, spacing } from '@/shared/ui';
+import { makeStyles, Screen, spacing, Spinner } from '@/shared/ui';
 
 export function ExerciseDetailScreen() {
   const styles = useStyles();
@@ -36,7 +36,7 @@ export function ExerciseDetailScreen() {
             {error}
           </Text>
         ) : (
-          <ActivityIndicator />
+          <Spinner />
         )}
       </Screen>
     );

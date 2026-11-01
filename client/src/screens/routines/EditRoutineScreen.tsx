@@ -1,11 +1,11 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Text } from 'react-native';
+import { Text } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { getRoutine, routineDraftOf, updateRoutine, type RoutineDraft } from '@/entities/routine';
 import { errorMessage } from '@/shared/api';
-import { makeStyles, Screen } from '@/shared/ui';
+import { makeStyles, Screen, Spinner } from '@/shared/ui';
 import { RoutineEditor } from '@/widgets/routine-editor';
 
 import { useAddedExercises } from './useAddedExercises';
@@ -54,7 +54,7 @@ export function EditRoutineScreen() {
           {error}
         </Text>
       ) : (
-        <ActivityIndicator />
+        <Spinner />
       )}
     </Screen>
   );
