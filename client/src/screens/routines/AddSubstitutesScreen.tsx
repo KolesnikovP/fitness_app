@@ -1,13 +1,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text } from 'react-native';
+import { ActivityIndicator, Text } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { getExercise, type Exercise } from '@/entities/exercise';
 import { MAX_SUBSTITUTES } from '@/entities/routine';
 import { ExercisePicker } from '@/features/search-exercises';
 import { errorMessage } from '@/shared/api';
-import { Button, colors, Screen } from '@/shared/ui';
+import { Button, makeStyles, Screen } from '@/shared/ui';
 
 /**
  * Picks Substitutes for one Exercise slot of a Routine being built, from the
@@ -15,6 +15,7 @@ import { Button, colors, Screen } from '@/shared/ui';
  * to the editor (returnTo) with them, in the order picked, for slotKey.
  */
 export function AddSubstitutesScreen() {
+  const styles = useStyles();
   const { returnTo, slotKey, exerciseId, taken } = useLocalSearchParams<{
     returnTo: string;
     slotKey: string;
@@ -92,7 +93,7 @@ export function AddSubstitutesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   error: { color: colors.danger, fontSize: 15 },
   muted: { fontSize: 15, color: colors.muted },
-});
+}));

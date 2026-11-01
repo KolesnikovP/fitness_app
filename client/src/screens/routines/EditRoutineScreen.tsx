@@ -1,17 +1,18 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text } from 'react-native';
+import { ActivityIndicator, Text } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { getRoutine, routineDraftOf, updateRoutine, type RoutineDraft } from '@/entities/routine';
 import { errorMessage } from '@/shared/api';
-import { colors, Screen } from '@/shared/ui';
+import { makeStyles, Screen } from '@/shared/ui';
 import { RoutineEditor } from '@/widgets/routine-editor';
 
 import { useAddedExercises } from './useAddedExercises';
 
 /** Edits a saved Routine: its name and slots. */
 export function EditRoutineScreen() {
+  const styles = useStyles();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state } = useAuth();
   const token = state.status === 'signedIn' ? state.token : null;
@@ -59,6 +60,6 @@ export function EditRoutineScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   error: { color: colors.danger, fontSize: 15 },
-});
+}));

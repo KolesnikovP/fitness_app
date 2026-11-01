@@ -1,6 +1,7 @@
 import { Image, StyleSheet } from 'react-native';
 
 import { apiUrl } from '@/shared/api';
+import { makeStyles } from '@/shared/ui';
 
 type ExerciseMediaProps = {
   /** An API path, such as an exercise's imageUrl. */
@@ -11,6 +12,7 @@ type ExerciseMediaProps = {
 
 /** An exercise image or GIF. Media is only served to signed-in users. */
 export function ExerciseMedia({ path, token, accessibilityLabel }: ExerciseMediaProps) {
+  const styles = useStyles();
   return (
     <Image
       accessible
@@ -23,6 +25,6 @@ export function ExerciseMedia({ path, token, accessibilityLabel }: ExerciseMedia
   );
 }
 
-const styles = StyleSheet.create({
-  media: { width: '100%', aspectRatio: 1, borderRadius: 12, backgroundColor: '#F2F2F2' },
-});
+const useStyles = makeStyles((colors) => ({
+  media: { width: '100%', aspectRatio: 1, borderRadius: 12, backgroundColor: colors.placeholder },
+}));

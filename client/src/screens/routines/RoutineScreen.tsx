@@ -1,6 +1,6 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import {
@@ -15,7 +15,7 @@ import {
 } from '@/entities/routine';
 import { formatRest, formatTarget, parseWeight, startSession, weightInput } from '@/entities/workout';
 import { errorMessage } from '@/shared/api';
-import { Button, colors, Screen, spacing, TextField } from '@/shared/ui';
+import { Button, makeStyles, Screen, spacing, TextField } from '@/shared/ui';
 
 /** "Rest 3:00 · Pause on the chest", or "" with neither. */
 function slotDetail(slot: RoutineSlot): string {
@@ -24,6 +24,7 @@ function slotDetail(slot: RoutineSlot): string {
 }
 
 function SlotSummary({ slot }: { slot: RoutineSlot }) {
+  const styles = useStyles();
   const detail = slotDetail(slot);
   return (
     <View style={styles.slot}>
@@ -65,6 +66,7 @@ function parseStartingWeights(typed: Record<string, string>): Record<string, num
  * deleting it.
  */
 export function RoutineScreen() {
+  const styles = useStyles();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state } = useAuth();
   const token = state.status === 'signedIn' ? state.token : null;
@@ -198,7 +200,7 @@ export function RoutineScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   plan: { gap: spacing.md },
   slot: { gap: 2 },
   slotName: { fontSize: 17, fontWeight: '600', color: colors.text },
@@ -220,4 +222,4 @@ const styles = StyleSheet.create({
   heading: { fontSize: 20, fontWeight: '600', color: colors.text },
   error: { color: colors.danger, fontSize: 15 },
   muted: { fontSize: 15, color: colors.muted },
-});
+}));

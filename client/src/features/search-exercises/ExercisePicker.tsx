@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { ExerciseListItem, listExercises, type Exercise, type ExerciseFilters } from '@/entities/exercise';
 import { errorMessage } from '@/shared/api';
 import { useDebouncedValue } from '@/shared/hooks';
-import { colors, spacing } from '@/shared/ui';
+import { makeStyles, spacing } from '@/shared/ui';
 
 import { ExerciseSearch } from './ExerciseSearch';
 
@@ -25,6 +25,7 @@ type ExercisePickerProps = {
 
 /** Searches the library and picks an exercise from it, or several with selectedIds. */
 export function ExercisePicker({ onPick, selectedIds, busy, initialFilters, hiddenIds }: ExercisePickerProps) {
+  const styles = useStyles();
   const { state } = useAuth();
   const token = state.status === 'signedIn' ? state.token : null;
   const [filters, setFilters] = useState<ExerciseFilters>(() => ({
@@ -85,8 +86,8 @@ export function ExercisePicker({ onPick, selectedIds, busy, initialFilters, hidd
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   picker: { gap: spacing.md },
   error: { color: colors.danger, fontSize: 15 },
   empty: { fontSize: 17, color: colors.muted },
-});
+}));

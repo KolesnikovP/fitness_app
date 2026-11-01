@@ -1,6 +1,7 @@
 import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 
-import { colors, spacing } from './theme';
+import { spacing } from './theme';
+import { makeStyles, useTheme } from './ThemeProvider';
 
 type TextFieldProps = Omit<TextInputProps, 'style'> & {
   label: string;
@@ -9,12 +10,15 @@ type TextFieldProps = Omit<TextInputProps, 'style'> & {
 };
 
 export function TextField({ label, dense, ...inputProps }: TextFieldProps) {
+  const { colors, scheme } = useTheme();
+  const styles = useStyles();
   return (
     <View style={styles.container}>
       {dense ? null : <Text style={styles.label}>{label}</Text>}
       <TextInput
         accessibilityLabel={label}
         placeholderTextColor={colors.muted}
+        keyboardAppearance={scheme}
         style={[styles.input, dense && styles.dense]}
         textAlign={dense ? 'center' : undefined}
         {...inputProps}
@@ -23,7 +27,7 @@ export function TextField({ label, dense, ...inputProps }: TextFieldProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { gap: spacing.xs },
   label: { fontSize: 15, fontWeight: '500', color: colors.text },
   input: {
@@ -36,4 +40,4 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   dense: { minHeight: 40, paddingHorizontal: spacing.xs },
-});
+}));

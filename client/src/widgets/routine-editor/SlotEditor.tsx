@@ -10,7 +10,7 @@ import {
   type SlotDraft,
 } from '@/entities/routine';
 import { formatRest, repsInput, weightInput } from '@/entities/workout';
-import { Button, colors, Select, spacing, TextField } from '@/shared/ui';
+import { Button, makeStyles, Select, spacing, TextField } from '@/shared/ui';
 import { listNames } from '@/shared/utils';
 
 const REST_SELECT_OPTIONS = REST_OPTIONS.map((seconds) => ({ value: seconds, label: formatRest(seconds) }));
@@ -40,6 +40,7 @@ export function SlotEditor({
   canMoveUp,
   canMoveDown,
 }: SlotEditorProps) {
+  const styles = useStyles();
   const [noteOpen, setNoteOpen] = useState(slot.note !== '');
 
   return (
@@ -137,7 +138,7 @@ export function SlotEditor({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   card: {
     gap: spacing.sm,
     padding: spacing.md,
@@ -157,4 +158,4 @@ const styles = StyleSheet.create({
   label: { fontSize: 15, fontWeight: '600', color: colors.muted },
   substitute: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   substituteName: { flex: 1, fontSize: 17, color: colors.text },
-});
+}));

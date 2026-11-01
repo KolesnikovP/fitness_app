@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { Text } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { ungroupSuperset, type Session } from '@/entities/workout';
 import { errorMessage } from '@/shared/api';
-import { Button, colors } from '@/shared/ui';
+import { Button, makeStyles } from '@/shared/ui';
 
 type UngroupSupersetButtonProps = {
   sessionId: string;
@@ -14,6 +14,7 @@ type UngroupSupersetButtonProps = {
 
 /** Takes a Superset's exercises out of it. Sets already logged keep the Superset. */
 export function UngroupSupersetButton({ sessionId, supersetId, onUngrouped }: UngroupSupersetButtonProps) {
+  const styles = useStyles();
   const { state } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -44,6 +45,6 @@ export function UngroupSupersetButton({ sessionId, supersetId, onUngrouped }: Un
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   error: { color: colors.danger, fontSize: 15 },
-});
+}));

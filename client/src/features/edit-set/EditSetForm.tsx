@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { editSet, parseSetDraft, setDraftOf, SetFields, type Session, type SessionSet } from '@/entities/workout';
 import { errorMessage } from '@/shared/api';
-import { Button, colors, spacing } from '@/shared/ui';
+import { Button, makeStyles, spacing } from '@/shared/ui';
 
 type EditSetFormProps = {
   sessionId: string;
@@ -18,6 +18,7 @@ type EditSetFormProps = {
 
 /** Corrects a logged Set, in the unit it was logged in, or deletes it. */
 export function EditSetForm({ sessionId, set, number, onSaved, onDelete, onCancel }: EditSetFormProps) {
+  const styles = useStyles();
   const { state } = useAuth();
   const [draft, setDraft] = useState(() => setDraftOf(set));
   const [error, setError] = useState<string | null>(null);
@@ -61,15 +62,15 @@ export function EditSetForm({ sessionId, set, number, onSaved, onDelete, onCance
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: {
     gap: spacing.sm,
     padding: spacing.sm,
     borderRadius: 10,
-    backgroundColor: '#F2F7FF',
+    backgroundColor: colors.primarySubtle,
   },
   title: { fontSize: 15, fontWeight: '600', color: colors.text },
   row: { flexDirection: 'row', gap: spacing.sm },
   flex: { flex: 1 },
   error: { color: colors.danger, fontSize: 15 },
-});
+}));

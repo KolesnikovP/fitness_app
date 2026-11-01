@@ -1,8 +1,8 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { supersetProgress, type Session, type SessionExercise } from '@/entities/workout';
 import { UngroupSupersetButton } from '@/features/superset';
-import { colors, spacing } from '@/shared/ui';
+import { makeStyles, spacing } from '@/shared/ui';
 import { listNames } from '@/shared/utils';
 
 import { SessionExerciseCard } from './SessionExerciseCard';
@@ -20,6 +20,7 @@ type SupersetBlockProps = {
  * what's next, with rest only once every exercise has had its Set.
  */
 export function SupersetBlock({ sessionId, supersetId, exercises, onChange, onDeleteSet }: SupersetBlockProps) {
+  const styles = useStyles();
   const progress = supersetProgress(exercises);
   const started = exercises.some((e) => e.sets.length > 0);
   const hint =
@@ -45,7 +46,7 @@ export function SupersetBlock({ sessionId, supersetId, exercises, onChange, onDe
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   block: {
     gap: spacing.sm,
     paddingLeft: spacing.sm,
@@ -55,4 +56,4 @@ const styles = StyleSheet.create({
   label: { fontSize: 13, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', color: colors.primary },
   hint: { fontSize: 15, color: colors.muted },
   rest: { color: colors.text, fontWeight: '600' },
-});
+}));

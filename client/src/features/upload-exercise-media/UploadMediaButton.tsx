@@ -1,11 +1,11 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { Text } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { uploadExerciseMedia, type Exercise } from '@/entities/exercise';
 import { errorMessage } from '@/shared/api';
-import { Button, colors } from '@/shared/ui';
+import { Button, makeStyles } from '@/shared/ui';
 
 type UploadMediaButtonProps = {
   exercise: Exercise;
@@ -17,6 +17,7 @@ type UploadMediaButtonProps = {
  * A GIF becomes the animated demo; any other image, the static image.
  */
 export function UploadMediaButton({ exercise, onUploaded }: UploadMediaButtonProps) {
+  const styles = useStyles();
   const { state } = useAuth();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +60,6 @@ export function UploadMediaButton({ exercise, onUploaded }: UploadMediaButtonPro
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   error: { color: colors.danger, fontSize: 15 },
-});
+}));

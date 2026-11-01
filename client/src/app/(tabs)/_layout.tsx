@@ -1,8 +1,16 @@
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 
+import { useTheme } from '@/shared/ui';
+
 export default function TabsLayout() {
+  const { colors, scheme } = useTheme();
   return (
-    <NativeTabs>
+    <NativeTabs
+      // Gold marks the open tab in the dark; in the light, charcoal does.
+      tintColor={scheme === 'dark' ? colors.primary : colors.text}
+      iconColor={colors.muted}
+      backgroundColor={colors.background}
+    >
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Icon sf="newspaper.fill" md="dynamic_feed" />
         <NativeTabs.Trigger.Label>Feed</NativeTabs.Trigger.Label>

@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { listRoutines, RoutineSummaryItem, type RoutineSummary } from '@/entities/routine';
@@ -14,7 +14,7 @@ import {
   type SessionSummary,
 } from '@/entities/workout';
 import { ApiError, errorMessage } from '@/shared/api';
-import { Button, colors, Screen, spacing } from '@/shared/ui';
+import { Button, makeStyles, Screen, spacing } from '@/shared/ui';
 
 type Loaded = { current: Session | null; routines: RoutineSummary[]; history: SessionSummary[] };
 
@@ -23,6 +23,7 @@ type Loaded = { current: Session | null; routines: RoutineSummary[]; history: Se
  * and the list of finished ones.
  */
 export function WorkoutHomeScreen() {
+  const styles = useStyles();
   const { state } = useAuth();
   const token = state.status === 'signedIn' ? state.token : null;
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -115,9 +116,9 @@ export function WorkoutHomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   error: { color: colors.danger, fontSize: 15 },
   resume: { gap: spacing.sm },
   heading: { fontSize: 22, fontWeight: '700', color: colors.text, marginTop: spacing.md },
   muted: { fontSize: 17, color: colors.muted },
-});
+}));

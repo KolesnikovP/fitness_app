@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import type { ExerciseRef } from '@/entities/exercise';
@@ -19,7 +19,7 @@ import {
 } from '@/entities/routine';
 import { SupersetPicker } from '@/features/superset';
 import { errorMessage } from '@/shared/api';
-import { Button, colors, spacing, TextField } from '@/shared/ui';
+import { Button, makeStyles, spacing, TextField } from '@/shared/ui';
 import { listNames } from '@/shared/utils';
 
 import { SlotEditor } from './SlotEditor';
@@ -54,6 +54,7 @@ export function RoutineEditor({
   onSubstitutesAdded,
   onSave,
 }: RoutineEditorProps) {
+  const styles = useStyles();
   const { state } = useAuth();
   const unit = state.status === 'signedIn' ? (state.me.unitPreference ?? 'kg') : 'kg';
   const [draft, setDraft] = useState(initial);
@@ -162,7 +163,7 @@ export function RoutineEditor({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { gap: spacing.md },
   superset: {
     gap: spacing.sm,
@@ -179,4 +180,4 @@ const styles = StyleSheet.create({
   },
   error: { color: colors.danger, fontSize: 15 },
   muted: { fontSize: 15, color: colors.muted },
-});
+}));

@@ -1,14 +1,15 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { Text } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { saveSessionAsRoutine } from '@/entities/workout';
 import { errorMessage } from '@/shared/api';
-import { Button, colors, Screen, TextField } from '@/shared/ui';
+import { Button, makeStyles, Screen, TextField } from '@/shared/ui';
 
 /** Shown after finishing a Freeform session: offers to save it as a Routine to repeat. */
 export function FinishedSessionScreen() {
+  const styles = useStyles();
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const { state } = useAuth();
   const [name, setName] = useState('');
@@ -47,7 +48,7 @@ export function FinishedSessionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   error: { color: colors.danger, fontSize: 15 },
   muted: { fontSize: 17, color: colors.muted },
-});
+}));

@@ -1,17 +1,18 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { ExerciseListItem, listExercises, type Exercise, type ExerciseFilters } from '@/entities/exercise';
 import { ExerciseSearch } from '@/features/search-exercises';
 import { errorMessage } from '@/shared/api';
 import { useDebouncedValue } from '@/shared/hooks';
-import { Button, colors, Screen } from '@/shared/ui';
+import { Button, makeStyles, Screen } from '@/shared/ui';
 
 const SEARCH_DELAY_MS = 250;
 
 export function ExerciseLibraryScreen() {
+  const styles = useStyles();
   const { state } = useAuth();
   const token = state.status === 'signedIn' ? state.token : null;
   const [filters, setFilters] = useState<ExerciseFilters>({ query: '', muscleGroup: null, equipmentType: null });
@@ -66,7 +67,7 @@ export function ExerciseLibraryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   error: { color: colors.danger, fontSize: 15 },
   empty: { fontSize: 17, color: colors.muted },
-});
+}));

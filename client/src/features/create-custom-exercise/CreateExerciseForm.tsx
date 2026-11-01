@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { Text } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import {
@@ -11,10 +11,11 @@ import {
   type MuscleGroup,
 } from '@/entities/exercise';
 import { errorMessage } from '@/shared/api';
-import { Button, ChipGroup, colors, TextField } from '@/shared/ui';
+import { Button, ChipGroup, makeStyles, TextField } from '@/shared/ui';
 
 /** Creates a custom exercise; name, muscle group and equipment type are required. */
 export function CreateExerciseForm({ onCreated }: { onCreated: (exercise: Exercise) => void }) {
+  const styles = useStyles();
   const { state } = useAuth();
   const [name, setName] = useState('');
   const [muscleGroup, setMuscleGroup] = useState<MuscleGroup | null>(null);
@@ -51,6 +52,6 @@ export function CreateExerciseForm({ onCreated }: { onCreated: (exercise: Exerci
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   error: { color: colors.danger, fontSize: 15 },
-});
+}));

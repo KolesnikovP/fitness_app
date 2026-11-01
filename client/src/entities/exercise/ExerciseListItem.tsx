@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, spacing } from '@/shared/ui';
+import { makeStyles, spacing } from '@/shared/ui';
 
 import { equipmentLabel, muscleGroupLabel, type Exercise } from './model';
 
@@ -12,6 +12,7 @@ type ExerciseListItemProps = {
 };
 
 export function ExerciseListItem({ exercise, onPress, selected }: ExerciseListItemProps) {
+  const styles = useStyles();
   const checkable = selected !== undefined;
   return (
     <Pressable
@@ -37,7 +38,7 @@ export function ExerciseListItem({ exercise, onPress, selected }: ExerciseListIt
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -62,4 +63,4 @@ const styles = StyleSheet.create({
   },
   boxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
   check: { color: colors.primaryText, fontWeight: '700' },
-});
+}));

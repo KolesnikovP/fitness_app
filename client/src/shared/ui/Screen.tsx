@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors, spacing } from './theme';
+import { spacing } from './theme';
+import { makeStyles } from './ThemeProvider';
 
 type ScreenProps = {
   title?: string;
@@ -14,6 +15,7 @@ type ScreenProps = {
 };
 
 export function Screen({ title, children, centered, footer }: ScreenProps) {
+  const styles = useStyles();
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -34,11 +36,11 @@ export function Screen({ title, children, centered, footer }: ScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   safeArea: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   content: { flexGrow: 1, padding: spacing.lg, gap: spacing.md },
   centered: { justifyContent: 'center' },
   footer: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
   title: { fontSize: 32, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
-});
+}));

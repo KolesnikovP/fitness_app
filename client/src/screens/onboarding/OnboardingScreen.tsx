@@ -1,9 +1,10 @@
-import { StyleSheet, Text } from 'react-native';
+import { Text } from 'react-native';
 
 import { UnitPicker } from '@/features/set-unit-preference';
-import { colors, Screen } from '@/shared/ui';
+import { makeStyles, Screen } from '@/shared/ui';
 
 export function OnboardingScreen() {
+  const styles = useStyles();
   return (
     <Screen title="Pick your units">
       <Text style={styles.subtitle}>All weights in the app will show in this unit.</Text>
@@ -12,6 +13,6 @@ export function OnboardingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   subtitle: { fontSize: 17, color: colors.muted },
-});
+}));

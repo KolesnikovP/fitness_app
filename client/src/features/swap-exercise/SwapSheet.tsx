@@ -11,7 +11,7 @@ import {
   type SessionExercise,
 } from '@/entities/workout';
 import { errorMessage } from '@/shared/api';
-import { colors, spacing } from '@/shared/ui';
+import { makeStyles, spacing } from '@/shared/ui';
 
 type SwapSheetProps = {
   sessionId: string;
@@ -27,6 +27,7 @@ type SwapSheetProps = {
  * workout only.
  */
 export function SwapSheet({ sessionId, sessionExercise, onSwapped }: SwapSheetProps) {
+  const styles = useStyles();
   const { state } = useAuth();
   const [open, setOpen] = useState(false);
   const [swapping, setSwapping] = useState(false);
@@ -152,18 +153,18 @@ function useEquipment(choices: ExerciseRef[]): Record<string, string> {
   return equipment;
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   prompt: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm },
   promptText: { fontSize: 15, color: colors.muted },
   button: {
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: '#EAF3FF',
+    backgroundColor: colors.primarySubtle,
   },
   buttonText: { fontSize: 15, fontWeight: '600', color: colors.primary },
   pressed: { opacity: 0.5 },
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)' },
+  backdrop: { flex: 1, backgroundColor: colors.backdrop },
   sheet: {
     gap: spacing.sm,
     padding: spacing.lg,
@@ -188,4 +189,4 @@ const styles = StyleSheet.create({
   action: { fontSize: 15, fontWeight: '600', color: colors.primary },
   error: { color: colors.danger, fontSize: 15 },
   cancel: { alignItems: 'center', paddingTop: spacing.md },
-});
+}));

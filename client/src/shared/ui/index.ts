@@ -4,4 +4,5 @@ export { ChipGroup, type ChipOption } from './ChipGroup';
 export { Screen } from './Screen';
 export { Select, type SelectOption } from './Select';
 export { TextField } from './TextField';
-export { colors, spacing } from './theme';
+export { darkColors, lightColors, spacing, type Colors } from './theme';
+export { makeStyles, ThemeProvider, useTheme, type ColorScheme, type ThemePreference } from './ThemeProvider';

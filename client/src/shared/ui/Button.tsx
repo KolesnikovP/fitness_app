@@ -1,6 +1,7 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
+import { ActivityIndicator, Pressable, Text } from 'react-native';
 
-import { colors, spacing } from './theme';
+import { spacing } from './theme';
+import { makeStyles, useTheme } from './ThemeProvider';
 
 type ButtonProps = {
   label: string;
@@ -14,6 +15,8 @@ type ButtonProps = {
 };
 
 export function Button({ label, onPress, variant = 'primary', loading, disabled, accessibilityLabel }: ButtonProps) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const isPrimary = variant === 'primary';
   const isLink = variant === 'link';
   const inactive = disabled || loading;
@@ -44,7 +47,7 @@ export function Button({ label, onPress, variant = 'primary', loading, disabled,
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   base: {
     minHeight: 50,
     borderRadius: 12,
@@ -58,4 +61,4 @@ const styles = StyleSheet.create({
   dimmed: { opacity: 0.6 },
   label: { fontSize: 17, fontWeight: '600' },
   linkLabel: { fontSize: 15, fontWeight: '500' },
-});
+}));
