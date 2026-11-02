@@ -64,6 +64,10 @@ _Avoid_: Giant set, circuit, group (as system terms)
 One Set of each Session exercise in a Superset. The User rests after a round, not between its Sets.
 _Avoid_: Cycle, lap
 
+**History**:
+A User's finished Sessions, newest first, with the stats of each. It is only the User's own; a feed of other Users' workouts is postponed past v1.
+_Avoid_: Log, journal, feed (until there is one)
+
 **Rest timer**:
 An optional countdown a User starts between Sets. It lives only on the device and is not part of the Session.
 _Avoid_: Rest period (as a stored value), break
@@ -115,3 +119,11 @@ _Avoid_: Body part, target, primary muscle
 **Equipment type**:
 What an Exercise is done with, from a fixed list (barbell, dumbbell, machine, ...). Used to suggest substitutes, so an Exercise has exactly one.
 _Avoid_: Equipment (as a count noun), gear, implement
+
+**Progress photo**:
+A Post's photo: one picture of the User, to see their body change over time. The User's Posts, in date order, are the timeline of these.
+_Avoid_: Post image, selfie, picture (as the term)
+
+**Streak**:
+How many weeks in a row, up to this one, the User has finished at least one Session. Rest days never break it.
+_Avoid_: Day streak, run, chain
