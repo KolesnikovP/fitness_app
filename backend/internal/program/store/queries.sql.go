@@ -160,6 +160,46 @@ func (q *Queries) GetRoutine(ctx context.Context, arg GetRoutineParams) (GetRout
 	return i, err
 }
 
+const listRoutineNames = `-- name: ListRoutineNames :many
+SELECT r.id, r.name
+FROM routines r
+JOIN program_weeks w ON w.id = r.week_id
+JOIN programs p ON p.id = w.program_id
+WHERE r.id = ANY($1::uuid[]) AND p.account_id = $2
+`
+
+type ListRoutineNamesParams struct {
+	Ids      []uuid.UUID
+	CallerID uuid.UUID
+}
+
+type ListRoutineNamesRow struct {
+	ID   uuid.UUID
+	Name string
+}
+
+// The names of those of ids that are the caller's routines; others are left
+// out.
+func (q *Queries) ListRoutineNames(ctx context.Context, arg ListRoutineNamesParams) ([]ListRoutineNamesRow, error) {
+	rows, err := q.db.Query(ctx, listRoutineNames, arg.Ids, arg.CallerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRoutineNamesRow
+	for rows.Next() {
+		var i ListRoutineNamesRow
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRoutines = `-- name: ListRoutines :many
 SELECT r.id, r.name, r.updated_at
 FROM routines r

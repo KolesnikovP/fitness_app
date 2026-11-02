@@ -81,7 +81,7 @@ DELETE FROM workout_sessions
 WHERE id = $1;
 
 -- name: ListFinishedSessions :many
-SELECT id, started_at, finished_at
+SELECT id, routine_id, started_at, finished_at
 FROM workout_sessions
 WHERE account_id = $1 AND finished_at IS NOT NULL
 ORDER BY finished_at DESC, id;

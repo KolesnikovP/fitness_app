@@ -343,6 +343,8 @@ function sessionJson(fakeSession: FakeSession) {
   const { ownerId: _ownerId, exercises: sessionExercises, ...session } = fakeSession;
   return {
     ...session,
+    // The routine's name as it is now; null once it's deleted.
+    routineName: routines.find((r) => r.id === session.routineId)?.name ?? null,
     stats: statsOf(fakeSession),
     exercises: sessionExercises.map(({ plannedExerciseId, substituteIds, sets, ...sessionExercise }) => ({
       ...sessionExercise,
@@ -513,8 +515,9 @@ const handlers = [
       .sort((a, b) => b.finishedAt!.localeCompare(a.finishedAt!));
     return HttpResponse.json({
       sessions: finished.map((s) => {
-        const { id, startedAt, finishedAt, stats } = sessionJson(s);
-        return { id, startedAt, finishedAt, stats, exerciseNames: [...new Set(exercisesDone(s).map(exerciseName))] };
+        const { id, routineName, startedAt, finishedAt, stats } = sessionJson(s);
+        const exerciseNames = [...new Set(exercisesDone(s).map(exerciseName))];
+        return { id, routineName, startedAt, finishedAt, stats, exerciseNames };
       }),
     });
   }),

@@ -96,11 +96,14 @@ export type SessionStats = {
 
 /**
  * One logged workout. routineId is the Routine it was started from, null for
- * a Freeform session. finishedAt and stats are null while it's in progress.
+ * a Freeform session (or once that Routine is deleted), and routineName that
+ * Routine's name as it is now. finishedAt and stats are null while it's in
+ * progress.
  */
 export type Session = {
   id: string;
   routineId: string | null;
+  routineName: string | null;
   startedAt: string;
   finishedAt: string | null;
   exercises: SessionExercise[];
@@ -110,6 +113,7 @@ export type Session = {
 /** A finished Session as the History lists it. */
 export type SessionSummary = {
   id: string;
+  routineName: string | null;
   startedAt: string;
   finishedAt: string;
   exerciseNames: string[];
@@ -124,6 +128,26 @@ export type Totals = {
   /** Most sets first. */
   setsPerMuscleGroup: { muscleGroup: MuscleGroup; sets: number }[];
 };
+
+/** "Morning" from 5:00, "Afternoon" from 12:00, "Evening" from 17:00, "Night" from 21:00. */
+function partOfDay(hour: number): string {
+  if (hour >= 5 && hour < 12) return 'Morning';
+  if (hour >= 12 && hour < 17) return 'Afternoon';
+  if (hour >= 17 && hour < 21) return 'Evening';
+  return 'Night';
+}
+
+/**
+ * What the History calls a workout: its Routine's name, or else the day and
+ * part of the day it started, in the device's time zone, such as "Monday's
+ * Morning Workout".
+ */
+export function workoutName(session: { routineName: string | null; startedAt: string }): string {
+  if (session.routineName) return session.routineName;
+  const started = new Date(session.startedAt);
+  const weekday = started.toLocaleDateString('en-US', { weekday: 'long' });
+  return `${weekday}'s ${partOfDay(started.getHours())} Workout`;
+}
 
 /** The week around now, from Monday 00:00 to the next, in the device's time zone. */
 export function weekAround(now: Date): { from: Date; to: Date } {

@@ -10,6 +10,7 @@ import {
   getSession,
   SessionStatsLine,
   setRuns,
+  workoutName,
   type Session,
 } from '@/entities/workout';
 import { errorMessage } from '@/shared/api';
@@ -54,10 +55,10 @@ export function SessionDetailScreen() {
 
   const finishedAt = session.finishedAt ?? session.startedAt;
   return (
-    <Screen title={formatSessionDate(finishedAt)}>
+    <Screen title={workoutName(session)}>
       <View accessibilityLabel="Workout detail" style={styles.detail}>
         <Text style={styles.muted}>
-          {formatClockTime(session.startedAt)} – {formatClockTime(finishedAt)}
+          {formatSessionDate(finishedAt)}, {formatClockTime(session.startedAt)} – {formatClockTime(finishedAt)}
         </Text>
         {session.stats ? <SessionStatsLine stats={session.stats} /> : null}
         {session.exercises.map((exercise) => (

@@ -58,6 +58,9 @@ type Routines interface {
 	// CreateRoutine saves a new routine for callerID, or returns a
 	// *program.InvalidRoutineError if input can't be saved.
 	CreateRoutine(ctx context.Context, callerID uuid.UUID, input program.RoutineInput) (program.Routine, error)
+	// RoutineNames returns the names of those of ids that are callerID's
+	// routines, keyed by id.
+	RoutineNames(ctx context.Context, callerID uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]string, error)
 }
 
 type Service struct {
@@ -74,15 +77,16 @@ func NewService(pool *pgxpool.Pool, exercises Exercises, routines Routines, prof
 
 // Session is one logged workout as the API returns it. RoutineID is the
 // Routine it was started from, null for a freeform Session (or once that
-// Routine is deleted). FinishedAt and Stats are null while the Session is in
-// progress.
+// Routine is deleted), and RoutineName that Routine's name as it is now.
+// FinishedAt and Stats are null while the Session is in progress.
 type Session struct {
-	ID         uuid.UUID         `json:"id"`
-	RoutineID  *uuid.UUID        `json:"routineId"`
-	StartedAt  time.Time         `json:"startedAt"`
-	FinishedAt *time.Time        `json:"finishedAt"`
-	Exercises  []SessionExercise `json:"exercises"`
-	Stats      *Stats            `json:"stats"`
+	ID          uuid.UUID         `json:"id"`
+	RoutineID   *uuid.UUID        `json:"routineId"`
+	RoutineName *string           `json:"routineName"`
+	StartedAt   time.Time         `json:"startedAt"`
+	FinishedAt  *time.Time        `json:"finishedAt"`
+	Exercises   []SessionExercise `json:"exercises"`
+	Stats       *Stats            `json:"stats"`
 }
 
 // SessionExercise is an Exercise added to a Session, with its Sets in the
@@ -137,9 +141,11 @@ type Set struct {
 	SupersetID *uuid.UUID `json:"supersetId"`
 }
 
-// SessionSummary is a finished Session as the History lists it.
+// SessionSummary is a finished Session as the History lists it. RoutineName
+// is as on Session.
 type SessionSummary struct {
 	ID            uuid.UUID `json:"id"`
+	RoutineName   *string   `json:"routineName"`
 	StartedAt     time.Time `json:"startedAt"`
 	FinishedAt    time.Time `json:"finishedAt"`
 	ExerciseNames []string  `json:"exerciseNames"`
@@ -330,11 +336,23 @@ func (h handlers) history(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteInternalError(w, r, err)
 		return
 	}
+	var routineIDs []uuid.UUID
+	for _, row := range rows {
+		if row.RoutineID != nil {
+			routineIDs = append(routineIDs, *row.RoutineID)
+		}
+	}
+	routineNames, err := h.routines.RoutineNames(ctx, caller, routineIDs)
+	if err != nil {
+		httpx.WriteInternalError(w, r, err)
+		return
+	}
 
 	out := make([]SessionSummary, len(rows))
 	for i, row := range rows {
 		out[i] = SessionSummary{
 			ID:            row.ID,
+			RoutineName:   routineName(routineNames, row.RoutineID),
 			StartedAt:     row.StartedAt,
 			FinishedAt:    *row.FinishedAt,
 			ExerciseNames: append([]string{}, namesBySession[row.ID]...),
@@ -994,7 +1012,26 @@ func (h handlers) loadSession(ctx context.Context, id uuid.UUID) (Session, error
 	if session.Stats, err = h.sessionStats(ctx, caller, session); err != nil {
 		return Session{}, err
 	}
+	if row.RoutineID != nil {
+		routineNames, err := h.routines.RoutineNames(ctx, caller, []uuid.UUID{*row.RoutineID})
+		if err != nil {
+			return Session{}, err
+		}
+		session.RoutineName = routineName(routineNames, row.RoutineID)
+	}
 	return session, nil
+}
+
+// routineName looks up routineID in names, or returns nil if it's nil or
+// not there.
+func routineName(names map[uuid.UUID]string, routineID *uuid.UUID) *string {
+	if routineID == nil {
+		return nil
+	}
+	if name, ok := names[*routineID]; ok {
+		return &name
+	}
+	return nil
 }
 
 // targetOf returns a session exercise's target, or nil if it has none.

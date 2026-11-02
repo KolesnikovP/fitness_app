@@ -109,6 +109,45 @@ func TestSessionStats(t *testing.T) {
 	})
 }
 
+func TestSessionRoutineName(t *testing.T) {
+	srv := testutil.NewServer(t)
+
+	t.Run("names a session after its routine as it's named now, and leaves a freeform one unnamed", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		routine := createRoutine(t, srv, token, map[string]any{
+			"name": "Push day",
+			"slots": []map[string]any{{"exerciseId": exerciseID(t, srv, token, "Bench Press"), "targetSets": 1,
+				"targetReps": 5, "targetWeight": 100, "weightUnit": "kg"}},
+		})
+		fromRoutine := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions", token,
+			map[string]any{"routineId": routine}).Body["id"].(string)
+		bench := sessionExercises(t, testutil.Do(t, srv, http.MethodGet, "/workouts/sessions/"+fromRoutine, token, nil))[0]
+		logSetIn(t, srv, token, fromRoutine, bench["id"].(string), 100, "kg", 5)
+		finishSession(t, srv, token, fromRoutine)
+		testutil.Do(t, srv, http.MethodPut, "/routines/"+routine, token, map[string]any{
+			"name": "Chest day",
+			"slots": []map[string]any{{"exerciseId": exerciseID(t, srv, token, "Bench Press"), "targetSets": 1,
+				"targetReps": 5, "targetWeight": 100, "weightUnit": "kg"}},
+		})
+		freeform := startSession(t, srv, token)
+		logOneSet(t, srv, token, freeform)
+		finishSession(t, srv, token, freeform)
+
+		list := objects(t, testutil.Do(t, srv, http.MethodGet, "/workouts/sessions", token, nil).Body, "sessions")
+		detail := testutil.Do(t, srv, http.MethodGet, "/workouts/sessions/"+fromRoutine, token, nil)
+
+		if list[1]["id"] != fromRoutine || list[1]["routineName"] != "Chest day" {
+			t.Errorf("listed %v, want routineName Chest day", list[1])
+		}
+		if list[0]["id"] != freeform || list[0]["routineName"] != nil {
+			t.Errorf("listed %v, want no routineName", list[0])
+		}
+		if detail.Body["routineName"] != "Chest day" {
+			t.Errorf("detail routineName = %v, want Chest day", detail.Body["routineName"])
+		}
+	})
+}
+
 func TestWeeklyTotals(t *testing.T) {
 	srv := testutil.NewServer(t)
 	weekStart := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)

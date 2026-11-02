@@ -67,6 +67,35 @@ describe('history', () => {
     expect(detail.queryByRole('button', { name: /Log set|Edit set/ })).toBeNull();
   });
 
+  it('names a workout after its routine, or else the day and the part of it it started in', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    // Monday, October 26 2026, and the Wednesday and Thursday after, in the device's time zone.
+    const workoutAt = (day: number, hour: number, minute = 0) => {
+      const session = fakeApi.addSession(account.id, new Date(2026, 9, day, hour, minute));
+      fakeApi.addSet(fakeApi.addSessionExercise(session, 'Deadlift'), 140, 'kg', 5);
+      fakeApi.finishSession(session, new Date(2026, 9, day, hour + 1, minute));
+      return session;
+    };
+    workoutAt(26, 8);
+    workoutAt(28, 12, 30);
+    workoutAt(28, 19);
+    workoutAt(29, 23);
+    const fromRoutine = workoutAt(30, 7);
+    fromRoutine.routineId = fakeApi.addRoutine(account.id, 'Pull day', ['Deadlift']).id;
+    secureStore.set('auth-token', fakeApi.issueToken(account.id));
+    await renderRouter('./src/app', { initialUrl: '/' });
+
+    const history = within(await screen.findByLabelText('Past workouts'));
+    expect(await history.findByText('Pull day')).toBeVisible();
+    expect(history.getByText("Thursday's Night Workout")).toBeVisible();
+    expect(history.getByText("Wednesday's Evening Workout")).toBeVisible();
+    expect(history.getByText("Wednesday's Afternoon Workout")).toBeVisible();
+    expect(history.getByText("Monday's Morning Workout")).toBeVisible();
+
+    await fireEvent.press(history.getByRole('button', { name: /Monday's Morning Workout/ }));
+    expect(await screen.findByRole('header', { name: "Monday's Morning Workout" })).toBeVisible();
+  });
+
   it('totals only this week, in the user unit, and pages the calendar back by month', async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'lb');
     const now = new Date();

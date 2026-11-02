@@ -243,7 +243,7 @@ func (q *Queries) ListExercisesOfSessions(ctx context.Context, sessionIds []uuid
 }
 
 const listFinishedSessions = `-- name: ListFinishedSessions :many
-SELECT id, started_at, finished_at
+SELECT id, routine_id, started_at, finished_at
 FROM workout_sessions
 WHERE account_id = $1 AND finished_at IS NOT NULL
 ORDER BY finished_at DESC, id
@@ -251,6 +251,7 @@ ORDER BY finished_at DESC, id
 
 type ListFinishedSessionsRow struct {
 	ID         uuid.UUID
+	RoutineID  *uuid.UUID
 	StartedAt  time.Time
 	FinishedAt *time.Time
 }
@@ -264,7 +265,12 @@ func (q *Queries) ListFinishedSessions(ctx context.Context, accountID uuid.UUID)
 	var items []ListFinishedSessionsRow
 	for rows.Next() {
 		var i ListFinishedSessionsRow
-		if err := rows.Scan(&i.ID, &i.StartedAt, &i.FinishedAt); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.RoutineID,
+			&i.StartedAt,
+			&i.FinishedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -41,6 +41,7 @@ export {
   type WeightUnit,
   weekAround,
   weightInput,
+  workoutName,
   withoutSet,
 } from './model';
 export {
