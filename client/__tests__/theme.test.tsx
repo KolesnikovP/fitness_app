@@ -24,7 +24,7 @@ async function launchSignedIn() {
   const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
   secureStore.set(TOKEN_KEY, fakeApi.issueToken(account.id));
   await renderRouter('./src/app', { initialUrl: '/' });
-  await screen.findByRole('header', { name: 'Feed' });
+  await screen.findByRole('header', { name: 'History' });
 }
 
 async function openProfile() {
@@ -36,10 +36,10 @@ describe('theme', () => {
   it("follows the phone's light or dark mode until the user picks one", async () => {
     phone.setScheme('dark');
     await launchSignedIn();
-    expect(screen.getByRole('header', { name: 'Feed' })).toHaveStyle({ color: darkColors.text });
+    expect(screen.getByRole('header', { name: 'History' })).toHaveStyle({ color: darkColors.text });
 
     await setPhoneScheme('light');
-    expect(screen.getByRole('header', { name: 'Feed' })).toHaveStyle({ color: lightColors.text });
+    expect(screen.getByRole('header', { name: 'History' })).toHaveStyle({ color: lightColors.text });
 
     await openProfile();
     expect(screen.getByRole('radio', { name: 'System' })).toBeChecked();
@@ -64,7 +64,7 @@ describe('theme', () => {
     secureStore.set(THEME_KEY, 'dark');
     await launchSignedIn();
 
-    expect(screen.getByRole('header', { name: 'Feed' })).toHaveStyle({ color: darkColors.text });
+    expect(screen.getByRole('header', { name: 'History' })).toHaveStyle({ color: darkColors.text });
     await openProfile();
     expect(screen.getByRole('radio', { name: 'Dark' })).toBeChecked();
   });

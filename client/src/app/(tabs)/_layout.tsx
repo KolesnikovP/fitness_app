@@ -10,9 +10,9 @@ export default function TabsLayout() {
       iconColor={colors.muted}
       backgroundColor={colors.background}
     >
-      <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Icon sf="newspaper.fill" md="dynamic_feed" />
-        <NativeTabs.Trigger.Label>Feed</NativeTabs.Trigger.Label>
+      <NativeTabs.Trigger name="(history)">
+        <NativeTabs.Trigger.Icon sf="clock.arrow.circlepath" md="history" />
+        <NativeTabs.Trigger.Label>History</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="workout">
         <NativeTabs.Trigger.Icon sf="dumbbell.fill" md="fitness_center" />

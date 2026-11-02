@@ -1,19 +1,26 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { makeStyles, spacing } from '@/shared/ui';
 
-import { formatDuration, formatSessionDate, type SessionSummary } from './model';
+import { formatSessionDate, type SessionSummary } from './model';
+import { SessionStatsLine } from './SessionStatsLine';
 
-/** One finished Session in the history list: date, duration and exercises. */
-export function SessionSummaryItem({ session }: { session: SessionSummary }) {
+/** One finished Session in the History: its date, Exercises and stats. */
+export function SessionSummaryItem({ session, onPress }: { session: SessionSummary; onPress: () => void }) {
   const styles = useStyles();
+  const date = formatSessionDate(session.finishedAt);
+  const names = session.exerciseNames.join(', ');
   return (
-    <View style={styles.row}>
-      <Text style={styles.date}>
-        {formatSessionDate(session.startedAt)} · {formatDuration(session.startedAt, session.finishedAt)}
-      </Text>
-      <Text style={styles.exercises}>{session.exerciseNames.join(', ')}</Text>
-    </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${date}: ${names}`}
+      onPress={onPress}
+      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+    >
+      <Text style={styles.date}>{date}</Text>
+      <Text style={styles.exercises}>{names}</Text>
+      <SessionStatsLine stats={session.stats} />
+    </Pressable>
   );
 }
 
@@ -24,6 +31,7 @@ const useStyles = makeStyles((colors) => ({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
+  pressed: { opacity: 0.6 },
   date: { fontSize: 15, color: colors.muted },
   exercises: { fontSize: 17, color: colors.text },
 }));

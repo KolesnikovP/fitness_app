@@ -2,12 +2,15 @@
 export {
   emptySetDraft,
   addedAfterLogging,
+  countOf,
   currentTarget,
   formatClockTime,
   formatDuration,
   formatSessionDate,
   formatRest,
   formatSet,
+  formatStats,
+  formatVolume,
   formatTarget,
   hasSets,
   nextSetDraft,
@@ -28,12 +31,15 @@ export {
   type SessionBlock,
   type SessionExercise,
   type SessionSet,
+  type SessionStats,
   type SessionSummary,
   type SessionTarget,
   type SetRun,
   type SetDraft,
   type SupersetProgress,
+  type Totals,
   type WeightUnit,
+  weekAround,
   weightInput,
   withoutSet,
 } from './model';
@@ -45,6 +51,8 @@ export {
   discardSession,
   finishSession,
   getCurrentSession,
+  getSession,
+  getTotals,
   listSessionHistory,
   logSet,
   saveSessionAsRoutine,
@@ -54,6 +62,8 @@ export {
   ungroupSuperset,
   type NewSet,
 } from './api';
+export { SessionStatsLine } from './SessionStatsLine';
 export { SessionSummaryItem } from './SessionSummaryItem';
+export { TotalsCard } from './TotalsCard';
 export { SetFields } from './SetFields';
 export { setColumns } from './setColumns';

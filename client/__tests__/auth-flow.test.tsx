@@ -30,7 +30,7 @@ describe('auth flow', () => {
     expect(await screen.findByRole('header', { name: 'Pick your units' })).toBeVisible();
     await fireEvent.press(screen.getByRole('button', { name: 'Kilograms' }));
 
-    expect(await screen.findByRole('header', { name: 'Feed' })).toBeVisible();
+    expect(await screen.findByRole('header', { name: 'History' })).toBeVisible();
     expect(fakeApi.findAccount('new@example.com')?.unitPreference).toBe('kg');
     expect(secureStore.get(TOKEN_KEY)).toBeTruthy();
     // Authenticated requests carry the stored token.
@@ -44,7 +44,7 @@ describe('auth flow', () => {
     await fillCredentials('lifter@example.com', PASSWORD);
     await fireEvent.press(screen.getByRole('button', { name: 'Log in' }));
 
-    expect(await screen.findByRole('header', { name: 'Feed' })).toBeVisible();
+    expect(await screen.findByRole('header', { name: 'History' })).toBeVisible();
     expect(screen.queryByRole('header', { name: 'Pick your units' })).toBeNull();
   });
 
@@ -89,7 +89,7 @@ describe('stored login', () => {
 
     await launchApp();
 
-    expect(await screen.findByRole('header', { name: 'Feed' })).toBeVisible();
+    expect(await screen.findByRole('header', { name: 'History' })).toBeVisible();
     expect(screen.queryByRole('header', { name: 'Log in' })).toBeNull();
   });
 
@@ -106,7 +106,7 @@ describe('stored login', () => {
     const account = fakeApi.addAccount('lifter@example.com', PASSWORD, 'kg');
     secureStore.set(TOKEN_KEY, fakeApi.issueToken(account.id));
     await launchApp();
-    await screen.findByRole('header', { name: 'Feed' });
+    await screen.findByRole('header', { name: 'History' });
 
     // The native tab bar isn't rendered in Jest, so switch tabs the way a
     // tab press does: by navigating.

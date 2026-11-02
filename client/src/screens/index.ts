@@ -2,6 +2,8 @@
 // Route files in src/app only import from here; they hold no UI of their own.
 export { LogInScreen } from './auth/LogInScreen';
 export { SignUpScreen } from './auth/SignUpScreen';
+export { HistoryScreen } from './history/HistoryScreen';
+export { SessionDetailScreen } from './history/SessionDetailScreen';
 export { OnboardingScreen } from './onboarding/OnboardingScreen';
 export { ServerUnavailableScreen } from './server-unavailable/ServerUnavailableScreen';
 export { ExerciseDetailScreen } from './exercises/ExerciseDetailScreen';
@@ -12,7 +14,6 @@ export { AddSubstitutesScreen } from './routines/AddSubstitutesScreen';
 export { EditRoutineScreen } from './routines/EditRoutineScreen';
 export { NewRoutineScreen } from './routines/NewRoutineScreen';
 export { RoutineScreen } from './routines/RoutineScreen';
-export { FeedScreen } from './tabs/PlaceholderTabScreen';
 export { ProfileScreen } from './tabs/ProfileScreen';
 export { AddSessionExerciseScreen } from './workout/AddSessionExerciseScreen';
 export { CurrentSessionScreen } from './workout/CurrentSessionScreen';
