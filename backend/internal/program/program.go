@@ -179,6 +179,21 @@ func (s *Service) GetRoutine(ctx context.Context, callerID, id uuid.UUID) (Routi
 	return routine, err
 }
 
+// RoutineNames returns the names of those of ids that are callerID's
+// routines, keyed by id. The workout module uses it, through
+// workout.Routines, to name a Session after its Routine.
+func (s *Service) RoutineNames(ctx context.Context, callerID uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]string, error) {
+	rows, err := s.queries.ListRoutineNames(ctx, store.ListRoutineNamesParams{Ids: ids, CallerID: callerID})
+	if err != nil {
+		return nil, fmt.Errorf("list routine names: %w", err)
+	}
+	names := make(map[uuid.UUID]string, len(rows))
+	for _, row := range rows {
+		names[row.ID] = row.Name
+	}
+	return names, nil
+}
+
 func addSlots(ctx context.Context, q *store.Queries, routineID uuid.UUID, slots []SlotInput) error {
 	for i, slot := range slots {
 		if err := q.AddSlot(ctx, store.AddSlotParams{

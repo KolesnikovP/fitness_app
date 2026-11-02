@@ -1,4 +1,4 @@
-import type { ExerciseRef } from '@/entities/exercise';
+import type { ExerciseRef, MuscleGroup } from '@/entities/exercise';
 import type { UnitPreference } from '@/entities/user';
 
 export type WeightUnit = UnitPreference;
@@ -83,24 +83,98 @@ export type SessionBlock =
   | { kind: 'superset'; supersetId: string; exercises: SessionExercise[] };
 
 /**
+ * A finished Session's stats, worked out by the API from its Sets. volume is
+ * in volumeUnit, the User's Unit preference. exerciseCount is how many
+ * different Exercises it lists.
+ */
+export type SessionStats = {
+  durationSeconds: number;
+  volume: number;
+  volumeUnit: WeightUnit;
+  exerciseCount: number;
+};
+
+/**
  * One logged workout. routineId is the Routine it was started from, null for
- * a Freeform session. finishedAt is null while it's in progress.
+ * a Freeform session (or once that Routine is deleted), and routineName that
+ * Routine's name as it is now. finishedAt and stats are null while it's in
+ * progress.
  */
 export type Session = {
   id: string;
   routineId: string | null;
+  routineName: string | null;
   startedAt: string;
   finishedAt: string | null;
   exercises: SessionExercise[];
+  stats: SessionStats | null;
 };
 
-/** A finished Session as the history list shows it. */
+/** A finished Session as the History lists it. */
 export type SessionSummary = {
   id: string;
+  routineName: string | null;
   startedAt: string;
   finishedAt: string;
   exerciseNames: string[];
+  stats: SessionStats;
 };
+
+/** The stats of the Sessions finished in a range, such as this week. */
+export type Totals = {
+  sessionCount: number;
+  volume: number;
+  volumeUnit: WeightUnit;
+  /** Most sets first. */
+  setsPerMuscleGroup: { muscleGroup: MuscleGroup; sets: number }[];
+};
+
+/** "Morning" from 5:00, "Afternoon" from 12:00, "Evening" from 17:00, "Night" from 21:00. */
+function partOfDay(hour: number): string {
+  if (hour >= 5 && hour < 12) return 'Morning';
+  if (hour >= 12 && hour < 17) return 'Afternoon';
+  if (hour >= 17 && hour < 21) return 'Evening';
+  return 'Night';
+}
+
+/**
+ * What the History calls a workout: its Routine's name, or else the day and
+ * part of the day it started, in the device's time zone, such as "Monday's
+ * Morning Workout".
+ */
+export function workoutName(session: { routineName: string | null; startedAt: string }): string {
+  if (session.routineName) return session.routineName;
+  const started = new Date(session.startedAt);
+  const weekday = started.toLocaleDateString('en-US', { weekday: 'long' });
+  return `${weekday}'s ${partOfDay(started.getHours())} Workout`;
+}
+
+/** The week around now, from Monday 00:00 to the next, in the device's time zone. */
+export function weekAround(now: Date): { from: Date; to: Date } {
+  const daysSinceMonday = (now.getDay() + 6) % 7;
+  const from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysSinceMonday);
+  const to = new Date(from.getFullYear(), from.getMonth(), from.getDate() + 7);
+  return { from, to };
+}
+
+/** "1 workout", "3 sets": count with a noun, plural unless it's 1. */
+export function countOf(n: number, noun: string): string {
+  return `${n} ${noun}${n === 1 ? '' : 's'}`;
+}
+
+/** "2,102 lb", to the nearest whole unit. */
+export function formatVolume(volume: number, unit: WeightUnit): string {
+  return `${Math.round(volume).toLocaleString('en-US')} ${unit}`;
+}
+
+/** "45 min · 2,102 lb · 3 exercises" */
+export function formatStats(stats: SessionStats): string {
+  return [
+    formatDuration(stats.durationSeconds),
+    formatVolume(stats.volume, stats.volumeUnit),
+    countOf(stats.exerciseCount, 'exercise'),
+  ].join(' · ');
+}
 
 export function hasSets(session: Session): boolean {
   return session.exercises.some((e) => e.sets.length > 0);
@@ -249,8 +323,8 @@ export function supersetProgress(exercises: SessionExercise[]): SupersetProgress
 }
 
 /** "< 1 min", "45 min", "1 h 5 min" */
-export function formatDuration(startedAt: string, finishedAt: string): string {
-  const minutes = Math.floor((Date.parse(finishedAt) - Date.parse(startedAt)) / 60_000);
+export function formatDuration(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
   if (minutes < 1) return '< 1 min';
   const hours = Math.floor(minutes / 60);
   return hours > 0 ? `${hours} h ${minutes % 60} min` : `${minutes} min`;

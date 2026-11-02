@@ -81,7 +81,7 @@ DELETE FROM workout_sessions
 WHERE id = $1;
 
 -- name: ListFinishedSessions :many
-SELECT id, started_at, finished_at
+SELECT id, routine_id, started_at, finished_at
 FROM workout_sessions
 WHERE account_id = $1 AND finished_at IS NOT NULL
 ORDER BY finished_at DESC, id;
@@ -137,3 +137,19 @@ WHERE s.id = sqlc.arg(id) AND e.id = s.session_exercise_id AND e.session_id = sq
 DELETE FROM session_sets s
 USING session_exercises e
 WHERE s.id = sqlc.arg(id) AND e.id = s.session_exercise_id AND e.session_id = sqlc.arg(session_id);
+
+-- name: ListFinishedSessionsBetween :many
+-- The caller's sessions finished at or after from and before to.
+SELECT id, started_at, finished_at
+FROM workout_sessions
+WHERE account_id = sqlc.arg(account_id) AND finished_at >= sqlc.arg(from_time)::timestamptz
+  AND finished_at < sqlc.arg(to_time)::timestamptz
+ORDER BY finished_at DESC, id;
+
+-- name: ListSetsOfSessions :many
+-- The sets logged in each of the sessions, for working out their stats.
+SELECT e.session_id, s.exercise_id, s.weight::float8 AS weight, s.weight_unit, s.reps
+FROM session_sets s
+JOIN session_exercises e ON e.id = s.session_exercise_id
+WHERE e.session_id = ANY(sqlc.arg(session_ids)::uuid[])
+ORDER BY s.created_at, s.id;

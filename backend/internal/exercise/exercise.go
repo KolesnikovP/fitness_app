@@ -39,15 +39,28 @@ func NewService(pool *pgxpool.Pool) *Service {
 // see, keyed by id. Ids the caller can't see, or that don't exist, are left
 // out. The workout module uses it through workout.Exercises.
 func (s *Service) ExerciseNames(ctx context.Context, callerID uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]string, error) {
-	rows, err := s.queries.ListVisibleExerciseNames(ctx, store.ListVisibleExerciseNamesParams{Ids: ids, CallerID: callerID})
+	return s.visible(ctx, callerID, ids, func(row store.ListVisibleExercisesRow) string { return row.Name })
+}
+
+// ExerciseMuscleGroups returns the Muscle groups of the given exercises that
+// callerID may see, keyed by id, leaving out the rest as ExerciseNames does.
+// The workout module uses it through workout.Exercises.
+func (s *Service) ExerciseMuscleGroups(ctx context.Context, callerID uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]string, error) {
+	return s.visible(ctx, callerID, ids, func(row store.ListVisibleExercisesRow) string { return row.MuscleGroup })
+}
+
+// visible maps each of ids the caller may see to field of it.
+func (s *Service) visible(ctx context.Context, callerID uuid.UUID, ids []uuid.UUID,
+	field func(store.ListVisibleExercisesRow) string) (map[uuid.UUID]string, error) {
+	rows, err := s.queries.ListVisibleExercises(ctx, store.ListVisibleExercisesParams{Ids: ids, CallerID: callerID})
 	if err != nil {
-		return nil, fmt.Errorf("list exercise names: %w", err)
+		return nil, fmt.Errorf("list visible exercises: %w", err)
 	}
-	names := make(map[uuid.UUID]string, len(rows))
+	out := make(map[uuid.UUID]string, len(rows))
 	for _, row := range rows {
-		names[row.ID] = row.Name
+		out[row.ID] = field(row)
 	}
-	return names, nil
+	return out, nil
 }
 
 // Exercise is one entry in the library as the API returns it. ImageURL and

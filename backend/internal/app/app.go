@@ -20,7 +20,7 @@ func NewHandler(pool *pgxpool.Pool, tokens *auth.Tokens) http.Handler {
 	accounts := auth.NewService(pool, tokens, users)
 	exercises := exercise.NewService(pool)
 	programs := program.NewService(pool, exercises)
-	workouts := workout.NewService(pool, exercises, programs)
+	workouts := workout.NewService(pool, exercises, programs, users)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {

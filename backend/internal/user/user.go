@@ -40,6 +40,23 @@ func (s *Service) CreateProfile(ctx context.Context, tx pgx.Tx, accountID uuid.U
 	return nil
 }
 
+// UnitPreference returns the unit, "kg" or "lb", accountID sees weights in:
+// "kg" until they choose during Onboarding. The workout module uses it
+// through workout.Profiles.
+func (s *Service) UnitPreference(ctx context.Context, accountID uuid.UUID) (string, error) {
+	profile, err := s.queries.GetProfile(ctx, accountID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "kg", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("load profile: %w", err)
+	}
+	if profile.UnitPreference == nil {
+		return "kg", nil
+	}
+	return *profile.UnitPreference, nil
+}
+
 // Me is the caller's account and profile. A null UnitPreference means the
 // user has not finished onboarding.
 type Me struct {

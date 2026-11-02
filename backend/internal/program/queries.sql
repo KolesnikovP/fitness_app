@@ -76,3 +76,12 @@ WHERE routine_id = $1;
 DELETE FROM routines r
 USING program_weeks w, programs p
 WHERE r.id = $1 AND w.id = r.week_id AND p.id = w.program_id AND p.account_id = $2;
+
+-- name: ListRoutineNames :many
+-- The names of those of ids that are the caller's routines; others are left
+-- out.
+SELECT r.id, r.name
+FROM routines r
+JOIN program_weeks w ON w.id = r.week_id
+JOIN programs p ON p.id = w.program_id
+WHERE r.id = ANY(sqlc.arg(ids)::uuid[]) AND p.account_id = sqlc.arg(caller_id);

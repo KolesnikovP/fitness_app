@@ -305,9 +305,47 @@ function exerciseRef(exerciseId: string) {
   return { exerciseId, name: exerciseName(exerciseId) };
 }
 
-function sessionJson({ ownerId: _ownerId, exercises: sessionExercises, ...session }: FakeSession) {
+const KG_PER_LB = 0.45359237;
+
+/** The user's unit; kg until they choose. */
+function unitOf(ownerId: string) {
+  return accounts.find((a) => a.id === ownerId)?.unitPreference ?? 'kg';
+}
+
+/** Sum of weight × reps in unit, to one decimal, as the real API works it out. */
+function volumeOf(sets: FakeSet[], unit: 'kg' | 'lb') {
+  const kg = sets.reduce((sum, s) => sum + (s.weightUnit === 'lb' ? s.weight * KG_PER_LB : s.weight) * s.reps, 0);
+  return Math.round((unit === 'lb' ? kg / KG_PER_LB : kg) * 10) / 10;
+}
+
+/** What was done in a session: each set's exercise, or the exercise's own if it has none, each once. */
+function exercisesDone(session: FakeSession) {
+  return [
+    ...new Set(session.exercises.flatMap((e) => (e.sets.length > 0 ? e.sets.map((s) => s.exerciseId) : [e.exerciseId]))),
+  ];
+}
+
+function statsOf(session: FakeSession) {
+  if (!session.finishedAt) return null;
+  const unit = unitOf(session.ownerId);
+  return {
+    durationSeconds: Math.floor((Date.parse(session.finishedAt) - Date.parse(session.startedAt)) / 1000),
+    volume: volumeOf(
+      session.exercises.flatMap((e) => e.sets),
+      unit,
+    ),
+    volumeUnit: unit,
+    exerciseCount: exercisesDone(session).length,
+  };
+}
+
+function sessionJson(fakeSession: FakeSession) {
+  const { ownerId: _ownerId, exercises: sessionExercises, ...session } = fakeSession;
   return {
     ...session,
+    // The routine's name as it is now; null once it's deleted.
+    routineName: routines.find((r) => r.id === session.routineId)?.name ?? null,
+    stats: statsOf(fakeSession),
     exercises: sessionExercises.map(({ plannedExerciseId, substituteIds, sets, ...sessionExercise }) => ({
       ...sessionExercise,
       name: exerciseName(sessionExercise.exerciseId),
@@ -477,10 +515,9 @@ const handlers = [
       .sort((a, b) => b.finishedAt!.localeCompare(a.finishedAt!));
     return HttpResponse.json({
       sessions: finished.map((s) => {
-        const { id, startedAt, finishedAt, exercises: sessionExercises } = sessionJson(s);
-        // What was done: each set's exercise, or the exercise's own if it has none.
-        const done = sessionExercises.flatMap((e) => (e.sets.length > 0 ? e.sets.map((set) => set.name) : [e.name]));
-        return { id, startedAt, finishedAt, exerciseNames: [...new Set(done)] };
+        const { id, routineName, startedAt, finishedAt, stats } = sessionJson(s);
+        const exerciseNames = [...new Set(exercisesDone(s).map(exerciseName))];
+        return { id, routineName, startedAt, finishedAt, stats, exerciseNames };
       }),
     });
   }),
@@ -530,6 +567,43 @@ const handlers = [
     if (!account) return unauthorized();
     const session = sessions.find((s) => s.ownerId === account.id && !s.finishedAt);
     return HttpResponse.json({ session: session ? sessionJson(session) : null });
+  }),
+
+  http.get('*/workouts/sessions/:id', ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const session = sessions.find((s) => s.id === params.id && s.ownerId === account.id);
+    if (!session) return error(404, 'session_not_found', 'Workout not found.');
+    return HttpResponse.json(sessionJson(session));
+  }),
+
+  http.get('*/workouts/totals', ({ request }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const url = new URL(request.url);
+    const from = Date.parse(url.searchParams.get('from') ?? '');
+    const to = Date.parse(url.searchParams.get('to') ?? '');
+    if (Number.isNaN(from) || Number.isNaN(to) || from >= to) {
+      return error(400, 'invalid_range', 'Send from and to as RFC 3339 times, from before to.');
+    }
+    const inRange = sessions.filter((s) => {
+      const finished = s.finishedAt ? Date.parse(s.finishedAt) : NaN;
+      return s.ownerId === account.id && finished >= from && finished < to;
+    });
+    const sets = inRange.flatMap((s) => s.exercises.flatMap((e) => e.sets));
+    const counts = new Map<string, number>();
+    for (const set of sets) {
+      const group = exercises.find((e) => e.id === set.exerciseId)!.muscleGroup;
+      counts.set(group, (counts.get(group) ?? 0) + 1);
+    }
+    return HttpResponse.json({
+      sessionCount: inRange.length,
+      volume: volumeOf(sets, unitOf(account.id)),
+      volumeUnit: unitOf(account.id),
+      setsPerMuscleGroup: [...counts]
+        .map(([muscleGroup, n]) => ({ muscleGroup, sets: n }))
+        .sort((a, b) => b.sets - a.sets || a.muscleGroup.localeCompare(b.muscleGroup)),
+    });
   }),
 
   http.post('*/workouts/sessions/:id/exercises', async ({ request, params }) => {

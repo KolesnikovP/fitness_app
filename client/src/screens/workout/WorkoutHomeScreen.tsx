@@ -7,20 +7,17 @@ import { listRoutines, RoutineSummaryItem, type RoutineSummary } from '@/entitie
 import {
   formatClockTime,
   getCurrentSession,
-  listSessionHistory,
-  SessionSummaryItem,
   startSession,
   type Session,
-  type SessionSummary,
 } from '@/entities/workout';
 import { ApiError, errorMessage } from '@/shared/api';
 import { Button, makeStyles, Screen, spacing, Spinner } from '@/shared/ui';
 
-type Loaded = { current: Session | null; routines: RoutineSummary[]; history: SessionSummary[] };
+type Loaded = { current: Session | null; routines: RoutineSummary[] };
 
 /**
- * The Workout tab: start or resume a workout, the Routines to start one from,
- * and the list of finished ones.
+ * The Workout tab: start or resume a workout, and the Routines to start one
+ * from. Finished ones are on the History tab.
  */
 export function WorkoutHomeScreen() {
   const styles = useStyles();
@@ -35,10 +32,10 @@ export function WorkoutHomeScreen() {
     useCallback(() => {
       if (!token) return;
       let current = true;
-      Promise.all([getCurrentSession(token), listRoutines(token), listSessionHistory(token)])
-        .then(([session, routines, history]) => {
+      Promise.all([getCurrentSession(token), listRoutines(token)])
+        .then(([session, routines]) => {
           if (!current) return;
-          setLoaded({ current: session, routines, history });
+          setLoaded({ current: session, routines });
           setError(null);
         })
         .catch((e) => current && setError(errorMessage(e)));
@@ -101,15 +98,6 @@ export function WorkoutHomeScreen() {
             {loaded.routines.length === 0 ? <Text style={styles.muted}>No routines yet.</Text> : null}
           </View>
           <Button label="New routine" variant="secondary" onPress={() => router.push('/workout/routines/new')} />
-          <Text accessibilityRole="header" style={styles.heading}>
-            History
-          </Text>
-          <View accessibilityLabel="Past workouts">
-            {loaded.history.map((session) => (
-              <SessionSummaryItem key={session.id} session={session} />
-            ))}
-            {loaded.history.length === 0 ? <Text style={styles.muted}>No finished workouts yet.</Text> : null}
-          </View>
         </>
       )}
     </Screen>
