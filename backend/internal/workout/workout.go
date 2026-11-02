@@ -1,7 +1,8 @@
 // Package workout owns Sessions: the workouts a User logs, the Exercises
 // added to each, the Supersets they're in, and the Sets logged for them.
-// Exercise names come from the exercise module through Exercises, and
-// Routines from the program module through Routines; this module never reads
+// Exercise names and Muscle groups come from the exercise module through
+// Exercises, Routines from the program module through Routines, and the Unit
+// preference from the user module through Profiles; this module never reads
 // their tables.
 package workout
 
@@ -37,6 +38,16 @@ type Exercises interface {
 	// ExerciseNames returns the names of the given exercises that callerID
 	// may see, keyed by id, leaving out any the caller can't see.
 	ExerciseNames(ctx context.Context, callerID uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]string, error)
+	// ExerciseMuscleGroups returns the Muscle groups of the given exercises
+	// that callerID may see, keyed by id, leaving out any the caller can't see.
+	ExerciseMuscleGroups(ctx context.Context, callerID uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]string, error)
+}
+
+// Profiles is the part of the user module this module depends on.
+type Profiles interface {
+	// UnitPreference returns "kg" or "lb": the unit accountID sees weights
+	// in, "kg" if they haven't chosen.
+	UnitPreference(ctx context.Context, accountID uuid.UUID) (string, error)
 }
 
 // Routines is the part of the program module this module depends on.
@@ -54,21 +65,24 @@ type Service struct {
 	queries   *store.Queries
 	exercises Exercises
 	routines  Routines
+	profiles  Profiles
 }
 
-func NewService(pool *pgxpool.Pool, exercises Exercises, routines Routines) *Service {
-	return &Service{pool: pool, queries: store.New(pool), exercises: exercises, routines: routines}
+func NewService(pool *pgxpool.Pool, exercises Exercises, routines Routines, profiles Profiles) *Service {
+	return &Service{pool: pool, queries: store.New(pool), exercises: exercises, routines: routines, profiles: profiles}
 }
 
 // Session is one logged workout as the API returns it. RoutineID is the
 // Routine it was started from, null for a freeform Session (or once that
-// Routine is deleted). FinishedAt is null while the Session is in progress.
+// Routine is deleted). FinishedAt and Stats are null while the Session is in
+// progress.
 type Session struct {
 	ID         uuid.UUID         `json:"id"`
 	RoutineID  *uuid.UUID        `json:"routineId"`
 	StartedAt  time.Time         `json:"startedAt"`
 	FinishedAt *time.Time        `json:"finishedAt"`
 	Exercises  []SessionExercise `json:"exercises"`
+	Stats      *Stats            `json:"stats"`
 }
 
 // SessionExercise is an Exercise added to a Session, with its Sets in the
@@ -123,19 +137,22 @@ type Set struct {
 	SupersetID *uuid.UUID `json:"supersetId"`
 }
 
-// SessionSummary is a finished Session as the history list shows it.
+// SessionSummary is a finished Session as the History lists it.
 type SessionSummary struct {
 	ID            uuid.UUID `json:"id"`
 	StartedAt     time.Time `json:"startedAt"`
 	FinishedAt    time.Time `json:"finishedAt"`
 	ExerciseNames []string  `json:"exerciseNames"`
+	Stats         Stats     `json:"stats"`
 }
 
 func (s *Service) Routes(mux *http.ServeMux, accounts Accounts) {
-	h := handlers{pool: s.pool, queries: s.queries, exercises: s.exercises, routines: s.routines}
+	h := handlers{pool: s.pool, queries: s.queries, exercises: s.exercises, routines: s.routines, profiles: s.profiles}
 	mux.Handle("POST /workouts/sessions", accounts.RequireAuth(http.HandlerFunc(h.start)))
 	mux.Handle("GET /workouts/sessions", accounts.RequireAuth(http.HandlerFunc(h.history)))
 	mux.Handle("GET /workouts/sessions/current", accounts.RequireAuth(http.HandlerFunc(h.current)))
+	mux.Handle("GET /workouts/sessions/{id}", accounts.RequireAuth(http.HandlerFunc(h.get)))
+	mux.Handle("GET /workouts/totals", accounts.RequireAuth(http.HandlerFunc(h.totals)))
 	mux.Handle("POST /workouts/sessions/{id}/exercises", accounts.RequireAuth(http.HandlerFunc(h.addExercise)))
 	mux.Handle("PATCH /workouts/sessions/{id}/exercises/{sessionExerciseId}", accounts.RequireAuth(http.HandlerFunc(h.changeExercise)))
 	mux.Handle("POST /workouts/sessions/{id}/exercises/{sessionExerciseId}/sets", accounts.RequireAuth(http.HandlerFunc(h.logSet)))
@@ -153,6 +170,7 @@ type handlers struct {
 	queries   *store.Queries
 	exercises Exercises
 	routines  Routines
+	profiles  Profiles
 }
 
 type startBody struct {
@@ -263,7 +281,8 @@ type historyResponse struct {
 	Sessions []SessionSummary `json:"sessions"`
 }
 
-// history lists the caller's finished sessions, newest first.
+// history lists the caller's finished sessions, newest first, with their
+// stats.
 func (h handlers) history(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	caller, _ := auth.AccountID(ctx)
@@ -292,10 +311,24 @@ func (h handlers) history(w http.ResponseWriter, r *http.Request) {
 	}
 	// Each exercise once, in the order it was first added.
 	namesBySession := make(map[uuid.UUID][]string)
+	doneBySession := make(map[uuid.UUID][]uuid.UUID)
 	for _, e := range exerciseRows {
 		if !slices.Contains(namesBySession[e.SessionID], names[e.ExerciseID]) {
 			namesBySession[e.SessionID] = append(namesBySession[e.SessionID], names[e.ExerciseID])
 		}
+		if !slices.Contains(doneBySession[e.SessionID], e.ExerciseID) {
+			doneBySession[e.SessionID] = append(doneBySession[e.SessionID], e.ExerciseID)
+		}
+	}
+	setsBySession, err := h.setsOfSessions(ctx, sessionIDs)
+	if err != nil {
+		httpx.WriteInternalError(w, r, err)
+		return
+	}
+	unit, err := h.profiles.UnitPreference(ctx, caller)
+	if err != nil {
+		httpx.WriteInternalError(w, r, err)
+		return
 	}
 
 	out := make([]SessionSummary, len(rows))
@@ -305,6 +338,8 @@ func (h handlers) history(w http.ResponseWriter, r *http.Request) {
 			StartedAt:     row.StartedAt,
 			FinishedAt:    *row.FinishedAt,
 			ExerciseNames: append([]string{}, namesBySession[row.ID]...),
+			Stats: statsOf(row.StartedAt, *row.FinishedAt, len(doneBySession[row.ID]), setsBySession[row.ID],
+				unit),
 		}
 	}
 	httpx.WriteJSON(w, http.StatusOK, historyResponse{Sessions: out})
@@ -877,9 +912,14 @@ func writeExerciseNotFound(w http.ResponseWriter) {
 	httpx.WriteError(w, http.StatusNotFound, "exercise_not_found", "Exercise not found.")
 }
 
-// writeSession loads the caller's session id and writes it.
+// writeSession loads the caller's session id and writes it, or a 404 if the
+// caller has no such session.
 func (h handlers) writeSession(w http.ResponseWriter, r *http.Request, status int, id uuid.UUID) {
 	session, err := h.loadSession(r.Context(), id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeSessionNotFound(w)
+		return
+	}
 	if err != nil {
 		httpx.WriteInternalError(w, r, err)
 		return
@@ -887,8 +927,8 @@ func (h handlers) writeSession(w http.ResponseWriter, r *http.Request, status in
 	httpx.WriteJSON(w, status, session)
 }
 
-// loadSession loads the caller's session id with its exercises and sets.
-// It returns pgx.ErrNoRows when the caller has no such session.
+// loadSession loads the caller's session id with its exercises and sets, and
+// its stats once finished. It returns pgx.ErrNoRows when the caller has no such session.
 func (h handlers) loadSession(ctx context.Context, id uuid.UUID) (Session, error) {
 	caller, _ := auth.AccountID(ctx)
 	row, err := h.queries.GetSession(ctx, store.GetSessionParams{ID: id, AccountID: caller})
@@ -950,6 +990,9 @@ func (h handlers) loadSession(ctx context.Context, id uuid.UUID) (Session, error
 		for j, id := range e.SubstituteIds {
 			session.Exercises[i].Substitutes[j] = ExerciseRef{ExerciseID: id, Name: names[id]}
 		}
+	}
+	if session.Stats, err = h.sessionStats(ctx, caller, session); err != nil {
+		return Session{}, err
 	}
 	return session, nil
 }

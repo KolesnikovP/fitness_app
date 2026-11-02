@@ -183,34 +183,36 @@ func (q *Queries) ListExercises(ctx context.Context, arg ListExercisesParams) ([
 	return items, nil
 }
 
-const listVisibleExerciseNames = `-- name: ListVisibleExerciseNames :many
-SELECT id, name
+const listVisibleExercises = `-- name: ListVisibleExercises :many
+SELECT id, name, muscle_group
 FROM exercises
 WHERE id = ANY($1::uuid[])
   AND (owner_id IS NULL OR owner_id = $2::uuid)
 `
 
-type ListVisibleExerciseNamesParams struct {
+type ListVisibleExercisesParams struct {
 	Ids      []uuid.UUID
 	CallerID uuid.UUID
 }
 
-type ListVisibleExerciseNamesRow struct {
-	ID   uuid.UUID
-	Name string
+type ListVisibleExercisesRow struct {
+	ID          uuid.UUID
+	Name        string
+	MuscleGroup string
 }
 
-// The names of those ids the caller may see; others are left out.
-func (q *Queries) ListVisibleExerciseNames(ctx context.Context, arg ListVisibleExerciseNamesParams) ([]ListVisibleExerciseNamesRow, error) {
-	rows, err := q.db.Query(ctx, listVisibleExerciseNames, arg.Ids, arg.CallerID)
+// The names and muscle groups of those ids the caller may see; others are
+// left out.
+func (q *Queries) ListVisibleExercises(ctx context.Context, arg ListVisibleExercisesParams) ([]ListVisibleExercisesRow, error) {
+	rows, err := q.db.Query(ctx, listVisibleExercises, arg.Ids, arg.CallerID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListVisibleExerciseNamesRow
+	var items []ListVisibleExercisesRow
 	for rows.Next() {
-		var i ListVisibleExerciseNamesRow
-		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+		var i ListVisibleExercisesRow
+		if err := rows.Scan(&i.ID, &i.Name, &i.MuscleGroup); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -41,9 +41,10 @@ SELECT content_type, data
 FROM exercise_media
 WHERE exercise_id = $1 AND kind = $2;
 
--- name: ListVisibleExerciseNames :many
--- The names of those ids the caller may see; others are left out.
-SELECT id, name
+-- name: ListVisibleExercises :many
+-- The names and muscle groups of those ids the caller may see; others are
+-- left out.
+SELECT id, name, muscle_group
 FROM exercises
 WHERE id = ANY(sqlc.arg(ids)::uuid[])
   AND (owner_id IS NULL OR owner_id = sqlc.arg(caller_id)::uuid);

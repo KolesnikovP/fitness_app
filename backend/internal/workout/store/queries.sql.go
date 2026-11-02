@@ -275,6 +275,47 @@ func (q *Queries) ListFinishedSessions(ctx context.Context, accountID uuid.UUID)
 	return items, nil
 }
 
+const listFinishedSessionsBetween = `-- name: ListFinishedSessionsBetween :many
+SELECT id, started_at, finished_at
+FROM workout_sessions
+WHERE account_id = $1 AND finished_at >= $2::timestamptz
+  AND finished_at < $3::timestamptz
+ORDER BY finished_at DESC, id
+`
+
+type ListFinishedSessionsBetweenParams struct {
+	AccountID uuid.UUID
+	FromTime  time.Time
+	ToTime    time.Time
+}
+
+type ListFinishedSessionsBetweenRow struct {
+	ID         uuid.UUID
+	StartedAt  time.Time
+	FinishedAt *time.Time
+}
+
+// The caller's sessions finished at or after from and before to.
+func (q *Queries) ListFinishedSessionsBetween(ctx context.Context, arg ListFinishedSessionsBetweenParams) ([]ListFinishedSessionsBetweenRow, error) {
+	rows, err := q.db.Query(ctx, listFinishedSessionsBetween, arg.AccountID, arg.FromTime, arg.ToTime)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFinishedSessionsBetweenRow
+	for rows.Next() {
+		var i ListFinishedSessionsBetweenRow
+		if err := rows.Scan(&i.ID, &i.StartedAt, &i.FinishedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSessionExercises = `-- name: ListSessionExercises :many
 SELECT id, exercise_id, note, superset_id, target_sets, target_reps, target_weight, target_weight_unit,
        target_rest_seconds, target_note, planned_exercise_id, substitute_ids
@@ -371,6 +412,49 @@ func (q *Queries) ListSessionSets(ctx context.Context, sessionID uuid.UUID) ([]L
 			&i.Note,
 			&i.Rpe,
 			&i.SupersetID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSetsOfSessions = `-- name: ListSetsOfSessions :many
+SELECT e.session_id, s.exercise_id, s.weight::float8 AS weight, s.weight_unit, s.reps
+FROM session_sets s
+JOIN session_exercises e ON e.id = s.session_exercise_id
+WHERE e.session_id = ANY($1::uuid[])
+ORDER BY s.created_at, s.id
+`
+
+type ListSetsOfSessionsRow struct {
+	SessionID  uuid.UUID
+	ExerciseID uuid.UUID
+	Weight     float64
+	WeightUnit string
+	Reps       int32
+}
+
+// The sets logged in each of the sessions, for working out their stats.
+func (q *Queries) ListSetsOfSessions(ctx context.Context, sessionIds []uuid.UUID) ([]ListSetsOfSessionsRow, error) {
+	rows, err := q.db.Query(ctx, listSetsOfSessions, sessionIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSetsOfSessionsRow
+	for rows.Next() {
+		var i ListSetsOfSessionsRow
+		if err := rows.Scan(
+			&i.SessionID,
+			&i.ExerciseID,
+			&i.Weight,
+			&i.WeightUnit,
+			&i.Reps,
 		); err != nil {
 			return nil, err
 		}
