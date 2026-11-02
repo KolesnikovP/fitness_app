@@ -311,13 +311,13 @@ func (h handlers) history(w http.ResponseWriter, r *http.Request) {
 	}
 	// Each exercise once, in the order it was first added.
 	namesBySession := make(map[uuid.UUID][]string)
-	doneBySession := make(map[uuid.UUID][]uuid.UUID)
+	exerciseIDsBySession := make(map[uuid.UUID][]uuid.UUID)
 	for _, e := range exerciseRows {
 		if !slices.Contains(namesBySession[e.SessionID], names[e.ExerciseID]) {
 			namesBySession[e.SessionID] = append(namesBySession[e.SessionID], names[e.ExerciseID])
 		}
-		if !slices.Contains(doneBySession[e.SessionID], e.ExerciseID) {
-			doneBySession[e.SessionID] = append(doneBySession[e.SessionID], e.ExerciseID)
+		if !slices.Contains(exerciseIDsBySession[e.SessionID], e.ExerciseID) {
+			exerciseIDsBySession[e.SessionID] = append(exerciseIDsBySession[e.SessionID], e.ExerciseID)
 		}
 	}
 	setsBySession, err := h.setsOfSessions(ctx, sessionIDs)
@@ -338,7 +338,7 @@ func (h handlers) history(w http.ResponseWriter, r *http.Request) {
 			StartedAt:     row.StartedAt,
 			FinishedAt:    *row.FinishedAt,
 			ExerciseNames: append([]string{}, namesBySession[row.ID]...),
-			Stats: statsOf(row.StartedAt, *row.FinishedAt, len(doneBySession[row.ID]), setsBySession[row.ID],
+			Stats: statsOf(row.StartedAt, *row.FinishedAt, len(exerciseIDsBySession[row.ID]), setsBySession[row.ID],
 				unit),
 		}
 	}

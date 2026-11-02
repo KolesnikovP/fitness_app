@@ -106,18 +106,18 @@ func (h handlers) sessionStats(ctx context.Context, caller uuid.UUID, session Se
 		return nil, err
 	}
 	var sets []loggedSet
-	var done []uuid.UUID
+	var exerciseIDs []uuid.UUID
 	for _, e := range session.Exercises {
 		if len(e.Sets) == 0 {
-			done = append(done, e.ExerciseID)
+			exerciseIDs = append(exerciseIDs, e.ExerciseID)
 		}
 		for _, s := range e.Sets {
 			sets = append(sets, loggedSet{exerciseID: s.ExerciseID, weight: s.Weight, weightUnit: s.WeightUnit, reps: s.Reps})
-			done = append(done, s.ExerciseID)
+			exerciseIDs = append(exerciseIDs, s.ExerciseID)
 		}
 	}
-	slices.SortFunc(done, func(a, b uuid.UUID) int { return cmp.Compare(a.String(), b.String()) })
-	stats := statsOf(session.StartedAt, *session.FinishedAt, len(slices.Compact(done)), sets, unit)
+	slices.SortFunc(exerciseIDs, func(a, b uuid.UUID) int { return cmp.Compare(a.String(), b.String()) })
+	stats := statsOf(session.StartedAt, *session.FinishedAt, len(slices.Compact(exerciseIDs)), sets, unit)
 	return &stats, nil
 }
 

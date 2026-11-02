@@ -15,7 +15,10 @@ import {
 import { errorMessage } from '@/shared/api';
 import { makeStyles, Screen, spacing, Spinner } from '@/shared/ui';
 
-/** A finished Session, read-only: its stats, then each Exercise done with its Sets. */
+/**
+ * A finished Session, read-only: its stats, then each of its Exercises with
+ * its Sets, as many as its exercise count says.
+ */
 export function SessionDetailScreen() {
   const styles = useStyles();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -57,10 +60,16 @@ export function SessionDetailScreen() {
           {formatClockTime(session.startedAt)} – {formatClockTime(finishedAt)}
         </Text>
         {session.stats ? <SessionStatsLine stats={session.stats} /> : null}
-        {session.exercises
-          .filter((exercise) => exercise.sets.length > 0)
-          .map((exercise) => (
+        {session.exercises.map((exercise) => (
             <View key={exercise.id} style={styles.exercise}>
+              {exercise.sets.length === 0 ? (
+                <>
+                  <Text accessibilityRole="header" style={styles.name}>
+                    {exercise.name}
+                  </Text>
+                  <Text style={styles.muted}>No sets logged.</Text>
+                </>
+              ) : null}
               {setRuns(exercise).map((run) => (
                 <View key={run.sets[0].set.id} style={styles.run}>
                   <Text accessibilityRole="header" style={styles.name}>
