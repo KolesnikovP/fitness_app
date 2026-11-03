@@ -448,4 +448,22 @@ describe('routines', () => {
     expect(await screen.findByText('No routines yet.')).toBeVisible();
     expect(fakeApi.routines(accountId)).toEqual([]);
   });
+
+  it('shows the records a routine workout set once finished, with no offer to save it as a routine', async () => {
+    const accountId = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg').id;
+    const earlier = fakeApi.addSession(accountId, new Date(Date.now() - 86_400_000));
+    fakeApi.addSet(fakeApi.addSessionExercise(earlier, 'Deadlift'), 140, 'kg', 5);
+    fakeApi.finishSession(earlier, new Date(Date.now() - 86_400_000 + 3_600_000));
+    const today = fakeApi.addSession(accountId);
+    today.routineId = fakeApi.addRoutine(accountId, 'Pull day', ['Deadlift']).id;
+    fakeApi.addSet(fakeApi.addSessionExercise(today, 'Deadlift'), 140, 'kg', 6);
+    await openWorkoutTab(accountId);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Resume workout' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Finish workout' }));
+
+    await screen.findByRole('header', { name: 'Workout finished' });
+    const records = within(await screen.findByLabelText('Personal records'));
+    expect(await records.findByText('Deadlift: Estimated 1RM 168 kg, from 140 kg × 6')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Save as routine' })).toBeNull();
+  });
 });

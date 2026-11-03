@@ -67,6 +67,44 @@ describe('history', () => {
     expect(detail.queryByRole('button', { name: /Log set|Edit set/ })).toBeNull();
   });
 
+  it('marks the personal records of a workout that beats an earlier one, once finished and in History', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const earlier = fakeApi.addSession(account.id, new Date(Date.now() - 2 * 86_400_000));
+    fakeApi.addSet(fakeApi.addSessionExercise(earlier, 'Bench Press'), 100, 'kg', 5);
+    fakeApi.finishSession(earlier, new Date(Date.now() - 2 * 86_400_000 + 3_600_000));
+    secureStore.set('auth-token', fakeApi.issueToken(account.id));
+    await renderRouter('./src/app', { initialUrl: '/' });
+    const past = within(await screen.findByLabelText('Past workouts'));
+    await past.findByText('Bench Press');
+    expect(past.queryByText(/personal record/)).toBeNull(); // The first-ever bench sets none.
+
+    await act(async () => router.navigate('/workout'));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Start Workout' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Add exercise' }));
+    const picker = within(await screen.findByLabelText('Exercise picker'));
+    await fireEvent.changeText(picker.getByLabelText('Search exercises'), 'bench');
+    await fireEvent.press(await picker.findByRole('button', { name: 'Bench Press' }));
+    const card = within(await screen.findByLabelText('Bench Press card'));
+    await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '105');
+    await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '5');
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Finish workout' })).toBeEnabled());
+    await fireEvent.press(screen.getByRole('button', { name: 'Finish workout' }));
+
+    const finished = within(await screen.findByLabelText('Personal records'));
+    expect(await finished.findByText('Bench Press: Estimated 1RM 122.5 kg, from 105 kg × 5')).toBeVisible();
+    expect(finished.getByText('Bench Press: 105 kg × 5, best at 5 reps')).toBeVisible();
+    await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
+    await screen.findByRole('header', { name: 'Workout' });
+
+    await act(async () => router.navigate('/'));
+    const history = within(await screen.findByLabelText('Past workouts'));
+    expect(await history.findByText('2 personal records')).toBeVisible();
+    await fireEvent.press(history.getAllByRole('button', { name: /Bench Press/ })[0]);
+    const records = within(await screen.findByLabelText('Personal records'));
+    expect(records.getByText('Bench Press: Estimated 1RM 122.5 kg, from 105 kg × 5')).toBeVisible();
+  });
+
   it('names a workout after its routine, or else the day and the part of it it started in', async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     // Monday, October 26 2026, and the Wednesday and Thursday after, in the device's time zone.

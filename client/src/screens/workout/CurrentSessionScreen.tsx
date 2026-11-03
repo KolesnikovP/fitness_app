@@ -75,10 +75,11 @@ export function CurrentSessionScreen() {
     try {
       // A Set deleted just now goes before the workout is finished.
       await deletion.flush();
-      await finishSession(token, session.id);
-      if (session.routineId === null) {
-        // A Freeform session can be saved as a Routine.
-        router.replace({ pathname: '/workout/finished', params: { sessionId: session.id } });
+      const finished = await finishSession(token, session.id);
+      // A Freeform session can be saved as a Routine; any can have set Personal records.
+      const freeform = session.routineId === null;
+      if (freeform || (finished.personalRecords ?? []).length > 0) {
+        router.replace({ pathname: '/workout/finished', params: { sessionId: session.id, freeform: String(freeform) } });
       } else {
         router.back();
       }
