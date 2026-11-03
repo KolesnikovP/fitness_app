@@ -322,6 +322,63 @@ func (q *Queries) ListFinishedSessionsBetween(ctx context.Context, arg ListFinis
 	return items, nil
 }
 
+const listFinishedSetsOfExercises = `-- name: ListFinishedSetsOfExercises :many
+SELECT w.id AS session_id, w.finished_at::timestamptz AS finished_at, s.id, s.exercise_id, s.weight::float8 AS weight,
+       s.weight_unit, s.reps
+FROM session_sets s
+JOIN session_exercises e ON e.id = s.session_exercise_id
+JOIN workout_sessions w ON w.id = e.session_id
+WHERE w.account_id = $1 AND w.finished_at IS NOT NULL
+  AND s.exercise_id = ANY($2::uuid[])
+ORDER BY w.finished_at, w.id, s.created_at, s.id
+`
+
+type ListFinishedSetsOfExercisesParams struct {
+	AccountID   uuid.UUID
+	ExerciseIds []uuid.UUID
+}
+
+type ListFinishedSetsOfExercisesRow struct {
+	SessionID  uuid.UUID
+	FinishedAt time.Time
+	ID         uuid.UUID
+	ExerciseID uuid.UUID
+	Weight     float64
+	WeightUnit string
+	Reps       int32
+}
+
+// Every set the account logged of the exercises in its finished sessions, in
+// the order they were done: by session finished, then as logged. Personal
+// records are worked out from these.
+func (q *Queries) ListFinishedSetsOfExercises(ctx context.Context, arg ListFinishedSetsOfExercisesParams) ([]ListFinishedSetsOfExercisesRow, error) {
+	rows, err := q.db.Query(ctx, listFinishedSetsOfExercises, arg.AccountID, arg.ExerciseIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFinishedSetsOfExercisesRow
+	for rows.Next() {
+		var i ListFinishedSetsOfExercisesRow
+		if err := rows.Scan(
+			&i.SessionID,
+			&i.FinishedAt,
+			&i.ID,
+			&i.ExerciseID,
+			&i.Weight,
+			&i.WeightUnit,
+			&i.Reps,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSessionExercises = `-- name: ListSessionExercises :many
 SELECT id, exercise_id, note, superset_id, target_sets, target_reps, target_weight, target_weight_unit,
        target_rest_seconds, target_note, planned_exercise_id, substitute_ids
