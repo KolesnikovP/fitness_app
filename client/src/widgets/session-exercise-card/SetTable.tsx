@@ -21,6 +21,8 @@ import { Button, makeStyles, spacing } from '@/shared/ui';
 type SetTableProps = {
   sessionId: string;
   sessionExercise: SessionExercise;
+  /** The Sets that hold a Personal record of the Session (so far). */
+  recordSetIds: ReadonlySet<string>;
   onChange: (session: Session) => void;
   onDeleteSet: (setId: string) => void;
 };
@@ -31,9 +33,9 @@ type SetTableProps = {
  * Set still to do, ready at the Target, with a box to tick to log it. "Add
  * set" adds another row. Once a swap means the Sets were done with more than
  * one Exercise, each run of them is labelled with its Exercise, and so are
- * the rows still to do.
+ * the rows still to do. A logged Set holding a Personal record is marked.
  */
-export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: SetTableProps) {
+export function SetTable({ sessionId, sessionExercise, recordSetIds, onChange, onDeleteSet }: SetTableProps) {
   const styles = useStyles();
   const { state } = useAuth();
   const unit = state.status === 'signedIn' ? (state.me.unitPreference ?? 'kg') : 'kg';
@@ -102,6 +104,7 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
                 set={set}
                 number={number}
                 unit={unit}
+                isRecord={recordSetIds.has(set.id)}
                 onPress={() => setEditingSetId(set.id)}
               />
             ),
@@ -141,11 +144,13 @@ type LoggedSetRowProps = {
   number: number;
   /** The table's unit; a Set logged in the other one says so. */
   unit: string;
+  /** Whether it holds a Personal record. */
+  isRecord: boolean;
   onPress: () => void;
 };
 
 /** A logged Set as a row of the table, its values in their columns, and its note below. */
-function LoggedSetRow({ set, number, unit, onPress }: LoggedSetRowProps) {
+function LoggedSetRow({ set, number, unit, isRecord, onPress }: LoggedSetRowProps) {
   const styles = useStyles();
   return (
     <Pressable
@@ -156,7 +161,14 @@ function LoggedSetRow({ set, number, unit, onPress }: LoggedSetRowProps) {
       style={({ pressed }) => pressed && styles.pressed}
     >
       <View style={[setColumns.row, styles.logged]}>
-        <Text style={[setColumns.number, styles.number]}>{number}</Text>
+        <Text style={[setColumns.number, styles.number]}>
+          {number}
+          {isRecord ? (
+            <Text accessibilityLabel="Personal record" style={styles.record}>
+              {' '}🏆
+            </Text>
+          ) : null}
+        </Text>
         <Text style={[setColumns.weight, styles.value]}>
           {set.weight}
           {set.weightUnit !== unit ? ` ${set.weightUnit}` : ''}
@@ -182,6 +194,7 @@ const useStyles = makeStyles((colors) => ({
   runLabel: { fontSize: 13, fontWeight: '600', color: colors.text, paddingTop: spacing.xs },
   pressed: { opacity: 0.5 },
   number: { fontSize: 17, color: colors.muted, textAlign: 'center' },
+  record: { fontSize: 13 },
   value: { fontSize: 17, color: colors.text, textAlign: 'center' },
   // The box a row still to do shows, ticked.
   checked: {

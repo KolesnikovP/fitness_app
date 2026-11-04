@@ -1,6 +1,6 @@
 import { apiRequest } from '@/shared/api';
 
-import type { Session, SessionSummary, Totals, WeightUnit } from './model';
+import type { ExerciseRecords, Session, SessionSummary, Totals, WeightUnit } from './model';
 
 const base = '/workouts/sessions';
 const path = (sessionId: string, ...rest: string[]) =>
@@ -29,6 +29,11 @@ export async function listSessionHistory(token: string): Promise<SessionSummary[
 /** One of the user's Sessions, with its stats once finished. */
 export function getSession(token: string, sessionId: string): Promise<Session> {
   return apiRequest<Session>(path(sessionId), { token });
+}
+
+/** The user's current records for an Exercise, from their finished Sessions. */
+export function getExerciseRecords(token: string, exerciseId: string): Promise<ExerciseRecords> {
+  return apiRequest<ExerciseRecords>(`/workouts/exercises/${encodeURIComponent(exerciseId)}/records`, { token });
 }
 
 /** The totals of the user's Sessions finished from `from` up to, not including, `to`. */

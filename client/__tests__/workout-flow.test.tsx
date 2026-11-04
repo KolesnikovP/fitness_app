@@ -123,6 +123,37 @@ describe('freeform workout', () => {
     expect(screen.getByRole('button', { name: 'Finish workout' })).toBeEnabled();
   });
 
+  it('tells the user the moment a set beats their record, and marks it in the table', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const earlier = fakeApi.addSession(account.id, new Date(Date.now() - 86_400_000));
+    fakeApi.addSet(fakeApi.addSessionExercise(earlier, 'Bench Press'), 100, 'kg', 5);
+    fakeApi.finishSession(earlier, new Date(Date.now() - 86_400_000 + 3_600_000));
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Bench Press');
+
+    // Short of the record: nothing to tell.
+    await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '95');
+    await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '5');
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
+    await waitFor(() => expect(loggedSets(card)).toEqual(['95 kg × 5']));
+    expect(screen.queryByLabelText('New personal record')).toBeNull();
+
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
+    await fireEvent.changeText(card.getByLabelText('Set 2 weight (kg)'), '105');
+    await fireEvent.changeText(card.getByLabelText('Set 2 reps'), '5');
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 2' }));
+
+    const banner = within(await screen.findByLabelText('New personal record'));
+    expect(banner.getByText('Bench Press: Estimated 1RM 122.5 kg, from 105 kg × 5')).toBeVisible();
+    expect(banner.getByText('Bench Press: 105 kg × 5, best at 5 reps')).toBeVisible();
+    expect(within(card.getByRole('button', { name: 'Edit set 2' })).getByLabelText('Personal record')).toBeVisible();
+    expect(within(card.getByRole('button', { name: 'Edit set 1' })).queryByLabelText('Personal record')).toBeNull();
+
+    await fireEvent.press(banner.getByRole('button', { name: 'Dismiss' }));
+    expect(screen.queryByLabelText('New personal record')).toBeNull();
+  });
+
   it('accepts only numbers for weight and reps', async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');

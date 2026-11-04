@@ -80,6 +80,36 @@ describe('exercise library', () => {
     expect(screen.queryByRole('button', { name: 'Add image or GIF' })).toBeNull();
   });
 
+  it("lists the user's current records for an exercise", async () => {
+    const account = await openExercisesTab();
+    const day = (n: number) => new Date(Date.now() - n * 86_400_000);
+    const first = fakeApi.addSession(account.id, day(3));
+    const deadlift = fakeApi.addSessionExercise(first, 'Deadlift');
+    fakeApi.addSet(deadlift, 140, 'kg', 5);
+    fakeApi.addSet(deadlift, 330, 'lb', 3);
+    fakeApi.finishSession(first, day(3));
+    const second = fakeApi.addSession(account.id, day(1));
+    fakeApi.addSet(fakeApi.addSessionExercise(second, 'Deadlift'), 160, 'kg', 1);
+    fakeApi.finishSession(second, day(1));
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Deadlift' }));
+
+    const records = within(await screen.findByLabelText('Records'));
+    // 330 lb × 3 is 149.7 kg, so 164.7 kg estimated; 140 × 5 is 163.3.
+    expect(await records.findByText('Estimated 1RM: 164.7 kg, from 330 lb × 3')).toBeVisible();
+    expect(records.getByText('1 rep: 160 kg')).toBeVisible();
+    expect(records.getByText('3 reps: 330 lb')).toBeVisible();
+    expect(records.getByText('5 reps: 140 kg')).toBeVisible();
+  });
+
+  it('shows no records for an exercise never logged', async () => {
+    await openExercisesTab();
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Plank' }));
+
+    expect(await within(await screen.findByLabelText('Records')).findByText('No records yet.')).toBeVisible();
+  });
+
   it('creates a custom exercise that then turns up in search', async () => {
     const account = await openExercisesTab();
 

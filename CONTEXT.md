@@ -68,6 +68,18 @@ _Avoid_: Cycle, lap
 A User's finished Sessions, newest first, with the stats of each. It is only the User's own; a feed of other Users' workouts is postponed past v1.
 _Avoid_: Log, journal, feed (until there is one)
 
+**Estimated 1RM**:
+The weight a Set suggests the User could lift for one rep, by the Epley formula: weight × (1 + reps / 30), or the weight itself for a 1-rep Set. Weights in lb are converted to kg by one fixed factor first.
+_Avoid_: Max, 1RM (as the computed value), e1RM
+
+**Personal record**:
+A Set that beats every earlier Set of its Exercise by the User, by Estimated 1RM. A finished Session sets at most one per Exercise, with its best Set, and only when an earlier Session has a Set of that Exercise to beat: the first Session of an Exercise sets none, and neither do Sets at weight 0. It follows the Exercise actually done, and is worked out from Sets when shown, so correcting a Set can add or remove one. A Session in progress has the records its Sets set so far, so the User hears of one the moment they log it.
+_Avoid_: PR (in the code), best, achievement
+
+**Rep record**:
+A Personal record by weight at the same reps: the heaviest Set at a rep count, beating an earlier Session's Set at those reps.
+_Avoid_: Rep PR, rep max
+
 **Rest timer**:
 An optional countdown a User starts between Sets. It lives only on the device and is not part of the Session.
 _Avoid_: Rest period (as a stored value), break

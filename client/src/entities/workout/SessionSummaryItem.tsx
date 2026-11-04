@@ -2,10 +2,10 @@ import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { makeStyles, spacing } from '@/shared/ui';
 
-import { formatSessionDate, workoutName, type SessionSummary } from './model';
+import { countOf, formatSessionDate, workoutName, type SessionSummary } from './model';
 import { SessionStatsLine } from './SessionStatsLine';
 
-/** One finished Session in the History: its name, date, Exercises and stats. */
+/** One finished Session in the History: its name, date, Exercises, stats and how many Personal records it set. */
 export function SessionSummaryItem({ session, onPress }: { session: SessionSummary; onPress: () => void }) {
   const styles = useStyles();
   const date = formatSessionDate(session.finishedAt);
@@ -22,6 +22,9 @@ export function SessionSummaryItem({ session, onPress }: { session: SessionSumma
       <Text style={styles.date}>{date}</Text>
       <Text style={styles.exercises}>{names}</Text>
       <SessionStatsLine stats={session.stats} />
+      {session.personalRecords.length > 0 ? (
+        <Text style={styles.records}>{countOf(session.personalRecords.length, 'personal record')}</Text>
+      ) : null}
     </Pressable>
   );
 }
@@ -37,4 +40,5 @@ const useStyles = makeStyles((colors) => ({
   name: { fontSize: 17, fontWeight: '600', color: colors.text },
   date: { fontSize: 15, color: colors.muted },
   exercises: { fontSize: 15, color: colors.text },
+  records: { fontSize: 15, fontWeight: '600', color: colors.primary },
 }));

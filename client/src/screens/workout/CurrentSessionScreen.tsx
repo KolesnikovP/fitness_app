@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, Text } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
@@ -9,8 +9,11 @@ import {
   formatClockTime,
   getCurrentSession,
   hasSets,
+  NewRecordBanner,
+  newRecords,
   sessionBlocks,
   withoutSet,
+  type PersonalRecord,
   type Session,
 } from '@/entities/workout';
 import { SetDeletedBar, usePendingSetDeletion } from '@/features/delete-set';
@@ -33,6 +36,23 @@ export function CurrentSessionScreen() {
   const [finishing, setFinishing] = useState(false);
   const [groupingSuperset, setGroupingSuperset] = useState(false);
   const deletion = usePendingSetDeletion(token, session?.id ?? null, setSession, setError);
+  // Records a Set just set, shown until dismissed or for a few seconds.
+  const [justSet, setJustSet] = useState<PersonalRecord[]>([]);
+
+  useEffect(() => {
+    if (justSet.length === 0) return;
+    const timer = setTimeout(() => setJustSet([]), RECORD_BANNER_MS);
+    return () => clearTimeout(timer);
+  }, [justSet]);
+
+  /** Takes the Session as a change left it, telling the User of any record that change set. */
+  function changed(updated: Session) {
+    if (session) {
+      const records = newRecords(session, updated);
+      if (records.length > 0) setJustSet(records);
+    }
+    setSession(updated);
+  }
 
   // Reload on focus, so an exercise added on the picker screen shows up.
   useFocusEffect(
@@ -75,10 +95,11 @@ export function CurrentSessionScreen() {
     try {
       // A Set deleted just now goes before the workout is finished.
       await deletion.flush();
-      await finishSession(token, session.id);
-      if (session.routineId === null) {
-        // A Freeform session can be saved as a Routine.
-        router.replace({ pathname: '/workout/finished', params: { sessionId: session.id } });
+      const finished = await finishSession(token, session.id);
+      // A Freeform session can be saved as a Routine; any can have set Personal records.
+      const freeform = session.routineId === null;
+      if (freeform || finished.personalRecords.length > 0) {
+        router.replace({ pathname: '/workout/finished', params: { sessionId: session.id, freeform: String(freeform) } });
       } else {
         router.back();
       }
@@ -111,12 +132,20 @@ export function CurrentSessionScreen() {
   const shown = deletion.pendingSetId ? withoutSet(session, deletion.pendingSetId) : session;
   const canFinish = hasSets(shown);
   const ungrouped = shown.exercises.filter((e) => e.supersetId === null);
+  const recordSetIds = new Set(shown.personalRecords.map((r) => r.setId));
   const plannedRests = shown.exercises.flatMap((e) => (e.target?.restSeconds ? [e.target.restSeconds] : []));
 
   return (
     <Screen
       title="Current workout"
-      footer={deletion.pendingSetId ? <SetDeletedBar onUndo={deletion.undo} /> : null}
+      footer={
+        justSet.length > 0 || deletion.pendingSetId ? (
+          <>
+            {justSet.length > 0 ? <NewRecordBanner records={justSet} onDismiss={() => setJustSet([])} /> : null}
+            {deletion.pendingSetId ? <SetDeletedBar onUndo={deletion.undo} /> : null}
+          </>
+        ) : null
+      }
     >
       <Text style={styles.muted}>Started at {formatClockTime(session.startedAt)}</Text>
       {sessionBlocks(shown.exercises).map((block) =>
@@ -126,7 +155,8 @@ export function CurrentSessionScreen() {
             sessionId={session.id}
             supersetId={block.supersetId}
             exercises={block.exercises}
-            onChange={setSession}
+            recordSetIds={recordSetIds}
+            onChange={changed}
             onDeleteSet={deletion.remove}
           />
         ) : (
@@ -134,7 +164,8 @@ export function CurrentSessionScreen() {
             key={block.exercise.id}
             sessionId={session.id}
             sessionExercise={block.exercise}
-            onChange={setSession}
+            recordSetIds={recordSetIds}
+            onChange={changed}
             onDeleteSet={deletion.remove}
           />
         ),
@@ -169,6 +200,8 @@ export function CurrentSessionScreen() {
     </Screen>
   );
 }
+
+const RECORD_BANNER_MS = 6000;
 
 const useStyles = makeStyles((colors) => ({
   error: { color: colors.danger, fontSize: 15 },

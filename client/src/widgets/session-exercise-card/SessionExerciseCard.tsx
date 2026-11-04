@@ -10,6 +10,8 @@ import { SetTable } from './SetTable';
 type SessionExerciseCardProps = {
   sessionId: string;
   sessionExercise: SessionExercise;
+  /** The Sets that hold a Personal record of the Session (so far). */
+  recordSetIds: ReadonlySet<string>;
   onChange: (session: Session) => void;
   onDeleteSet: (setId: string) => void;
 };
@@ -19,7 +21,7 @@ type SessionExerciseCardProps = {
  * anything, and swapping it for a Substitute; its Sets as a table, logged and
  * still to do; and a note.
  */
-export function SessionExerciseCard({ sessionId, sessionExercise, onChange, onDeleteSet }: SessionExerciseCardProps) {
+export function SessionExerciseCard({ sessionId, sessionExercise, recordSetIds, onChange, onDeleteSet }: SessionExerciseCardProps) {
   const styles = useStyles();
   const target = currentTarget(sessionExercise);
 
@@ -44,6 +46,7 @@ export function SessionExerciseCard({ sessionId, sessionExercise, onChange, onDe
         key={sessionExercise.exerciseId}
         sessionId={sessionId}
         sessionExercise={sessionExercise}
+        recordSetIds={recordSetIds}
         onChange={onChange}
         onDeleteSet={onDeleteSet}
       />

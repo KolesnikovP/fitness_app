@@ -87,6 +87,9 @@ type Session struct {
 	FinishedAt  *time.Time        `json:"finishedAt"`
 	Exercises   []SessionExercise `json:"exercises"`
 	Stats       *Stats            `json:"stats"`
+	// PersonalRecords are the records its Sets set (so far, while in
+	// progress), in the order logged.
+	PersonalRecords []PersonalRecord `json:"personalRecords"`
 }
 
 // SessionExercise is an Exercise added to a Session, with its Sets in the
@@ -142,14 +145,15 @@ type Set struct {
 }
 
 // SessionSummary is a finished Session as the History lists it. RoutineName
-// is as on Session.
+// and PersonalRecords are as on Session.
 type SessionSummary struct {
-	ID            uuid.UUID `json:"id"`
-	RoutineName   *string   `json:"routineName"`
-	StartedAt     time.Time `json:"startedAt"`
-	FinishedAt    time.Time `json:"finishedAt"`
-	ExerciseNames []string  `json:"exerciseNames"`
-	Stats         Stats     `json:"stats"`
+	ID              uuid.UUID        `json:"id"`
+	RoutineName     *string          `json:"routineName"`
+	StartedAt       time.Time        `json:"startedAt"`
+	FinishedAt      time.Time        `json:"finishedAt"`
+	ExerciseNames   []string         `json:"exerciseNames"`
+	Stats           Stats            `json:"stats"`
+	PersonalRecords []PersonalRecord `json:"personalRecords"`
 }
 
 func (s *Service) Routes(mux *http.ServeMux, accounts Accounts) {
@@ -158,6 +162,7 @@ func (s *Service) Routes(mux *http.ServeMux, accounts Accounts) {
 	mux.Handle("GET /workouts/sessions", accounts.RequireAuth(http.HandlerFunc(h.history)))
 	mux.Handle("GET /workouts/sessions/current", accounts.RequireAuth(http.HandlerFunc(h.current)))
 	mux.Handle("GET /workouts/sessions/{id}", accounts.RequireAuth(http.HandlerFunc(h.get)))
+	mux.Handle("GET /workouts/exercises/{id}/records", accounts.RequireAuth(http.HandlerFunc(h.exerciseRecords)))
 	mux.Handle("GET /workouts/totals", accounts.RequireAuth(http.HandlerFunc(h.totals)))
 	mux.Handle("POST /workouts/sessions/{id}/exercises", accounts.RequireAuth(http.HandlerFunc(h.addExercise)))
 	mux.Handle("PATCH /workouts/sessions/{id}/exercises/{sessionExerciseId}", accounts.RequireAuth(http.HandlerFunc(h.changeExercise)))
@@ -336,6 +341,17 @@ func (h handlers) history(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteInternalError(w, r, err)
 		return
 	}
+	var setExerciseIDs []uuid.UUID
+	for _, sets := range setsBySession {
+		for _, s := range sets {
+			setExerciseIDs = append(setExerciseIDs, s.exerciseID)
+		}
+	}
+	records, err := h.personalRecords(ctx, caller, setExerciseIDs, unit, nil)
+	if err != nil {
+		httpx.WriteInternalError(w, r, err)
+		return
+	}
 	var routineIDs []uuid.UUID
 	for _, row := range rows {
 		if row.RoutineID != nil {
@@ -358,6 +374,7 @@ func (h handlers) history(w http.ResponseWriter, r *http.Request) {
 			ExerciseNames: append([]string{}, namesBySession[row.ID]...),
 			Stats: statsOf(row.StartedAt, *row.FinishedAt, len(exerciseIDsBySession[row.ID]), setsBySession[row.ID],
 				unit),
+			PersonalRecords: append([]PersonalRecord{}, records[row.ID]...),
 		}
 	}
 	httpx.WriteJSON(w, http.StatusOK, historyResponse{Sessions: out})
@@ -1012,6 +1029,26 @@ func (h handlers) loadSession(ctx context.Context, id uuid.UUID) (Session, error
 	if session.Stats, err = h.sessionStats(ctx, caller, session); err != nil {
 		return Session{}, err
 	}
+	unit, err := h.profiles.UnitPreference(ctx, caller)
+	if err != nil {
+		return Session{}, err
+	}
+	var setExerciseIDs []uuid.UUID
+	var inProgress []store.ListFinishedSetsOfExercisesRow
+	for _, s := range setRows {
+		setExerciseIDs = append(setExerciseIDs, s.ExerciseID)
+		if session.FinishedAt == nil {
+			inProgress = append(inProgress, store.ListFinishedSetsOfExercisesRow{
+				SessionID: session.ID, ID: s.ID, ExerciseID: s.ExerciseID, Weight: s.Weight,
+				WeightUnit: s.WeightUnit, Reps: s.Reps,
+			})
+		}
+	}
+	records, err := h.personalRecords(ctx, caller, setExerciseIDs, unit, inProgress)
+	if err != nil {
+		return Session{}, err
+	}
+	session.PersonalRecords = append([]PersonalRecord{}, records[session.ID]...)
 	if row.RoutineID != nil {
 		routineNames, err := h.routines.RoutineNames(ctx, caller, []uuid.UUID{*row.RoutineID})
 		if err != nil {

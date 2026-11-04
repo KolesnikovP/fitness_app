@@ -339,6 +339,70 @@ function statsOf(session: FakeSession) {
   };
 }
 
+const kgOf = (s: FakeSet) => (s.weightUnit === 'lb' ? s.weight * KG_PER_LB : s.weight);
+/** Epley's: weight × (1 + reps / 30), or the weight for 1 rep. */
+const estimated1RM = (kg: number, reps: number) => (reps === 1 ? kg : kg * (1 + reps / 30));
+const toUnit = (kg: number, unit: 'kg' | 'lb') => Math.round((unit === 'lb' ? kg / KG_PER_LB : kg) * 10) / 10;
+const BEATS_BY = 1e-6;
+
+function setsOf(session: FakeSession) {
+  return session.exercises.flatMap((e) => e.sets);
+}
+
+/**
+ * The records a finished session set, as the real API works them out: the
+ * session's best set of each kind for an exercise, when it beats every set of
+ * the owner's earlier finished sessions (of which there must be one). One in
+ * progress has the records its sets set so far, against every finished one.
+ */
+function personalRecordsOf(session: FakeSession) {
+  const unit = unitOf(session.ownerId);
+  const earlier = sessions
+    .filter(
+      (s) =>
+        s !== session &&
+        s.ownerId === session.ownerId &&
+        s.finishedAt &&
+        (!session.finishedAt || s.finishedAt < session.finishedAt),
+    )
+    .flatMap(setsOf);
+  const bestE1RM = new Map<string, { set: FakeSet; kg: number }>();
+  const bestReps = new Map<string, { set: FakeSet; kg: number }>();
+  for (const set of setsOf(session)) {
+    if (set.weight <= 0) continue;
+    const e1rm = estimated1RM(kgOf(set), set.reps);
+    const top = bestE1RM.get(set.exerciseId);
+    if (!top || e1rm > top.kg + BEATS_BY) bestE1RM.set(set.exerciseId, { set, kg: e1rm });
+    const key = `${set.exerciseId}/${set.reps}`;
+    const heaviest = bestReps.get(key);
+    if (!heaviest || kgOf(set) > heaviest.kg + BEATS_BY) bestReps.set(key, { set, kg: kgOf(set) });
+  }
+  const hits: { set: FakeSet; kind: 'estimated1RM' | 'reps' }[] = [];
+  for (const [exerciseId, { set, kg }] of bestE1RM) {
+    const prior = earlier.filter((s) => s.exerciseId === exerciseId);
+    if (prior.length > 0 && prior.every((s) => kg > estimated1RM(kgOf(s), s.reps) + BEATS_BY)) {
+      hits.push({ set, kind: 'estimated1RM' });
+    }
+  }
+  for (const { set, kg } of bestReps.values()) {
+    const prior = earlier.filter((s) => s.exerciseId === set.exerciseId && s.reps === set.reps);
+    if (prior.length > 0 && prior.every((s) => kg > kgOf(s) + BEATS_BY)) hits.push({ set, kind: 'reps' });
+  }
+  const order = setsOf(session);
+  hits.sort((a, b) => order.indexOf(a.set) - order.indexOf(b.set) || a.kind.localeCompare(b.kind));
+  return hits.map(({ set, kind }) => ({
+    kind,
+    setId: set.id,
+    exerciseId: set.exerciseId,
+    name: exerciseName(set.exerciseId),
+    weight: set.weight,
+    weightUnit: set.weightUnit,
+    reps: set.reps,
+    estimated1RM: toUnit(estimated1RM(kgOf(set), set.reps), unit),
+    estimated1RMUnit: unit,
+  }));
+}
+
 function sessionJson(fakeSession: FakeSession) {
   const { ownerId: _ownerId, exercises: sessionExercises, ...session } = fakeSession;
   return {
@@ -346,6 +410,7 @@ function sessionJson(fakeSession: FakeSession) {
     // The routine's name as it is now; null once it's deleted.
     routineName: routines.find((r) => r.id === session.routineId)?.name ?? null,
     stats: statsOf(fakeSession),
+    personalRecords: personalRecordsOf(fakeSession),
     exercises: sessionExercises.map(({ plannedExerciseId, substituteIds, sets, ...sessionExercise }) => ({
       ...sessionExercise,
       name: exerciseName(sessionExercise.exerciseId),
@@ -515,9 +580,9 @@ const handlers = [
       .sort((a, b) => b.finishedAt!.localeCompare(a.finishedAt!));
     return HttpResponse.json({
       sessions: finished.map((s) => {
-        const { id, routineName, startedAt, finishedAt, stats } = sessionJson(s);
+        const { id, routineName, startedAt, finishedAt, stats, personalRecords } = sessionJson(s);
         const exerciseNames = [...new Set(exercisesDone(s).map(exerciseName))];
-        return { id, routineName, startedAt, finishedAt, stats, exerciseNames };
+        return { id, routineName, startedAt, finishedAt, stats, personalRecords, exerciseNames };
       }),
     });
   }),
@@ -575,6 +640,43 @@ const handlers = [
     const session = sessions.find((s) => s.id === params.id && s.ownerId === account.id);
     if (!session) return error(404, 'session_not_found', 'Workout not found.');
     return HttpResponse.json(sessionJson(session));
+  }),
+
+  http.get('*/workouts/exercises/:id/records', ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    if (!visibleExercise(account, params.id)) return error(404, 'exercise_not_found', 'Exercise not found.');
+    const unit = unitOf(account.id);
+    const done = sessions
+      .filter((s) => s.ownerId === account.id && s.finishedAt)
+      .sort((a, b) => a.finishedAt!.localeCompare(b.finishedAt!))
+      .flatMap((session) =>
+        setsOf(session)
+          .filter((set) => set.exerciseId === params.id && set.weight > 0)
+          .map((set) => ({ session, set })),
+      );
+    const bestSet = ({ session, set }: (typeof done)[number]) => ({
+      sessionId: session.id,
+      setId: set.id,
+      achievedAt: session.finishedAt,
+      weight: set.weight,
+      weightUnit: set.weightUnit,
+      reps: set.reps,
+      estimated1RM: toUnit(estimated1RM(kgOf(set), set.reps), unit),
+      estimated1RMUnit: unit,
+    });
+    let top: (typeof done)[number] | null = null;
+    const byReps = new Map<number, (typeof done)[number]>();
+    for (const entry of done) {
+      const e1rm = estimated1RM(kgOf(entry.set), entry.set.reps);
+      if (!top || e1rm > estimated1RM(kgOf(top.set), top.set.reps) + BEATS_BY) top = entry;
+      const heaviest = byReps.get(entry.set.reps);
+      if (!heaviest || kgOf(entry.set) > kgOf(heaviest.set) + BEATS_BY) byReps.set(entry.set.reps, entry);
+    }
+    return HttpResponse.json({
+      estimated1RM: top ? bestSet(top) : null,
+      repRecords: [...byReps.values()].sort((a, b) => a.set.reps - b.set.reps).map(bestSet),
+    });
   }),
 
   http.get('*/workouts/totals', ({ request }) => {

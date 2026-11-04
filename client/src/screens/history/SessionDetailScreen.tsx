@@ -8,6 +8,7 @@ import {
   formatSessionDate,
   formatSet,
   getSession,
+  PersonalRecordList,
   SessionStatsLine,
   setRuns,
   workoutName,
@@ -17,8 +18,8 @@ import { errorMessage } from '@/shared/api';
 import { makeStyles, Screen, spacing, Spinner } from '@/shared/ui';
 
 /**
- * A finished Session, read-only: its stats, then each of its Exercises with
- * its Sets, as many as its exercise count says.
+ * A finished Session, read-only: its stats and Personal records, then each of
+ * its Exercises with its Sets, as many as its exercise count says.
  */
 export function SessionDetailScreen() {
   const styles = useStyles();
@@ -61,6 +62,7 @@ export function SessionDetailScreen() {
           {formatSessionDate(finishedAt)}, {formatClockTime(session.startedAt)} – {formatClockTime(finishedAt)}
         </Text>
         {session.stats ? <SessionStatsLine stats={session.stats} /> : null}
+        <PersonalRecordList records={session.personalRecords} />
         {session.exercises.map((exercise) => (
             <View key={exercise.id} style={styles.exercise}>
               {exercise.sets.length === 0 ? (

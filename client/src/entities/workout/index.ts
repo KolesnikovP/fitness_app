@@ -8,11 +8,13 @@ export {
   formatDuration,
   formatSessionDate,
   formatRest,
+  formatPersonalRecord,
   formatSet,
   formatStats,
   formatVolume,
   formatTarget,
   hasSets,
+  newRecords,
   nextSetDraft,
   parseReps,
   pendingSetCount,
@@ -27,6 +29,9 @@ export {
   supersetProgress,
   swapChoices,
   swappedFrom,
+  type BestSet,
+  type ExerciseRecords,
+  type PersonalRecord,
   type Session,
   type SessionBlock,
   type SessionExercise,
@@ -52,6 +57,7 @@ export {
   discardSession,
   finishSession,
   getCurrentSession,
+  getExerciseRecords,
   getSession,
   getTotals,
   listSessionHistory,
@@ -63,6 +69,9 @@ export {
   ungroupSuperset,
   type NewSet,
 } from './api';
+export { ExerciseRecordsCard } from './ExerciseRecordsCard';
+export { NewRecordBanner } from './NewRecordBanner';
+export { PersonalRecordList } from './PersonalRecordList';
 export { SessionStatsLine } from './SessionStatsLine';
 export { SessionSummaryItem } from './SessionSummaryItem';
 export { TotalsCard } from './TotalsCard';
