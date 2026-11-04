@@ -42,7 +42,12 @@ describe('exercise library', () => {
 
     await fireEvent.changeText(screen.getByLabelText('Search exercises'), 'press');
     await waitFor(() =>
-      expect(listedExercises()).toEqual(['Bench Press', 'Dumbbell Bench Press', 'Incline Bench Press', 'Overhead Press']),
+      expect(listedExercises()).toEqual([
+        'Bench Press',
+        'Dumbbell Bench Press',
+        'Incline Bench Press',
+        'Overhead Press',
+      ]),
     );
 
     await fireEvent.changeText(screen.getByLabelText('Search exercises'), '');

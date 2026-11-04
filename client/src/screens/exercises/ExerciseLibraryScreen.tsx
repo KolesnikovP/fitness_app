@@ -50,7 +50,9 @@ export function ExerciseLibraryScreen() {
         </Text>
       ) : null}
       {exercises === null ? (
-        error ? null : <Spinner />
+        error ? null : (
+          <Spinner />
+        )
       ) : (
         <View accessibilityLabel="Exercise list">
           {exercises.map((exercise) => (

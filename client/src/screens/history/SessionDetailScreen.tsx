@@ -64,34 +64,34 @@ export function SessionDetailScreen() {
         {session.stats ? <SessionStatsLine stats={session.stats} /> : null}
         <PersonalRecordList records={session.personalRecords} />
         {session.exercises.map((exercise) => (
-            <View key={exercise.id} style={styles.exercise}>
-              {exercise.sets.length === 0 ? (
-                <>
-                  <Text accessibilityRole="header" style={styles.name}>
-                    {exercise.name}
-                  </Text>
-                  <Text style={styles.muted}>No sets logged.</Text>
-                </>
-              ) : null}
-              {setRuns(exercise).map((run) => (
-                <View key={run.sets[0].set.id} style={styles.run}>
-                  <Text accessibilityRole="header" style={styles.name}>
-                    {run.name}
-                  </Text>
-                  {run.sets.map(({ set, number }) => (
-                    <View key={set.id} style={styles.set}>
-                      <Text style={styles.number}>{number}</Text>
-                      <View style={styles.setBody}>
-                        <Text style={styles.setText}>{formatSet(set)}</Text>
-                        {set.note ? <Text style={styles.muted}>{set.note}</Text> : null}
-                      </View>
+          <View key={exercise.id} style={styles.exercise}>
+            {exercise.sets.length === 0 ? (
+              <>
+                <Text accessibilityRole="header" style={styles.name}>
+                  {exercise.name}
+                </Text>
+                <Text style={styles.muted}>No sets logged.</Text>
+              </>
+            ) : null}
+            {setRuns(exercise).map((run) => (
+              <View key={run.sets[0].set.id} style={styles.run}>
+                <Text accessibilityRole="header" style={styles.name}>
+                  {run.name}
+                </Text>
+                {run.sets.map(({ set, number }) => (
+                  <View key={set.id} style={styles.set}>
+                    <Text style={styles.number}>{number}</Text>
+                    <View style={styles.setBody}>
+                      <Text style={styles.setText}>{formatSet(set)}</Text>
+                      {set.note ? <Text style={styles.muted}>{set.note}</Text> : null}
                     </View>
-                  ))}
-                </View>
-              ))}
-              {exercise.note ? <Text style={styles.muted}>{exercise.note}</Text> : null}
-            </View>
-          ))}
+                  </View>
+                ))}
+              </View>
+            ))}
+            {exercise.note ? <Text style={styles.muted}>{exercise.note}</Text> : null}
+          </View>
+        ))}
       </View>
     </Screen>
   );

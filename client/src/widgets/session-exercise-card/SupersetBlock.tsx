@@ -21,7 +21,14 @@ type SupersetBlockProps = {
  * A Superset in the workout in progress: its exercises back to back, and
  * what's next, with rest only once every exercise has had its Set.
  */
-export function SupersetBlock({ sessionId, supersetId, exercises, recordSetIds, onChange, onDeleteSet }: SupersetBlockProps) {
+export function SupersetBlock({
+  sessionId,
+  supersetId,
+  exercises,
+  recordSetIds,
+  onChange,
+  onDeleteSet,
+}: SupersetBlockProps) {
   const styles = useStyles();
   const progress = supersetProgress(exercises);
   const started = exercises.some((e) => e.sets.length > 0);

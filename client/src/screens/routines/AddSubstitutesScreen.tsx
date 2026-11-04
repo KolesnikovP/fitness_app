@@ -77,9 +77,7 @@ export function AddSubstitutesScreen() {
             anything else.
           </Text>
           {count >= room ? (
-            <Text style={styles.muted}>
-              That's the most: an exercise can have {MAX_SUBSTITUTES} substitutes.
-            </Text>
+            <Text style={styles.muted}>That's the most: an exercise can have {MAX_SUBSTITUTES} substitutes.</Text>
           ) : null}
           <ExercisePicker
             onPick={toggle}

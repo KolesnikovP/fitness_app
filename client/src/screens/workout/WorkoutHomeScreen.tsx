@@ -4,12 +4,7 @@ import { Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { listRoutines, RoutineSummaryItem, type RoutineSummary } from '@/entities/routine';
-import {
-  formatClockTime,
-  getCurrentSession,
-  startSession,
-  type Session,
-} from '@/entities/workout';
+import { formatClockTime, getCurrentSession, startSession, type Session } from '@/entities/workout';
 import { ApiError, errorMessage } from '@/shared/api';
 import { Button, makeStyles, Screen, spacing, Spinner } from '@/shared/ui';
 

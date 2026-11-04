@@ -169,8 +169,7 @@ export function RoutineScreen() {
         <View accessibilityLabel="Starting weights" style={styles.startingWeights}>
           <Text style={styles.heading}>Starting weights</Text>
           <Text style={styles.muted}>
-            What will you start with? It's saved to the routine. Not sure yet? Leave it blank and fill it in as
-            you log.
+            What will you start with? It's saved to the routine. Not sure yet? Leave it blank and fill it in as you log.
           </Text>
           {unweighted.map((slot) => (
             <TextField

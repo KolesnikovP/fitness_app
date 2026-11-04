@@ -56,7 +56,11 @@ export function ExerciseDetailScreen() {
       </View>
       <ExerciseRecordsCard token={token} exerciseId={exercise.id} />
       {exercise.animatedDemoUrl ? (
-        <ExerciseMedia path={exercise.animatedDemoUrl} token={token} accessibilityLabel={`${exercise.name} animated demo`} />
+        <ExerciseMedia
+          path={exercise.animatedDemoUrl}
+          token={token}
+          accessibilityLabel={`${exercise.name} animated demo`}
+        />
       ) : null}
       {exercise.imageUrl ? (
         <ExerciseMedia path={exercise.imageUrl} token={token} accessibilityLabel={`${exercise.name} image`} />

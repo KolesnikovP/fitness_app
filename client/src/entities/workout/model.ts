@@ -366,9 +366,7 @@ export function sessionBlocks(exercises: SessionExercise[]): SessionBlock[] {
  * Where the User is in a Superset: the next exercise to do, with no rest
  * before it, or a finished round, after which they rest.
  */
-export type SupersetProgress =
-  | { kind: 'next'; exercise: SessionExercise }
-  | { kind: 'roundDone'; round: number };
+export type SupersetProgress = { kind: 'next'; exercise: SessionExercise } | { kind: 'roundDone'; round: number };
 
 export function supersetProgress(exercises: SessionExercise[]): SupersetProgress {
   const fewest = Math.min(...exercises.map((e) => e.sets.length));
@@ -425,7 +423,10 @@ export function weightInput(text: string): string {
   const separator = kept.search(/[.,]/);
   if (separator === -1) return kept.slice(0, 4);
   const whole = kept.slice(0, separator).slice(0, 4);
-  const decimals = kept.slice(separator + 1).replace(/[.,]/g, '').slice(0, 2);
+  const decimals = kept
+    .slice(separator + 1)
+    .replace(/[.,]/g, '')
+    .slice(0, 2);
   return `${whole}${kept[separator]}${decimals}`;
 }
 

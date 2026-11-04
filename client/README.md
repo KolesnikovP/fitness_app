@@ -21,14 +21,14 @@ The app calls the backend at `EXPO_PUBLIC_API_URL` if that's set. Otherwise, in 
 
 ## Layout (Feature-Sliced)
 
-| Folder | Holds |
-|---|---|
-| `src/app` | Expo Router routes only. Each file renders a screen from `src/screens`. The root `_layout.tsx` decides which route group is reachable: logged out → `(auth)`, server unreachable → `unavailable`, no unit preference yet → `onboarding`, otherwise `(tabs)` |
-| `src/screens` | Full screens |
-| `src/widgets` | Blocks composed from features and entities: `session-exercise-card` (also the Superset block), `routine-editor` |
+| Folder         | Holds                                                                                                                                                                                                                                                                               |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app`      | Expo Router routes only. Each file renders a screen from `src/screens`. The root `_layout.tsx` decides which route group is reachable: logged out → `(auth)`, server unreachable → `unavailable`, no unit preference yet → `onboarding`, otherwise `(tabs)`                         |
+| `src/screens`  | Full screens                                                                                                                                                                                                                                                                        |
+| `src/widgets`  | Blocks composed from features and entities: `session-exercise-card` (also the Superset block), `routine-editor`                                                                                                                                                                     |
 | `src/features` | User actions: `auth-by-email`, `set-unit-preference`, `log-out`, `search-exercises` (also the exercise picker), `create-custom-exercise`, `upload-exercise-media`, `log-set`, `edit-set`, `delete-set` (deleting after a moment to undo), `exercise-note`, `rest-timer`, `superset` |
-| `src/entities` | Domain data and API calls: `auth` (login state, token in `expo-secure-store`), `user`, `exercise`, `workout`, `routine` |
-| `src/shared` | `api` (HTTP client) and `ui` (Button, ChipGroup, Select, TextField, Screen) |
+| `src/entities` | Domain data and API calls: `auth` (login state, token in `expo-secure-store`), `user`, `exercise`, `workout`, `routine`                                                                                                                                                             |
+| `src/shared`   | `api` (HTTP client) and `ui` (Button, ChipGroup, Select, TextField, Screen)                                                                                                                                                                                                         |
 
 Layers only import from layers below them, through each slice's `index.ts`.
 

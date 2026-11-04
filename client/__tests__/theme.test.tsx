@@ -69,7 +69,7 @@ describe('theme', () => {
     expect(screen.getByRole('radio', { name: 'Dark' })).toBeChecked();
   });
 
-  it("goes back to following the phone when System is picked", async () => {
+  it('goes back to following the phone when System is picked', async () => {
     await launchSignedIn();
 
     await openProfile();

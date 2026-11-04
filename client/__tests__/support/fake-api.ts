@@ -321,7 +321,9 @@ function volumeOf(sets: FakeSet[], unit: 'kg' | 'lb') {
 /** What was done in a session: each set's exercise, or the exercise's own if it has none, each once. */
 function exercisesDone(session: FakeSession) {
   return [
-    ...new Set(session.exercises.flatMap((e) => (e.sets.length > 0 ? e.sets.map((s) => s.exerciseId) : [e.exerciseId]))),
+    ...new Set(
+      session.exercises.flatMap((e) => (e.sets.length > 0 ? e.sets.map((s) => s.exerciseId) : [e.exerciseId])),
+    ),
   ];
 }
 
@@ -548,20 +550,18 @@ function plannedRoutine(account: FakeAccount, body: { name?: string; slots?: Slo
   }
   return {
     name,
-    slots: slots.map(
-      (slot): FakeSlot => ({
-        id: `slot-${nextId++}`,
-        exerciseId: slot.exerciseId!,
-        targetSets: slot.targetSets!,
-        targetReps: slot.targetReps!,
-        targetWeight: slot.targetWeight!,
-        weightUnit: slot.weightUnit!,
-        restSeconds: slot.restSeconds ?? null,
-        note: (slot.note ?? '').trim(),
-        supersetGroup: slot.supersetGroup == null ? null : groupOrder.indexOf(slot.supersetGroup) + 1,
-        substituteIds: [...(slot.substituteIds ?? [])],
-      }),
-    ),
+    slots: slots.map((slot): FakeSlot => ({
+      id: `slot-${nextId++}`,
+      exerciseId: slot.exerciseId!,
+      targetSets: slot.targetSets!,
+      targetReps: slot.targetReps!,
+      targetWeight: slot.targetWeight!,
+      weightUnit: slot.weightUnit!,
+      restSeconds: slot.restSeconds ?? null,
+      note: (slot.note ?? '').trim(),
+      supersetGroup: slot.supersetGroup == null ? null : groupOrder.indexOf(slot.supersetGroup) + 1,
+      substituteIds: [...(slot.substituteIds ?? [])],
+    })),
   };
 }
 
@@ -889,9 +889,7 @@ const handlers = [
   http.get('*/routines', ({ request }) => {
     const account = caller(request);
     if (!account) return unauthorized();
-    const own = fakeApi
-      .routines(account.id)
-      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+    const own = fakeApi.routines(account.id).sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
     return HttpResponse.json({
       routines: own.map(({ id, name, updatedAt, slots }) => ({
         id,
