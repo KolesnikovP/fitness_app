@@ -73,6 +73,22 @@ type BestSet struct {
 	Estimated1RMUnit string    `json:"estimated1RMUnit"`
 }
 
+// A Record tier is how close a Set came to the User's best Estimated 1RM for
+// its Exercise before its Session: the highest among that Exercise's Sets with
+// weight in the User's finished Sessions before it (every finished Session,
+// while it is in progress). A Set holding a Personal record of either kind is
+// gold; any other Set with weight is silver at silverAt of that best or more,
+// which takes in Sets above it that aren't the Session's record, and bronze at
+// bronzeAt. With no such best, a Set has no tier but gold.
+const (
+	tierGold   = "gold"
+	tierSilver = "silver"
+	tierBronze = "bronze"
+
+	silverAt = 0.975
+	bronzeAt = 0.95
+)
+
 // beatsBy is how much heavier, in kg, a Set must be to beat another, so float
 // noise from converting units never makes a record of an equal weight.
 const beatsBy = 1e-6
@@ -120,9 +136,11 @@ type best struct {
 
 // recordsBySession finds the records each Session set, given every Set of the
 // Exercises concerned in the order they were done, a Session's together. Each
-// Session's are in the order its Sets were logged.
-func recordsBySession(sets []store.ListFinishedSetsOfExercisesRow) map[uuid.UUID][]recordHit {
+// Session's are in the order its Sets were logged. It also finds each Set's
+// Record tier, keyed by Set; a Set with none is left out.
+func recordsBySession(sets []store.ListFinishedSetsOfExercisesRow) (map[uuid.UUID][]recordHit, map[uuid.UUID]string) {
 	out := make(map[uuid.UUID][]recordHit)
+	tiers := make(map[uuid.UUID]string)
 	priorE1RM := make(map[uuid.UUID]float64)
 	priorReps := make(map[exerciseReps]float64)
 	for start := 0; start < len(sets); {
@@ -171,6 +189,22 @@ func recordsBySession(sets []store.ListFinishedSetsOfExercisesRow) map[uuid.UUID
 			out[session[0].SessionID] = hits
 		}
 
+		for _, hit := range hits {
+			tiers[hit.set.ID] = tierGold
+		}
+		for _, s := range session {
+			prior := priorE1RM[s.ExerciseID]
+			if s.Weight <= 0 || prior <= 0 || tiers[s.ID] == tierGold {
+				continue
+			}
+			switch e1RM := estimated1RM(kgOf(s.Weight, s.WeightUnit), s.Reps); {
+			case e1RM >= silverAt*prior-beatsBy:
+				tiers[s.ID] = tierSilver
+			case e1RM >= bronzeAt*prior-beatsBy:
+				tiers[s.ID] = tierBronze
+			}
+		}
+
 		for _, s := range session {
 			kg := kgOf(s.Weight, s.WeightUnit)
 			priorE1RM[s.ExerciseID] = max(priorE1RM[s.ExerciseID], estimated1RM(kg, s.Reps))
@@ -179,21 +213,22 @@ func recordsBySession(sets []store.ListFinishedSetsOfExercisesRow) map[uuid.UUID
 		}
 		start = end
 	}
-	return out
+	return out, tiers
 }
 
 // personalRecords works out the records each of the caller's finished
-// Sessions set in exerciseIDs, keyed by Session, with Estimated 1RMs in unit.
+// Sessions set in exerciseIDs, keyed by Session, with Estimated 1RMs in unit,
+// and the Record tier of each of their Sets that has one, keyed by Set.
 // inProgress, the Sets of the Session in progress if any, come after them all.
 func (h handlers) personalRecords(ctx context.Context, caller uuid.UUID, exerciseIDs []uuid.UUID,
-	unit string, inProgress []store.ListFinishedSetsOfExercisesRow) (map[uuid.UUID][]PersonalRecord, error) {
+	unit string, inProgress []store.ListFinishedSetsOfExercisesRow) (map[uuid.UUID][]PersonalRecord, map[uuid.UUID]string, error) {
 	sets, err := h.queries.ListFinishedSetsOfExercises(ctx, store.ListFinishedSetsOfExercisesParams{
 		AccountID: caller, ExerciseIds: exerciseIDs,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("list sets of exercises: %w", err)
+		return nil, nil, fmt.Errorf("list sets of exercises: %w", err)
 	}
-	hits := recordsBySession(append(sets, inProgress...))
+	hits, tiers := recordsBySession(append(sets, inProgress...))
 	var ids []uuid.UUID
 	for _, list := range hits {
 		for _, hit := range list {
@@ -202,7 +237,7 @@ func (h handlers) personalRecords(ctx context.Context, caller uuid.UUID, exercis
 	}
 	names, err := h.exercises.ExerciseNames(ctx, caller, ids)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	out := make(map[uuid.UUID][]PersonalRecord, len(hits))
 	for sessionID, list := range hits {
@@ -216,7 +251,7 @@ func (h handlers) personalRecords(ctx context.Context, caller uuid.UUID, exercis
 			})
 		}
 	}
-	return out, nil
+	return out, tiers, nil
 }
 
 // exerciseRecords serves the caller's current records for the {id} Exercise.

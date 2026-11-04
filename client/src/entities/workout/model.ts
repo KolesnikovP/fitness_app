@@ -7,7 +7,8 @@ export type WeightUnit = UnitPreference;
  * A logged Set. exerciseId and name are the Exercise actually done, which
  * differs from its Session exercise's once that's swapped. weight is in
  * weightUnit, the unit it was logged in. rpe is null when left blank.
- * supersetId is the Superset it was logged in, if any.
+ * supersetId is the Superset it was logged in, if any. recordTier is its
+ * Record tier, null for none.
  */
 export type SessionSet = {
   id: string;
@@ -19,7 +20,25 @@ export type SessionSet = {
   rpe: number | null;
   note: string;
   supersetId: string | null;
+  recordTier: RecordTier | null;
 };
+
+/**
+ * How close a Set came to the User's best Estimated 1RM for its Exercise
+ * before its Session: gold holds a Personal record, silver is within 2.5% of
+ * that best, bronze within 5%.
+ */
+export type RecordTier = 'gold' | 'silver' | 'bronze';
+
+/** What a Record tier is called, as the app says it. */
+export const recordTierLabels: Record<RecordTier, string> = {
+  gold: 'Personal record',
+  silver: 'Silver',
+  bronze: 'Bronze',
+};
+
+/** The medal that marks a Record tier. */
+export const recordTierMedals: Record<RecordTier, string> = { gold: '🏆', silver: '🥈', bronze: '🥉' };
 
 /**
  * What a Routine's Exercise slot planned for a Session exercise, copied when

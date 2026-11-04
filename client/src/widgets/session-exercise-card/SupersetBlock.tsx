@@ -11,8 +11,6 @@ type SupersetBlockProps = {
   sessionId: string;
   supersetId: string;
   exercises: SessionExercise[];
-  /** The Sets that hold a Personal record of the Session (so far). */
-  recordSetIds: ReadonlySet<string>;
   onChange: (session: Session) => void;
   onDeleteSet: (setId: string) => void;
 };
@@ -21,14 +19,7 @@ type SupersetBlockProps = {
  * A Superset in the workout in progress: its exercises back to back, and
  * what's next, with rest only once every exercise has had its Set.
  */
-export function SupersetBlock({
-  sessionId,
-  supersetId,
-  exercises,
-  recordSetIds,
-  onChange,
-  onDeleteSet,
-}: SupersetBlockProps) {
+export function SupersetBlock({ sessionId, supersetId, exercises, onChange, onDeleteSet }: SupersetBlockProps) {
   const styles = useStyles();
   const progress = supersetProgress(exercises);
   const started = exercises.some((e) => e.sets.length > 0);
@@ -46,7 +37,6 @@ export function SupersetBlock({
           key={sessionExercise.id}
           sessionId={sessionId}
           sessionExercise={sessionExercise}
-          recordSetIds={recordSetIds}
           onChange={onChange}
           onDeleteSet={onDeleteSet}
         />

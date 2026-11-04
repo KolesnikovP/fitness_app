@@ -135,7 +135,6 @@ export function CurrentSessionScreen() {
   const shown = deletion.pendingSetId ? withoutSet(session, deletion.pendingSetId) : session;
   const canFinish = hasSets(shown);
   const ungrouped = shown.exercises.filter((e) => e.supersetId === null);
-  const recordSetIds = new Set(shown.personalRecords.map((r) => r.setId));
   const plannedRests = shown.exercises.flatMap((e) => (e.target?.restSeconds ? [e.target.restSeconds] : []));
 
   return (
@@ -158,7 +157,6 @@ export function CurrentSessionScreen() {
             sessionId={session.id}
             supersetId={block.supersetId}
             exercises={block.exercises}
-            recordSetIds={recordSetIds}
             onChange={changed}
             onDeleteSet={deletion.remove}
           />
@@ -167,7 +165,6 @@ export function CurrentSessionScreen() {
             key={block.exercise.id}
             sessionId={session.id}
             sessionExercise={block.exercise}
-            recordSetIds={recordSetIds}
             onChange={changed}
             onDeleteSet={deletion.remove}
           />

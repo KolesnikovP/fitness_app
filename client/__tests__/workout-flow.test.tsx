@@ -136,7 +136,7 @@ describe('freeform workout', () => {
     await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '95');
     await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '5');
     await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
-    await waitFor(() => expect(loggedSets(card)).toEqual(['95 kg × 5']));
+    await waitFor(() => expect(loggedSets(card)).toEqual(['95 kg × 5, Bronze']));
     expect(screen.queryByLabelText('New personal record')).toBeNull();
 
     await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
@@ -147,11 +147,49 @@ describe('freeform workout', () => {
     const banner = within(await screen.findByLabelText('New personal record'));
     expect(banner.getByText('Bench Press: Estimated 1RM 122.5 kg, from 105 kg × 5')).toBeVisible();
     expect(banner.getByText('Bench Press: 105 kg × 5, best at 5 reps')).toBeVisible();
-    expect(within(card.getByRole('button', { name: 'Edit set 2' })).getByLabelText('Personal record')).toBeVisible();
-    expect(within(card.getByRole('button', { name: 'Edit set 1' })).queryByLabelText('Personal record')).toBeNull();
+    expect(loggedSets(card)).toEqual(['95 kg × 5, Bronze', '105 kg × 5, Personal record']);
 
     await fireEvent.press(banner.getByRole('button', { name: 'Dismiss' }));
     expect(screen.queryByLabelText('New personal record')).toBeNull();
+  });
+
+  it('marks each logged set with how close it came to the best before this workout', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const earlier = fakeApi.addSession(account.id, new Date(Date.now() - 86_400_000));
+    fakeApi.addSet(fakeApi.addSessionExercise(earlier, 'Bench Press'), 100, 'kg', 5);
+    fakeApi.finishSession(earlier, new Date(Date.now() - 86_400_000 + 3_600_000));
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Bench Press');
+
+    const sets: [string, string][] = [
+      ['105', '5'],
+      ['100', '5'],
+      ['100', '4'],
+      ['95', '5'],
+      ['100', '3'],
+    ];
+    for (const [i, [weight, reps]] of sets.entries()) {
+      const n = i + 1;
+      if (i > 0) await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
+      await fireEvent.changeText(card.getByLabelText(`Set ${n} weight (kg)`), weight);
+      await fireEvent.changeText(card.getByLabelText(`Set ${n} reps`), reps);
+      await fireEvent.press(card.getByRole('button', { name: `Log set ${n}` }));
+      await waitFor(() => expect(loggedSets(card)).toHaveLength(n));
+    }
+
+    expect(loggedSets(card)).toEqual([
+      '105 kg × 5, Personal record',
+      '100 kg × 5, Silver', // A tie with the best.
+      '100 kg × 4, Bronze',
+      '95 kg × 5, Bronze',
+      '100 kg × 3',
+    ]);
+    const row = (n: number) => within(card.getByRole('button', { name: `Edit set ${n}` }));
+    expect(row(1).getByText('🏆')).toBeVisible();
+    expect(row(2).getByText('🥈')).toBeVisible();
+    expect(row(3).getByText('🥉')).toBeVisible();
+    expect(row(5).queryByText(/🏆|🥈|🥉/)).toBeNull();
   });
 
   it('accepts only numbers for weight and reps', async () => {
