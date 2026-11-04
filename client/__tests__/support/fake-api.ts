@@ -352,14 +352,11 @@ function setsOf(session: FakeSession) {
 }
 
 /**
- * The records a finished session set, as the real API works them out: the
- * session's best set of each kind for an exercise, when it beats every set of
- * the owner's earlier finished sessions (of which there must be one). One in
- * progress has the records its sets set so far, against every finished one.
+ * The sets of the owner's finished sessions before session: every finished
+ * one, while it is in progress.
  */
-function personalRecordsOf(session: FakeSession) {
-  const unit = unitOf(session.ownerId);
-  const earlier = sessions
+function earlierSetsOf(session: FakeSession) {
+  return sessions
     .filter(
       (s) =>
         s !== session &&
@@ -368,6 +365,16 @@ function personalRecordsOf(session: FakeSession) {
         (!session.finishedAt || s.finishedAt < session.finishedAt),
     )
     .flatMap(setsOf);
+}
+
+/**
+ * The records a finished session set, as the real API works them out: the
+ * session's best set of each kind for an exercise, when it beats every set of
+ * the owner's earlier finished sessions (of which there must be one). One in
+ * progress has the records its sets set so far, against every finished one.
+ */
+function recordHitsOf(session: FakeSession) {
+  const earlier = earlierSetsOf(session);
   const bestE1RM = new Map<string, { set: FakeSet; kg: number }>();
   const bestReps = new Map<string, { set: FakeSet; kg: number }>();
   for (const set of setsOf(session)) {
@@ -392,7 +399,12 @@ function personalRecordsOf(session: FakeSession) {
   }
   const order = setsOf(session);
   hits.sort((a, b) => order.indexOf(a.set) - order.indexOf(b.set) || a.kind.localeCompare(b.kind));
-  return hits.map(({ set, kind }) => ({
+  return hits;
+}
+
+function personalRecordsOf(session: FakeSession) {
+  const unit = unitOf(session.ownerId);
+  return recordHitsOf(session).map(({ set, kind }) => ({
     kind,
     setId: set.id,
     exerciseId: set.exerciseId,
@@ -405,7 +417,31 @@ function personalRecordsOf(session: FakeSession) {
   }));
 }
 
+/**
+ * Each set's Record tier, as the real API works it out: gold for a set
+ * holding a record, else silver at 97.5% of the best Estimated 1RM of the
+ * exercise's earlier sets with weight, and bronze at 95%; null below that,
+ * at weight 0 or with no earlier set to measure against.
+ */
+function recordTiersOf(session: FakeSession) {
+  const gold = new Set(recordHitsOf(session).map((hit) => hit.set.id));
+  const earlier = earlierSetsOf(session).filter((s) => s.weight > 0);
+  const tiers = new Map<string, 'gold' | 'silver' | 'bronze' | null>();
+  for (const set of setsOf(session)) {
+    const prior = earlier.filter((s) => s.exerciseId === set.exerciseId);
+    const best = Math.max(0, ...prior.map((s) => estimated1RM(kgOf(s), s.reps)));
+    const e1rm = estimated1RM(kgOf(set), set.reps);
+    if (gold.has(set.id)) tiers.set(set.id, 'gold');
+    else if (set.weight <= 0 || best <= 0) tiers.set(set.id, null);
+    else if (e1rm >= 0.975 * best - BEATS_BY) tiers.set(set.id, 'silver');
+    else if (e1rm >= 0.95 * best - BEATS_BY) tiers.set(set.id, 'bronze');
+    else tiers.set(set.id, null);
+  }
+  return tiers;
+}
+
 function sessionJson(fakeSession: FakeSession) {
+  const tiers = recordTiersOf(fakeSession);
   const { ownerId: _ownerId, exercises: sessionExercises, ...session } = fakeSession;
   return {
     ...session,
@@ -418,7 +454,7 @@ function sessionJson(fakeSession: FakeSession) {
       name: exerciseName(sessionExercise.exerciseId),
       planned: plannedExerciseId === null ? null : exerciseRef(plannedExerciseId),
       substitutes: substituteIds.map(exerciseRef),
-      sets: sets.map((set) => ({ ...set, name: exerciseName(set.exerciseId) })),
+      sets: sets.map((set) => ({ ...set, name: exerciseName(set.exerciseId), recordTier: tiers.get(set.id) ?? null })),
     })),
   };
 }

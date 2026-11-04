@@ -31,6 +31,13 @@ export type Colors = {
   successSubtle: string;
   /** Text on a success fill. */
   successText: string;
+  /** A logged set's Record tier (gold, silver, bronze): the row's fill and the text on it. */
+  gold: string;
+  goldText: string;
+  silver: string;
+  silverText: string;
+  bronze: string;
+  bronzeText: string;
   /** The filter cards: the app's one bold surface. */
   feature: string;
   featureText: string;
@@ -57,6 +64,13 @@ export const lightColors: Colors = {
   success: SAGE,
   successSubtle: '#E5ECE2',
   successText: '#FFFFFF',
+  // Each fill against its text is at least 6.9:1.
+  gold: '#F2D3A6',
+  goldText: '#5C3D12',
+  silver: '#E2E3E5',
+  silverText: '#383B40',
+  bronze: '#EBCBB3',
+  bronzeText: '#5E3519',
   feature: BRICK,
   featureText: '#FFF6EC',
   featureMuted: '#FAEAE5', // 4.5:1 on brick; any darker and it reads poorly
@@ -80,6 +94,13 @@ export const darkColors: Colors = {
   success: SAGE,
   successSubtle: '#263027',
   successText: '#F2ECE3',
+  // Deep fills that stay apart from the charcoal; each against its text is at least 7.2:1.
+  gold: '#5A4220',
+  goldText: '#F7DDB8',
+  silver: '#3D4045',
+  silverText: '#E4E6EA',
+  bronze: '#523426',
+  bronzeText: '#F2CFB6',
   feature: BRICK,
   featureText: '#FFF6EC',
   featureMuted: '#FAEAE5', // 4.5:1 on brick, as in the light theme

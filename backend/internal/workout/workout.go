@@ -131,17 +131,19 @@ type Target struct {
 // which differs from its Session exercise's when that's been swapped since.
 // Weight is in WeightUnit, the unit it was logged in. RPE is null when the
 // User left it blank. SupersetID is the Superset its exercise was in when it
-// was logged, if any.
+// was logged, if any. RecordTier is its Record tier: "gold", "silver",
+// "bronze", or null for none.
 type Set struct {
-	ID         uuid.UUID  `json:"id"`
-	ExerciseID uuid.UUID  `json:"exerciseId"`
-	Name       string     `json:"name"`
-	Weight     float64    `json:"weight"`
-	WeightUnit string     `json:"weightUnit"`
-	Reps       int32      `json:"reps"`
-	RPE        *float64   `json:"rpe"`
-	Note       string     `json:"note"`
-	SupersetID *uuid.UUID `json:"supersetId"`
+	ID         uuid.UUID   `json:"id"`
+	ExerciseID uuid.UUID   `json:"exerciseId"`
+	Name       string      `json:"name"`
+	Weight     float64     `json:"weight"`
+	WeightUnit string      `json:"weightUnit"`
+	Reps       int32       `json:"reps"`
+	RPE        *float64    `json:"rpe"`
+	Note       string      `json:"note"`
+	SupersetID *uuid.UUID  `json:"supersetId"`
+	RecordTier *RecordTier `json:"recordTier"`
 }
 
 // SessionSummary is a finished Session as the History lists it. RoutineName
@@ -347,7 +349,7 @@ func (h handlers) history(w http.ResponseWriter, r *http.Request) {
 			setExerciseIDs = append(setExerciseIDs, s.exerciseID)
 		}
 	}
-	records, err := h.personalRecords(ctx, caller, setExerciseIDs, unit, nil)
+	records, _, err := h.personalRecords(ctx, caller, setExerciseIDs, unit, nil)
 	if err != nil {
 		httpx.WriteInternalError(w, r, err)
 		return
@@ -1044,11 +1046,18 @@ func (h handlers) loadSession(ctx context.Context, id uuid.UUID) (Session, error
 			})
 		}
 	}
-	records, err := h.personalRecords(ctx, caller, setExerciseIDs, unit, inProgress)
+	records, tiers, err := h.personalRecords(ctx, caller, setExerciseIDs, unit, inProgress)
 	if err != nil {
 		return Session{}, err
 	}
 	session.PersonalRecords = append([]PersonalRecord{}, records[session.ID]...)
+	for _, e := range session.Exercises {
+		for j := range e.Sets {
+			if tier, ok := tiers[e.Sets[j].ID]; ok {
+				e.Sets[j].RecordTier = &tier
+			}
+		}
+	}
 	if row.RoutineID != nil {
 		routineNames, err := h.routines.RoutineNames(ctx, caller, []uuid.UUID{*row.RoutineID})
 		if err != nil {

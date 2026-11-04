@@ -7,8 +7,11 @@ import {
   formatSet,
   nextSetDraft,
   pendingSetCount,
+  recordTierLabels,
+  recordTierMedals,
   setColumns,
   setRuns,
+  type RecordTier,
   type Session,
   type SessionExercise,
   type SessionSet,
@@ -21,8 +24,6 @@ import { Button, makeStyles, spacing } from '@/shared/ui';
 type SetTableProps = {
   sessionId: string;
   sessionExercise: SessionExercise;
-  /** The Sets that hold a Personal record of the Session (so far). */
-  recordSetIds: ReadonlySet<string>;
   onChange: (session: Session) => void;
   onDeleteSet: (setId: string) => void;
 };
@@ -33,9 +34,10 @@ type SetTableProps = {
  * Set still to do, ready at the Target, with a box to tick to log it. "Add
  * set" adds another row. Once a swap means the Sets were done with more than
  * one Exercise, each run of them is labelled with its Exercise, and so are
- * the rows still to do. A logged Set holding a Personal record is marked.
+ * the rows still to do. A logged Set with a Record tier is filled in its
+ * colour and shows its medal.
  */
-export function SetTable({ sessionId, sessionExercise, recordSetIds, onChange, onDeleteSet }: SetTableProps) {
+export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: SetTableProps) {
   const styles = useStyles();
   const { state } = useAuth();
   const unit = state.status === 'signedIn' ? (state.me.unitPreference ?? 'kg') : 'kg';
@@ -104,7 +106,6 @@ export function SetTable({ sessionId, sessionExercise, recordSetIds, onChange, o
                 set={set}
                 number={number}
                 unit={unit}
-                isRecord={recordSetIds.has(set.id)}
                 onPress={() => setEditingSetId(set.id)}
               />
             ),
@@ -144,38 +145,37 @@ type LoggedSetRowProps = {
   number: number;
   /** The table's unit; a Set logged in the other one says so. */
   unit: string;
-  /** Whether it holds a Personal record. */
-  isRecord: boolean;
   onPress: () => void;
 };
 
-/** A logged Set as a row of the table, its values in their columns, and its note below. */
-function LoggedSetRow({ set, number, unit, isRecord, onPress }: LoggedSetRowProps) {
+/**
+ * A logged Set as a row of the table, its values in their columns, and its
+ * note below. A Set with a Record tier is filled in the tier's colour, with
+ * its medal by the Set number, and says its tier after its values.
+ */
+function LoggedSetRow({ set, number, unit, onPress }: LoggedSetRowProps) {
   const styles = useStyles();
+  const tier = set.recordTier;
+  const text = tier ? styles[`${tier}Text`] : null;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Edit set ${number}`}
-      accessibilityValue={{ text: formatSet(set) }}
+      accessibilityValue={{ text: tier ? `${formatSet(set)}, ${recordTierLabels[tier]}` : formatSet(set) }}
       onPress={onPress}
       style={({ pressed }) => pressed && styles.pressed}
     >
-      <View style={[setColumns.row, styles.logged]}>
-        <Text style={[setColumns.number, styles.number]}>
+      <View style={[setColumns.row, styles.logged, tier && styles[tier]]}>
+        <Text style={[setColumns.number, styles.number, text]}>
           {number}
-          {isRecord ? (
-            <Text accessibilityLabel="Personal record" style={styles.record}>
-              {' '}
-              🏆
-            </Text>
-          ) : null}
+          {tier ? <Medal tier={tier} /> : null}
         </Text>
-        <Text style={[setColumns.weight, styles.value]}>
+        <Text style={[setColumns.weight, styles.value, text]}>
           {set.weight}
           {set.weightUnit !== unit ? ` ${set.weightUnit}` : ''}
         </Text>
-        <Text style={[setColumns.reps, styles.value]}>{set.reps}</Text>
-        <Text style={[setColumns.rpe, styles.value]}>{set.rpe ?? '–'}</Text>
+        <Text style={[setColumns.reps, styles.value, text]}>{set.reps}</Text>
+        <Text style={[setColumns.rpe, styles.value, text]}>{set.rpe ?? '–'}</Text>
         <View style={setColumns.done}>
           <View style={styles.checked}>
             <Text style={styles.checkMark}>✓</Text>
@@ -187,6 +187,17 @@ function LoggedSetRow({ set, number, unit, isRecord, onPress }: LoggedSetRowProp
   );
 }
 
+/** A Record tier's medal, after the Set number; the row's value says the tier. */
+function Medal({ tier }: { tier: RecordTier }) {
+  const styles = useStyles();
+  return (
+    <Text importantForAccessibility="no" style={styles.medal}>
+      {' '}
+      {recordTierMedals[tier]}
+    </Text>
+  );
+}
+
 const useStyles = makeStyles((colors) => ({
   table: { gap: spacing.xs },
   header: { paddingBottom: 2 },
@@ -195,7 +206,13 @@ const useStyles = makeStyles((colors) => ({
   runLabel: { fontSize: 13, fontWeight: '600', color: colors.text, paddingTop: spacing.xs },
   pressed: { opacity: 0.5 },
   number: { fontSize: 17, color: colors.muted, textAlign: 'center' },
-  record: { fontSize: 13 },
+  medal: { fontSize: 13 },
+  gold: { backgroundColor: colors.gold },
+  goldText: { color: colors.goldText },
+  silver: { backgroundColor: colors.silver },
+  silverText: { color: colors.silverText },
+  bronze: { backgroundColor: colors.bronze },
+  bronzeText: { color: colors.bronzeText },
   value: { fontSize: 17, color: colors.text, textAlign: 'center' },
   // The box a row still to do shows, ticked.
   checked: {
