@@ -5,11 +5,7 @@ import { useTheme } from '@/shared/ui';
 export default function TabsLayout() {
   const { colors } = useTheme();
   return (
-    <NativeTabs
-      tintColor={colors.tabActive}
-      iconColor={colors.muted}
-      backgroundColor={colors.background}
-    >
+    <NativeTabs tintColor={colors.tabActive} iconColor={colors.muted} backgroundColor={colors.background}>
       <NativeTabs.Trigger name="(history)">
         <NativeTabs.Trigger.Icon sf="clock.arrow.circlepath" md="history" />
         <NativeTabs.Trigger.Label>History</NativeTabs.Trigger.Label>

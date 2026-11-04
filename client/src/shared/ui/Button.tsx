@@ -16,7 +16,15 @@ type ButtonProps = {
   accessibilityLabel?: string;
 };
 
-export function Button({ label, onPress, variant = 'primary', tone, loading, disabled, accessibilityLabel }: ButtonProps) {
+export function Button({
+  label,
+  onPress,
+  variant = 'primary',
+  tone,
+  loading,
+  disabled,
+  accessibilityLabel,
+}: ButtonProps) {
   const { colors } = useTheme();
   const styles = useStyles();
   const isPrimary = variant === 'primary';
@@ -46,11 +54,7 @@ export function Button({ label, onPress, variant = 'primary', tone, loading, dis
       {loading ? (
         <ActivityIndicator color={labelColor} />
       ) : (
-        <Text
-          style={[styles.label, isLink && styles.linkLabel, { color: labelColor }]}
-        >
-          {label}
-        </Text>
+        <Text style={[styles.label, isLink && styles.linkLabel, { color: labelColor }]}>{label}</Text>
       )}
     </Pressable>
   );

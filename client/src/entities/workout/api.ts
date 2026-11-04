@@ -109,7 +109,11 @@ export function finishSession(token: string, sessionId: string): Promise<Session
 
 /** Saves a finished Session's logged exercises as a new Routine, and returns its id. */
 export async function saveSessionAsRoutine(token: string, sessionId: string, name: string): Promise<string> {
-  const { id } = await apiRequest<{ id: string }>(path(sessionId, 'routine'), { method: 'POST', token, body: { name } });
+  const { id } = await apiRequest<{ id: string }>(path(sessionId, 'routine'), {
+    method: 'POST',
+    token,
+    body: { name },
+  });
   return id;
 }
 

@@ -66,7 +66,14 @@ describe('routines', () => {
     expect(saved).toMatchObject({
       name: 'Push day',
       slots: [
-        { targetSets: 3, targetReps: 5, targetWeight: 100, weightUnit: 'kg', restSeconds: 180, note: 'Pause on the chest' },
+        {
+          targetSets: 3,
+          targetReps: 5,
+          targetWeight: 100,
+          weightUnit: 'kg',
+          restSeconds: 180,
+          note: 'Pause on the chest',
+        },
         { targetSets: 3, targetReps: 8, targetWeight: 40, weightUnit: 'kg', restSeconds: null },
       ],
     });
@@ -116,7 +123,9 @@ describe('routines', () => {
     await screen.findByRole('header', { name: 'Workout' });
     expect(screen.queryByRole('header', { name: 'Workout finished' })).toBeNull();
     await act(async () => router.navigate('/'));
-    expect(await within(await screen.findByLabelText('Past workouts')).findByText('Bench Press, Overhead Press')).toBeVisible();
+    expect(
+      await within(await screen.findByLabelText('Past workouts')).findByText('Bench Press, Overhead Press'),
+    ).toBeVisible();
     const [session] = fakeApi.sessions(accountId);
     expect(session.routineId).toBe(saved.id);
     expect(session.finishedAt).not.toBeNull();
@@ -159,7 +168,9 @@ describe('routines', () => {
 
     // Back on the editor, in the order picked.
     bench = within(await screen.findByLabelText('Bench Press slot'));
-    expect(bench.getByLabelText('Substitutes').props.accessibilityValue).toEqual({ text: 'Push-up and Dumbbell Bench Press' });
+    expect(bench.getByLabelText('Substitutes').props.accessibilityValue).toEqual({
+      text: 'Push-up and Dumbbell Bench Press',
+    });
     // Dumbbell Bench Press is the better fallback: first in line.
     await fireEvent.press(bench.getByRole('button', { name: 'Move Dumbbell Bench Press up' }));
     expect(bench.getByLabelText('Substitutes').props.accessibilityValue).toEqual({
@@ -209,7 +220,10 @@ describe('routines', () => {
     expect(card.getByText('Instead of Bench Press')).toBeVisible();
     // The set already logged keeps the exercise it was done with; each
     // exercise's sets are labelled, the rows still to do too.
-    const runLabels = () => within(card.getByLabelText('Sets')).getAllByRole('header').map((h) => h.props.children);
+    const runLabels = () =>
+      within(card.getByLabelText('Sets'))
+        .getAllByRole('header')
+        .map((h) => h.props.children);
     expect(runLabels()).toEqual(['Bench Press', 'Dumbbell Bench Press']);
     // Back to the bench is a swap away, once it's free.
     await fireEvent.press(card.getByRole('button', { name: 'Swap Dumbbell Bench Press' }));

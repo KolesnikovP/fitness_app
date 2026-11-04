@@ -74,11 +74,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const data = await response.json().catch(() => null);
   if (!response.ok) {
     const error = data?.error;
-    throw new ApiError(
-      response.status,
-      error?.code ?? 'unknown',
-      error?.message ?? 'Something went wrong.',
-    );
+    throw new ApiError(response.status, error?.code ?? 'unknown', error?.message ?? 'Something went wrong.');
   }
   return data as T;
 }

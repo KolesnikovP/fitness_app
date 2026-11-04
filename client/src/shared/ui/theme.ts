@@ -59,7 +59,7 @@ export const lightColors: Colors = {
   successText: '#FFFFFF',
   feature: BRICK,
   featureText: '#FFF6EC',
-  featureMuted: '#F3D6CF',
+  featureMuted: '#FAEAE5', // 4.5:1 on brick; any darker and it reads poorly
   backdrop: 'rgba(0, 0, 0, 0.3)',
   tabActive: CHARCOAL,
 };
@@ -82,7 +82,7 @@ export const darkColors: Colors = {
   successText: '#F2ECE3',
   feature: BRICK,
   featureText: '#FFF6EC',
-  featureMuted: '#F0CFC8',
+  featureMuted: '#FAEAE5', // 4.5:1 on brick, as in the light theme
   backdrop: 'rgba(0, 0, 0, 0.6)',
   tabActive: GOLD,
 };

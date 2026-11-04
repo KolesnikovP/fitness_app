@@ -45,9 +45,7 @@ export function TrainingCalendar({ finishedAt, now = new Date() }: { finishedAt:
         >
           <Text style={styles.arrow}>‹</Text>
         </Pressable>
-        <Text style={styles.month}>
-          {shown.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
-        </Text>
+        <Text style={styles.month}>{shown.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</Text>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Next month"

@@ -165,7 +165,8 @@ function LoggedSetRow({ set, number, unit, isRecord, onPress }: LoggedSetRowProp
           {number}
           {isRecord ? (
             <Text accessibilityLabel="Personal record" style={styles.record}>
-              {' '}🏆
+              {' '}
+              🏆
             </Text>
           ) : null}
         </Text>

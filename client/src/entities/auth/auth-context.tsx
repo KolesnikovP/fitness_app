@@ -49,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- predates the linter; refactor when next touched.
     restore();
   }, [restore]);
 

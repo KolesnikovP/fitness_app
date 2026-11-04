@@ -99,7 +99,10 @@ export function CurrentSessionScreen() {
       // A Freeform session can be saved as a Routine; any can have set Personal records.
       const freeform = session.routineId === null;
       if (freeform || finished.personalRecords.length > 0) {
-        router.replace({ pathname: '/workout/finished', params: { sessionId: session.id, freeform: String(freeform) } });
+        router.replace({
+          pathname: '/workout/finished',
+          params: { sessionId: session.id, freeform: String(freeform) },
+        });
       } else {
         router.back();
       }

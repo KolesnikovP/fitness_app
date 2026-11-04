@@ -21,7 +21,13 @@ type SessionExerciseCardProps = {
  * anything, and swapping it for a Substitute; its Sets as a table, logged and
  * still to do; and a note.
  */
-export function SessionExerciseCard({ sessionId, sessionExercise, recordSetIds, onChange, onDeleteSet }: SessionExerciseCardProps) {
+export function SessionExerciseCard({
+  sessionId,
+  sessionExercise,
+  recordSetIds,
+  onChange,
+  onDeleteSet,
+}: SessionExerciseCardProps) {
   const styles = useStyles();
   const target = currentTarget(sessionExercise);
 

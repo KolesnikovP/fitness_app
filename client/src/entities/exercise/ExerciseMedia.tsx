@@ -1,4 +1,4 @@
-import { Image, StyleSheet } from 'react-native';
+import { Image } from 'react-native';
 
 import { apiUrl } from '@/shared/api';
 import { makeStyles } from '@/shared/ui';

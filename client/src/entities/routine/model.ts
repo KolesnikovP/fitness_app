@@ -63,9 +63,7 @@ export const MAX_TARGET_SETS = 20;
 export const REST_OPTIONS: readonly number[] = [60, 90, 120, 180, 240, 300];
 
 /** How the slots of a Routine are laid out: single slots and Supersets. */
-export type SlotBlock =
-  | { kind: 'slot'; slot: SlotDraft }
-  | { kind: 'superset'; group: number; slots: SlotDraft[] };
+export type SlotBlock = { kind: 'slot'; slot: SlotDraft } | { kind: 'superset'; group: number; slots: SlotDraft[] };
 
 let lastKey = 0;
 function newKey(): string {
@@ -105,22 +103,20 @@ function flatten(blocks: SlotBlock[]): SlotDraft[] {
 
 /** A draft holding a saved Routine, to edit it. */
 export function routineDraftOf(routine: Routine): RoutineDraft {
-  const slots = routine.slots.map(
-    (slot): SlotDraft => ({
-      key: slot.id,
-      exerciseId: slot.exerciseId,
-      name: slot.name,
-      sets: String(slot.targetSets),
-      reps: String(slot.targetReps),
-      // 0 is no weight yet: shown blank, as it was left.
-      weight: slot.targetWeight === 0 ? '' : String(slot.targetWeight),
-      weightUnit: slot.weightUnit,
-      restSeconds: slot.restSeconds,
-      note: slot.note,
-      supersetGroup: slot.supersetGroup,
-      substitutes: slot.substitutes,
-    }),
-  );
+  const slots = routine.slots.map((slot): SlotDraft => ({
+    key: slot.id,
+    exerciseId: slot.exerciseId,
+    name: slot.name,
+    sets: String(slot.targetSets),
+    reps: String(slot.targetReps),
+    // 0 is no weight yet: shown blank, as it was left.
+    weight: slot.targetWeight === 0 ? '' : String(slot.targetWeight),
+    weightUnit: slot.weightUnit,
+    restSeconds: slot.restSeconds,
+    note: slot.note,
+    supersetGroup: slot.supersetGroup,
+    substitutes: slot.substitutes,
+  }));
   // Each Superset's slots together, as they're shown.
   return { name: routine.name, slots: flatten(slotBlocks(slots)) };
 }
@@ -213,7 +209,10 @@ export function withSlotRemoved(draft: RoutineDraft, key: string): RoutineDraft 
   const slots = draft.slots.filter((slot) => slot.key !== key);
   const group = removed?.supersetGroup ?? null;
   if (group !== null && slots.filter((slot) => slot.supersetGroup === group).length < 2) {
-    return { ...draft, slots: slots.map((slot) => (slot.supersetGroup === group ? { ...slot, supersetGroup: null } : slot)) };
+    return {
+      ...draft,
+      slots: slots.map((slot) => (slot.supersetGroup === group ? { ...slot, supersetGroup: null } : slot)),
+    };
   }
   return { ...draft, slots };
 }

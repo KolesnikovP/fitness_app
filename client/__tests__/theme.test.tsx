@@ -69,7 +69,7 @@ describe('theme', () => {
     expect(screen.getByRole('radio', { name: 'Dark' })).toBeChecked();
   });
 
-  it("goes back to following the phone when System is picked", async () => {
+  it('goes back to following the phone when System is picked', async () => {
     await launchSignedIn();
 
     await openProfile();
@@ -99,5 +99,44 @@ describe('theme', () => {
     phone.setScheme('dark');
     await renderRouter('./src/app', { initialUrl: '/' });
     expect(await screen.findByRole('header', { name: 'Log in' })).toHaveStyle({ color: darkColors.text });
+  });
+});
+
+/** WCAG 2's contrast ratio of two #RRGGBB colours, from 1 to 21. */
+function contrast(a: string, b: string) {
+  const luminance = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => {
+      const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light + 0.05) / (dark + 0.05);
+}
+
+describe.each([
+  ['light', lightColors],
+  ['dark', darkColors],
+])('the %s palette', (_, colors) => {
+  // Text reads at 4.5:1 (WCAG AA). The tick on a logged set is an icon, which needs 3:1.
+  const ICONS = ['success'];
+  const fills = Object.keys(colors).filter((key) => `${key}Text` in colors) as (keyof typeof colors)[];
+  const pairs: [string, string, string, number][] = [
+    ...fills.map((fill): [string, string, string, number] => [
+      `${fill}Text on ${fill}`,
+      colors[`${fill}Text` as keyof typeof colors],
+      colors[fill],
+      ICONS.includes(fill) ? 3 : 4.5,
+    ]),
+    ['featureMuted on feature', colors.featureMuted, colors.feature, 4.5],
+    ...(['text', 'muted', 'link'] as const).flatMap((ink): [string, string, string, number][] => [
+      [`${ink} on background`, colors[ink], colors.background, 4.5],
+      [`${ink} on card`, colors[ink], colors.card, 4.5],
+    ]),
+  ];
+
+  it.each(pairs)('keeps %s readable', (_, ink, fill, minimum) => {
+    expect(contrast(ink, fill)).toBeGreaterThanOrEqual(minimum);
   });
 });

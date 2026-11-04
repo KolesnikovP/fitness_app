@@ -9,7 +9,11 @@ export const imagePicker = {
 };
 
 export const imagePickerModule = {
-  UIImagePickerPreferredAssetRepresentationMode: { Automatic: 'automatic', Compatible: 'compatible', Current: 'current' },
+  UIImagePickerPreferredAssetRepresentationMode: {
+    Automatic: 'automatic',
+    Compatible: 'compatible',
+    Current: 'current',
+  },
   launchImageLibraryAsync: async (options: Record<string, unknown>) => {
     imagePicker.lastOptions = options;
     const pick = imagePicker.nextPick;
