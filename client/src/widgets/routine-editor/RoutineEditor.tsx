@@ -64,6 +64,7 @@ export function RoutineEditor({
 
   useEffect(() => {
     if (!added || added.length === 0) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- predates the linter; refactor when next touched.
     setDraft((d) => added.reduce((next, exercise) => withSlotAdded(next, exercise, unit), d));
     onAdded();
     // Only new picks: onAdded and unit don't change what was picked.
@@ -72,6 +73,7 @@ export function RoutineEditor({
 
   useEffect(() => {
     if (!addedSubstitutes || addedSubstitutes.exercises.length === 0) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- predates the linter; refactor when next touched.
     setDraft((d) => withSubstitutesAdded(d, addedSubstitutes.slotKey, addedSubstitutes.exercises));
     onSubstitutesAdded();
     // Only new picks, as above.

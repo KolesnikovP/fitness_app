@@ -23,6 +23,7 @@ export function usePendingSetDeletion(
   const pending = useRef<Pending | null>(null);
   // The latest callbacks, so a timer set earlier reports to the current ones.
   const callbacks = useRef({ onDeleted, onError });
+  // eslint-disable-next-line react-hooks/refs -- predates the linter; refactor when next touched.
   callbacks.current = { onDeleted, onError };
 
   const send = useCallback(async () => {

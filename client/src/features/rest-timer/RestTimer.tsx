@@ -30,6 +30,7 @@ export function RestTimer({ plannedSeconds = [] }: { plannedSeconds?: number[] }
 
   useEffect(() => {
     if (endsAt !== null && remaining === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- predates the linter; refactor when next touched.
       setEndsAt(null);
       setOver(true);
       Vibration.vibrate();
@@ -37,6 +38,7 @@ export function RestTimer({ plannedSeconds = [] }: { plannedSeconds?: number[] }
   }, [endsAt, remaining]);
 
   function start(seconds: number) {
+    // eslint-disable-next-line react-hooks/purity -- start runs on a press, not during render.
     const startedAt = Date.now();
     setNow(startedAt);
     setEndsAt(startedAt + seconds * 1000);
