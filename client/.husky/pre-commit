@@ -1,0 +1,17 @@
+# Checks the side of the repo a commit touches. Backend tests need Postgres and
+# take minutes, so they stay with `make test`.
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+
+if echo "$staged" | grep -q '^client/'; then
+  (cd client && npx lint-staged && npm run typecheck && npm test -- --runInBand)
+fi
+
+if echo "$staged" | grep -q '^backend/'; then
+  unformatted=$(gofmt -l backend)
+  if [ -n "$unformatted" ]; then
+    echo "Run gofmt -w on:"
+    echo "$unformatted"
+    exit 1
+  fi
+  (cd backend && go vet ./...)
+fi
