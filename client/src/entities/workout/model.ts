@@ -95,8 +95,9 @@ export type SessionStats = {
 };
 
 /**
- * A Set of a finished Session that beat every earlier Set of its Exercise by
- * the User: by Estimated 1RM, or by weight at the same reps (a rep record).
+ * A Set of a Session that beat every earlier Set of its Exercise by the User:
+ * by Estimated 1RM, or by weight at the same reps (a rep record). While the
+ * Session is in progress it's a record so far, which a better Set takes over.
  * weight is in weightUnit, as logged; estimated1RM in estimated1RMUnit, the
  * User's Unit preference.
  */
@@ -131,6 +132,12 @@ export type BestSet = {
  */
 export type ExerciseRecords = { estimated1RM: BestSet | null; repRecords: BestSet[] };
 
+/** The records after has that before didn't: those a Set just logged or corrected set. */
+export function newRecords(before: Session, after: Session): PersonalRecord[] {
+  const had = new Set(before.personalRecords.map((r) => `${r.setId}/${r.kind}`));
+  return after.personalRecords.filter((r) => !had.has(`${r.setId}/${r.kind}`));
+}
+
 /** "Bench Press: Estimated 1RM 122.5 kg, from 105 kg × 5", or "Bench Press: 105 kg × 5, best at 5 reps" */
 export function formatPersonalRecord(record: PersonalRecord): string {
   const set = `${record.weight} ${record.weightUnit} × ${record.reps}`;
@@ -143,7 +150,8 @@ export function formatPersonalRecord(record: PersonalRecord): string {
  * One logged workout. routineId is the Routine it was started from, null for
  * a Freeform session (or once that Routine is deleted), and routineName that
  * Routine's name as it is now. finishedAt and stats are null while it's in
- * progress, as is personalRecords: the records its Sets set, in the order logged.
+ * progress. personalRecords are the records its Sets set (so far, while in
+ * progress), in the order logged.
  */
 export type Session = {
   id: string;
@@ -153,7 +161,7 @@ export type Session = {
   finishedAt: string | null;
   exercises: SessionExercise[];
   stats: SessionStats | null;
-  personalRecords: PersonalRecord[] | null;
+  personalRecords: PersonalRecord[];
 };
 
 /** A finished Session as the History lists it. */

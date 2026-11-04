@@ -73,7 +73,7 @@ The weight a Set suggests the User could lift for one rep, by the Epley formula:
 _Avoid_: Max, 1RM (as the computed value), e1RM
 
 **Personal record**:
-A Set that beats every earlier Set of its Exercise by the User, by Estimated 1RM. A finished Session sets at most one per Exercise, with its best Set, and only when an earlier Session has a Set of that Exercise to beat: the first Session of an Exercise sets none, and neither do Sets at weight 0. It follows the Exercise actually done, and is worked out from Sets when shown, so correcting a Set can add or remove one.
+A Set that beats every earlier Set of its Exercise by the User, by Estimated 1RM. A finished Session sets at most one per Exercise, with its best Set, and only when an earlier Session has a Set of that Exercise to beat: the first Session of an Exercise sets none, and neither do Sets at weight 0. It follows the Exercise actually done, and is worked out from Sets when shown, so correcting a Set can add or remove one. A Session in progress has the records its Sets set so far, so the User hears of one the moment they log it.
 _Avoid_: PR (in the code), best, achievement
 
 **Rep record**:

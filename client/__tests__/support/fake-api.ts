@@ -352,13 +352,19 @@ function setsOf(session: FakeSession) {
 /**
  * The records a finished session set, as the real API works them out: the
  * session's best set of each kind for an exercise, when it beats every set of
- * the owner's earlier finished sessions (of which there must be one).
+ * the owner's earlier finished sessions (of which there must be one). One in
+ * progress has the records its sets set so far, against every finished one.
  */
 function personalRecordsOf(session: FakeSession) {
-  if (!session.finishedAt) return null;
   const unit = unitOf(session.ownerId);
   const earlier = sessions
-    .filter((s) => s.ownerId === session.ownerId && s.finishedAt && s.finishedAt < session.finishedAt!)
+    .filter(
+      (s) =>
+        s !== session &&
+        s.ownerId === session.ownerId &&
+        s.finishedAt &&
+        (!session.finishedAt || s.finishedAt < session.finishedAt),
+    )
     .flatMap(setsOf);
   const bestE1RM = new Map<string, { set: FakeSet; kg: number }>();
   const bestReps = new Map<string, { set: FakeSet; kg: number }>();

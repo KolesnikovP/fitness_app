@@ -26,7 +26,7 @@ export function FinishedSessionScreen() {
     let current = true;
     // Records are a bonus here: without them the screen still works.
     getSession(token, sessionId)
-      .then((session) => current && setRecords(session.personalRecords ?? []))
+      .then((session) => current && setRecords(session.personalRecords))
       .catch(() => {});
     return () => {
       current = false;

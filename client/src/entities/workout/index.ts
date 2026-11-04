@@ -14,6 +14,7 @@ export {
   formatVolume,
   formatTarget,
   hasSets,
+  newRecords,
   nextSetDraft,
   parseReps,
   pendingSetCount,
@@ -69,6 +70,7 @@ export {
   type NewSet,
 } from './api';
 export { ExerciseRecordsCard } from './ExerciseRecordsCard';
+export { NewRecordBanner } from './NewRecordBanner';
 export { PersonalRecordList } from './PersonalRecordList';
 export { SessionStatsLine } from './SessionStatsLine';
 export { SessionSummaryItem } from './SessionSummaryItem';

@@ -78,8 +78,7 @@ func NewService(pool *pgxpool.Pool, exercises Exercises, routines Routines, prof
 // Session is one logged workout as the API returns it. RoutineID is the
 // Routine it was started from, null for a freeform Session (or once that
 // Routine is deleted), and RoutineName that Routine's name as it is now.
-// FinishedAt, Stats and PersonalRecords are null while the Session is in
-// progress.
+// FinishedAt and Stats are null while the Session is in progress.
 type Session struct {
 	ID          uuid.UUID         `json:"id"`
 	RoutineID   *uuid.UUID        `json:"routineId"`
@@ -88,7 +87,8 @@ type Session struct {
 	FinishedAt  *time.Time        `json:"finishedAt"`
 	Exercises   []SessionExercise `json:"exercises"`
 	Stats       *Stats            `json:"stats"`
-	// PersonalRecords are the records its Sets set, in the order logged.
+	// PersonalRecords are the records its Sets set (so far, while in
+	// progress), in the order logged.
 	PersonalRecords []PersonalRecord `json:"personalRecords"`
 }
 
@@ -347,7 +347,7 @@ func (h handlers) history(w http.ResponseWriter, r *http.Request) {
 			setExerciseIDs = append(setExerciseIDs, s.exerciseID)
 		}
 	}
-	records, err := h.personalRecords(ctx, caller, setExerciseIDs, unit)
+	records, err := h.personalRecords(ctx, caller, setExerciseIDs, unit, nil)
 	if err != nil {
 		httpx.WriteInternalError(w, r, err)
 		return
@@ -1029,21 +1029,26 @@ func (h handlers) loadSession(ctx context.Context, id uuid.UUID) (Session, error
 	if session.Stats, err = h.sessionStats(ctx, caller, session); err != nil {
 		return Session{}, err
 	}
-	if session.FinishedAt != nil {
-		unit, err := h.profiles.UnitPreference(ctx, caller)
-		if err != nil {
-			return Session{}, err
-		}
-		var setExerciseIDs []uuid.UUID
-		for _, s := range setRows {
-			setExerciseIDs = append(setExerciseIDs, s.ExerciseID)
-		}
-		records, err := h.personalRecords(ctx, caller, setExerciseIDs, unit)
-		if err != nil {
-			return Session{}, err
-		}
-		session.PersonalRecords = append([]PersonalRecord{}, records[session.ID]...)
+	unit, err := h.profiles.UnitPreference(ctx, caller)
+	if err != nil {
+		return Session{}, err
 	}
+	var setExerciseIDs []uuid.UUID
+	var inProgress []store.ListFinishedSetsOfExercisesRow
+	for _, s := range setRows {
+		setExerciseIDs = append(setExerciseIDs, s.ExerciseID)
+		if session.FinishedAt == nil {
+			inProgress = append(inProgress, store.ListFinishedSetsOfExercisesRow{
+				SessionID: session.ID, ID: s.ID, ExerciseID: s.ExerciseID, Weight: s.Weight,
+				WeightUnit: s.WeightUnit, Reps: s.Reps,
+			})
+		}
+	}
+	records, err := h.personalRecords(ctx, caller, setExerciseIDs, unit, inProgress)
+	if err != nil {
+		return Session{}, err
+	}
+	session.PersonalRecords = append([]PersonalRecord{}, records[session.ID]...)
 	if row.RoutineID != nil {
 		routineNames, err := h.routines.RoutineNames(ctx, caller, []uuid.UUID{*row.RoutineID})
 		if err != nil {

@@ -121,6 +121,28 @@ func TestPersonalRecords(t *testing.T) {
 		}
 	})
 
+	t.Run("a session in progress has the records its sets set so far, which a better set takes over", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		logWorkout(t, srv, token, "Bench Press", set{100, "kg", 5})
+		id := startSession(t, srv, token)
+		e := addExercise(t, srv, token, id, "Bench Press")
+		if got := sessionRecords(t, srv, token, id); got != "[]" {
+			t.Errorf("records before any set = %s, want none", got)
+		}
+
+		logSetIn(t, srv, token, id, e, 102.5, "kg", 5)
+		first := sessionRecords(t, srv, token, id)
+		logSetIn(t, srv, token, id, e, 105, "kg", 5)
+		second := sessionRecords(t, srv, token, id)
+
+		if want := "[Bench Press estimated1RM 102.5kg×5 Bench Press reps 102.5kg×5]"; first != want {
+			t.Errorf("records after 102.5 = %s, want %s", first, want)
+		}
+		if want := "[Bench Press estimated1RM 105kg×5 Bench Press reps 105kg×5]"; second != want {
+			t.Errorf("records after 105 = %s, want %s", second, want)
+		}
+	})
+
 	t.Run("lists each session's records in the history", func(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
 		logWorkout(t, srv, token, "Bench Press", set{100, "kg", 5})

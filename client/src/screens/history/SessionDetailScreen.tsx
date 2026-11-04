@@ -62,7 +62,7 @@ export function SessionDetailScreen() {
           {formatSessionDate(finishedAt)}, {formatClockTime(session.startedAt)} – {formatClockTime(finishedAt)}
         </Text>
         {session.stats ? <SessionStatsLine stats={session.stats} /> : null}
-        {session.personalRecords ? <PersonalRecordList records={session.personalRecords} /> : null}
+        <PersonalRecordList records={session.personalRecords} />
         {session.exercises.map((exercise) => (
             <View key={exercise.id} style={styles.exercise}>
               {exercise.sets.length === 0 ? (

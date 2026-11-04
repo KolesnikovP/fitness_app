@@ -27,7 +27,8 @@ import (
 // Sessions, and so those earlier in the same Session too. There must be an
 // earlier Session's Set to beat, so the first Session of an Exercise sets
 // none, nor its first Session at a rep count a rep record. Sets at weight 0 set
-// none.
+// none. A Session in progress has the records its Sets set so far, so the
+// User hears of one as soon as they log it.
 const (
 	// kindEstimated1RM is a Set whose Estimated 1RM beats every earlier one.
 	kindEstimated1RM = "estimated1RM"
@@ -183,15 +184,16 @@ func recordsBySession(sets []store.ListFinishedSetsOfExercisesRow) map[uuid.UUID
 
 // personalRecords works out the records each of the caller's finished
 // Sessions set in exerciseIDs, keyed by Session, with Estimated 1RMs in unit.
+// inProgress, the Sets of the Session in progress if any, come after them all.
 func (h handlers) personalRecords(ctx context.Context, caller uuid.UUID, exerciseIDs []uuid.UUID,
-	unit string) (map[uuid.UUID][]PersonalRecord, error) {
+	unit string, inProgress []store.ListFinishedSetsOfExercisesRow) (map[uuid.UUID][]PersonalRecord, error) {
 	sets, err := h.queries.ListFinishedSetsOfExercises(ctx, store.ListFinishedSetsOfExercisesParams{
 		AccountID: caller, ExerciseIds: exerciseIDs,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list sets of exercises: %w", err)
 	}
-	hits := recordsBySession(sets)
+	hits := recordsBySession(append(sets, inProgress...))
 	var ids []uuid.UUID
 	for _, list := range hits {
 		for _, hit := range list {
