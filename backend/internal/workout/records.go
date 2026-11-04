@@ -80,11 +80,15 @@ type BestSet struct {
 // gold; any other Set with weight is silver at silverAt of that best or more,
 // which takes in Sets above it that aren't the Session's record, and bronze at
 // bronzeAt. With no such best, a Set has no tier but gold.
-const (
-	tierGold   = "gold"
-	tierSilver = "silver"
-	tierBronze = "bronze"
+type RecordTier string
 
+const (
+	tierGold   RecordTier = "gold"
+	tierSilver RecordTier = "silver"
+	tierBronze RecordTier = "bronze"
+)
+
+const (
 	silverAt = 0.975
 	bronzeAt = 0.95
 )
@@ -138,9 +142,9 @@ type best struct {
 // Exercises concerned in the order they were done, a Session's together. Each
 // Session's are in the order its Sets were logged. It also finds each Set's
 // Record tier, keyed by Set; a Set with none is left out.
-func recordsBySession(sets []store.ListFinishedSetsOfExercisesRow) (map[uuid.UUID][]recordHit, map[uuid.UUID]string) {
+func recordsBySession(sets []store.ListFinishedSetsOfExercisesRow) (map[uuid.UUID][]recordHit, map[uuid.UUID]RecordTier) {
 	out := make(map[uuid.UUID][]recordHit)
-	tiers := make(map[uuid.UUID]string)
+	tiers := make(map[uuid.UUID]RecordTier)
 	priorE1RM := make(map[uuid.UUID]float64)
 	priorReps := make(map[exerciseReps]float64)
 	for start := 0; start < len(sets); {
@@ -221,7 +225,7 @@ func recordsBySession(sets []store.ListFinishedSetsOfExercisesRow) (map[uuid.UUI
 // and the Record tier of each of their Sets that has one, keyed by Set.
 // inProgress, the Sets of the Session in progress if any, come after them all.
 func (h handlers) personalRecords(ctx context.Context, caller uuid.UUID, exerciseIDs []uuid.UUID,
-	unit string, inProgress []store.ListFinishedSetsOfExercisesRow) (map[uuid.UUID][]PersonalRecord, map[uuid.UUID]string, error) {
+	unit string, inProgress []store.ListFinishedSetsOfExercisesRow) (map[uuid.UUID][]PersonalRecord, map[uuid.UUID]RecordTier, error) {
 	sets, err := h.queries.ListFinishedSetsOfExercises(ctx, store.ListFinishedSetsOfExercisesParams{
 		AccountID: caller, ExerciseIds: exerciseIDs,
 	})

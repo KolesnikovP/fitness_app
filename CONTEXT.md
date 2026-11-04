@@ -81,7 +81,7 @@ A Personal record by weight at the same reps: the heaviest Set at a rep count, b
 _Avoid_: Rep PR, rep max
 
 **Record tier**:
-How close a Set came to the User's best Estimated 1RM for its Exercise before its Session: gold, silver, bronze or none. Gold is a Set holding a Personal record of either kind; any other Set with weight is silver at 97.5% of that best or more (a tie, or beating it without being the Session's record, is silver), and bronze at 95%. The best is from the User's finished Sessions before this one, so a later record never changes an earlier Session's tiers. An Exercise's first Session and Sets at weight 0 have none. Like Personal records, it is worked out from Sets when shown.
+How close a Set came to the User's best Estimated 1RM for its Exercise before its Session: gold, silver, bronze or none. Gold is a Set holding a Personal record of either kind; any other Set with weight is silver at 97.5% of that best or more (a tie, or beating it without being the Session's record, is silver), and bronze at 95%. The best is the highest among the Exercise's Sets with weight in the User's finished Sessions before this one, so a later record never changes an earlier Session's tiers; with no such Set, only a Personal record has a tier. An Exercise's first Session and Sets at weight 0 have none. Like Personal records, it is worked out from Sets when shown.
 _Avoid_: Medal (as the term), rank, grade
 
 **Rest timer**:

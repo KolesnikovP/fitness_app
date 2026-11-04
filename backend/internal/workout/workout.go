@@ -134,16 +134,16 @@ type Target struct {
 // was logged, if any. RecordTier is its Record tier: "gold", "silver",
 // "bronze", or null for none.
 type Set struct {
-	ID         uuid.UUID  `json:"id"`
-	ExerciseID uuid.UUID  `json:"exerciseId"`
-	Name       string     `json:"name"`
-	Weight     float64    `json:"weight"`
-	WeightUnit string     `json:"weightUnit"`
-	Reps       int32      `json:"reps"`
-	RPE        *float64   `json:"rpe"`
-	Note       string     `json:"note"`
-	SupersetID *uuid.UUID `json:"supersetId"`
-	RecordTier *string    `json:"recordTier"`
+	ID         uuid.UUID   `json:"id"`
+	ExerciseID uuid.UUID   `json:"exerciseId"`
+	Name       string      `json:"name"`
+	Weight     float64     `json:"weight"`
+	WeightUnit string      `json:"weightUnit"`
+	Reps       int32       `json:"reps"`
+	RPE        *float64    `json:"rpe"`
+	Note       string      `json:"note"`
+	SupersetID *uuid.UUID  `json:"supersetId"`
+	RecordTier *RecordTier `json:"recordTier"`
 }
 
 // SessionSummary is a finished Session as the History lists it. RoutineName

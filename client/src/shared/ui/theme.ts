@@ -31,10 +31,7 @@ export type Colors = {
   successSubtle: string;
   /** Text on a success fill. */
   successText: string;
-  /**
-   * A logged set's Record tier: the row's fill and the text on it. Gold holds a Personal record,
-   * silver and bronze came within 2.5% and 5% of the best.
-   */
+  /** A logged set's Record tier (gold, silver, bronze): the row's fill and the text on it. */
   gold: string;
   goldText: string;
   silver: string;

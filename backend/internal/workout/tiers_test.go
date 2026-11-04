@@ -84,6 +84,16 @@ func TestRecordTiers(t *testing.T) {
 		}
 	})
 
+	t.Run("with only weight 0 before, a record is gold and no other set is tiered", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		logWorkout(t, srv, token, "Pull-up", set{0, "kg", 10})
+		later := logWorkout(t, srv, token, "Pull-up", set{0, "kg", 10}, set{10, "kg", 5}, set{5, "kg", 5})
+
+		if got, want := sessionTiers(t, srv, token, later), "[0kg×10 none 10kg×5 gold 5kg×5 none]"; got != want {
+			t.Errorf("tiers = %s, want %s", got, want)
+		}
+	})
+
 	t.Run("compares kg and lb by one fixed factor", func(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
 		logWorkout(t, srv, token, "Back Squat", set{100, "kg", 5})
@@ -97,7 +107,7 @@ func TestRecordTiers(t *testing.T) {
 
 	t.Run("a swapped set is measured against the exercise swapped to", func(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
-		logWorkout(t, srv, token, "Bench Press", set{30, "kg", 10})
+		logWorkout(t, srv, token, "Bench Press", set{40, "kg", 10})
 		logWorkout(t, srv, token, "Dumbbell Bench Press", set{30, "kg", 10})
 		routine := createRoutine(t, srv, token, map[string]any{
 			"name": "Push day",
@@ -109,16 +119,16 @@ func TestRecordTiers(t *testing.T) {
 		})
 		started := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions", token, map[string]any{"routineId": routine})
 		id, e := started.Body["id"].(string), sessionExercises(t, started)[0]["id"].(string)
-		logSetIn(t, srv, token, id, e, 29, "kg", 10) // A Bench Press set: 96.7% of its best.
+		logSetIn(t, srv, token, id, e, 38.5, "kg", 10) // A Bench Press set: 96.25% of its best.
 		swapped := testutil.Do(t, srv, http.MethodPatch, "/workouts/sessions/"+id+"/exercises/"+e, token,
 			map[string]any{"exerciseId": exerciseID(t, srv, token, "Dumbbell Bench Press")})
 		if swapped.Status != http.StatusOK {
 			t.Fatalf("swap: status %d, body %v", swapped.Status, swapped.Body)
 		}
-		logSetIn(t, srv, token, id, e, 30, "kg", 10) // Ties the Dumbbell Bench Press best.
+		logSetIn(t, srv, token, id, e, 30, "kg", 10) // Ties the Dumbbell Bench Press best; 75% of the Bench Press one.
 		finishSession(t, srv, token, id)
 
-		if got, want := sessionTiers(t, srv, token, id), "[29kg×10 bronze 30kg×10 silver]"; got != want {
+		if got, want := sessionTiers(t, srv, token, id), "[38.5kg×10 bronze 30kg×10 silver]"; got != want {
 			t.Errorf("tiers = %s, want %s", got, want)
 		}
 	})
