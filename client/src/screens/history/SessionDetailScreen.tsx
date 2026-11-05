@@ -9,17 +9,21 @@ import {
   formatSet,
   getSession,
   PersonalRecordList,
+  recordTierLabels,
+  recordTierMedals,
   SessionStatsLine,
   setRuns,
   workoutName,
   type Session,
+  type SessionSet,
 } from '@/entities/workout';
 import { errorMessage } from '@/shared/api';
 import { makeStyles, Screen, spacing, Spinner } from '@/shared/ui';
 
 /**
  * A finished Session, read-only: its stats and Personal records, then each of
- * its Exercises with its Sets, as many as its exercise count says.
+ * its Exercises with its Sets, as many as its exercise count says. A Set
+ * with a Record tier is filled in its colour and shows its medal.
  */
 export function SessionDetailScreen() {
   const styles = useStyles();
@@ -79,13 +83,7 @@ export function SessionDetailScreen() {
                   {run.name}
                 </Text>
                 {run.sets.map(({ set, number }) => (
-                  <View key={set.id} style={styles.set}>
-                    <Text style={styles.number}>{number}</Text>
-                    <View style={styles.setBody}>
-                      <Text style={styles.setText}>{formatSet(set)}</Text>
-                      {set.note ? <Text style={styles.muted}>{set.note}</Text> : null}
-                    </View>
-                  </View>
+                  <SetLine key={set.id} set={set} number={number} />
                 ))}
               </View>
             ))}
@@ -97,6 +95,39 @@ export function SessionDetailScreen() {
   );
 }
 
+/**
+ * A Set as a line: its number, its values and its note. A Set with a Record
+ * tier is filled in the tier's colour, with its medal by the number, and says
+ * its tier after its values, as in the set table.
+ */
+function SetLine({ set, number }: { set: SessionSet; number: number }) {
+  const styles = useStyles();
+  const tier = set.recordTier;
+  const text = tier ? styles[`${tier}Text`] : null;
+  return (
+    <View
+      accessible
+      accessibilityLabel={`Set ${number}`}
+      accessibilityValue={{ text: tier ? `${formatSet(set)}, ${recordTierLabels[tier]}` : formatSet(set) }}
+      style={[styles.set, tier && [styles.tiered, styles[tier]]]}
+    >
+      <Text style={[styles.number, text]}>
+        {number}
+        {tier ? (
+          <Text importantForAccessibility="no" style={styles.medal}>
+            {' '}
+            {recordTierMedals[tier]}
+          </Text>
+        ) : null}
+      </Text>
+      <View style={styles.setBody}>
+        <Text style={[styles.setText, text]}>{formatSet(set)}</Text>
+        {set.note ? <Text style={[styles.muted, text]}>{set.note}</Text> : null}
+      </View>
+    </View>
+  );
+}
+
 const useStyles = makeStyles((colors) => ({
   error: { color: colors.danger, fontSize: 15 },
   detail: { gap: spacing.md },
@@ -104,7 +135,16 @@ const useStyles = makeStyles((colors) => ({
   run: { gap: spacing.xs },
   name: { fontSize: 17, fontWeight: '700', color: colors.text },
   set: { flexDirection: 'row', gap: spacing.md },
-  number: { width: 20, fontSize: 15, color: colors.muted },
+  // Wide enough for a two-digit number and its medal.
+  number: { width: 44, fontSize: 15, color: colors.muted },
+  medal: { fontSize: 13 },
+  tiered: { borderRadius: 8, marginHorizontal: -spacing.xs, paddingHorizontal: spacing.xs, paddingVertical: 2 },
+  gold: { backgroundColor: colors.gold },
+  goldText: { color: colors.goldText },
+  silver: { backgroundColor: colors.silver },
+  silverText: { color: colors.silverText },
+  bronze: { backgroundColor: colors.bronze },
+  bronzeText: { color: colors.bronzeText },
   setBody: { flex: 1, gap: 2 },
   setText: { fontSize: 15, color: colors.text },
   muted: { fontSize: 15, color: colors.muted },

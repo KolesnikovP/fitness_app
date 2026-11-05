@@ -105,6 +105,44 @@ describe('history', () => {
     expect(records.getByText('Bench Press: Estimated 1RM 122.5 kg, from 105 kg × 5')).toBeVisible();
   });
 
+  it("colours a past workout's sets by how close they came to the best before it, even after a later record", async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const day = 86_400_000;
+    const workout = (daysAgo: number, sets: [number, number][]) => {
+      const session = fakeApi.addSession(account.id, new Date(Date.now() - daysAgo * day));
+      const exercise = fakeApi.addSessionExercise(session, 'Bench Press');
+      for (const [weight, reps] of sets) fakeApi.addSet(exercise, weight, 'kg', reps);
+      fakeApi.finishSession(session, new Date(Date.now() - daysAgo * day + 3_600_000));
+    };
+    workout(3, [[100, 5]]);
+    workout(2, [
+      [105, 5],
+      [100, 5],
+      [100, 4],
+      [95, 5],
+      [100, 3],
+    ]);
+    workout(1, [[120, 5]]); // A later record.
+    secureStore.set('auth-token', fakeApi.issueToken(account.id));
+    await renderRouter('./src/app', { initialUrl: '/' });
+
+    const history = within(await screen.findByLabelText('Past workouts'));
+    await fireEvent.press((await history.findAllByRole('button', { name: /Bench Press/ }))[1]);
+    const detail = within(await screen.findByLabelText('Workout detail'));
+    const line = (n: number) => detail.getByLabelText(`Set ${n}`);
+    expect([1, 2, 3, 4, 5].map((n) => (line(n).props.accessibilityValue as { text: string }).text)).toEqual([
+      '105 kg × 5, Personal record',
+      '100 kg × 5, Silver', // A tie with the best.
+      '100 kg × 4, Bronze',
+      '95 kg × 5, Bronze',
+      '100 kg × 3',
+    ]);
+    expect(within(line(1)).getByText('🏆')).toBeVisible();
+    expect(within(line(2)).getByText('🥈')).toBeVisible();
+    expect(within(line(3)).getByText('🥉')).toBeVisible();
+    expect(within(line(5)).queryByText(/🏆|🥈|🥉/)).toBeNull();
+  });
+
   it('names a workout after its routine, or else the day and the part of it it started in', async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     // Monday, October 26 2026, and the Wednesday and Thursday after, in the device's time zone.
