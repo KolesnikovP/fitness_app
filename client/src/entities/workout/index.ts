@@ -10,6 +10,7 @@ export {
   formatRest,
   formatPersonalRecord,
   formatSet,
+  formatSetWithTier,
   formatStats,
   formatVolume,
   formatTarget,
@@ -20,8 +21,6 @@ export {
   pendingSetCount,
   parseSetDraft,
   parseWeight,
-  recordTierLabels,
-  recordTierMedals,
   repsInput,
   RPE_SCALE,
   sessionBlocks,
@@ -75,6 +74,7 @@ export {
 export { ExerciseRecordsCard } from './ExerciseRecordsCard';
 export { NewRecordBanner } from './NewRecordBanner';
 export { PersonalRecordList } from './PersonalRecordList';
+export { RecordTierMedal, useRecordTierColours } from './RecordTier';
 export { SessionStatsLine } from './SessionStatsLine';
 export { SessionSummaryItem } from './SessionSummaryItem';
 export { TotalsCard } from './TotalsCard';

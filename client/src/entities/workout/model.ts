@@ -289,6 +289,14 @@ export function formatSet(set: Pick<SessionSet, 'weight' | 'weightUnit' | 'reps'
   return set.rpe === null ? base : `${base} @ RPE ${set.rpe}`;
 }
 
+/**
+ * A logged Set as a screen reader says it: its values, then its Record tier
+ * if it has one. "100 kg × 5, Silver".
+ */
+export function formatSetWithTier(set: SessionSet): string {
+  return set.recordTier ? `${formatSet(set)}, ${recordTierLabels[set.recordTier]}` : formatSet(set);
+}
+
 /** "3 × 5 · 100 kg", or "3 × 5" with no weight (0) planned. */
 export function formatTarget(target: { sets: number; reps: number; weight: number; weightUnit: WeightUnit }): string {
   const base = `${target.sets} × ${target.reps}`;

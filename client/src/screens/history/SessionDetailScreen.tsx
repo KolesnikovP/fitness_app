@@ -7,15 +7,16 @@ import {
   formatClockTime,
   formatSessionDate,
   formatSet,
+  formatSetWithTier,
   getSession,
   PersonalRecordList,
-  recordTierLabels,
-  recordTierMedals,
+  RecordTierMedal,
   SessionStatsLine,
   setRuns,
   workoutName,
   type Session,
   type SessionSet,
+  useRecordTierColours,
 } from '@/entities/workout';
 import { errorMessage } from '@/shared/api';
 import { makeStyles, Screen, spacing, Spinner } from '@/shared/ui';
@@ -103,24 +104,20 @@ export function SessionDetailScreen() {
 function SetLine({ set, number }: { set: SessionSet; number: number }) {
   const styles = useStyles();
   const tier = set.recordTier;
-  const text = tier ? styles[`${tier}Text`] : null;
+  const colours = useRecordTierColours(tier);
   return (
-    <View style={[styles.line, tier && [styles.tiered, styles[tier]]]}>
+    <View style={[styles.line, tier && [styles.tiered, colours.fill]]}>
       <View
         accessible
         accessibilityLabel={`Set ${number}`}
-        accessibilityValue={{ text: tier ? `${formatSet(set)}, ${recordTierLabels[tier]}` : formatSet(set) }}
+        accessibilityValue={{ text: formatSetWithTier(set) }}
         style={styles.set}
       >
-        <Text style={[styles.number, text]}>{number}</Text>
-        <Text style={[styles.setText, text]}>{formatSet(set)}</Text>
-        {tier ? (
-          <Text importantForAccessibility="no" style={styles.medal}>
-            {recordTierMedals[tier]}
-          </Text>
-        ) : null}
+        <Text style={[styles.number, colours.text]}>{number}</Text>
+        <Text style={[styles.setText, colours.text]}>{formatSet(set)}</Text>
+        {tier ? <RecordTierMedal tier={tier} /> : null}
       </View>
-      {set.note ? <Text style={[styles.muted, styles.note, text]}>{set.note}</Text> : null}
+      {set.note ? <Text style={[styles.muted, styles.note, colours.text]}>{set.note}</Text> : null}
     </View>
   );
 }
@@ -139,14 +136,7 @@ const useStyles = makeStyles((colors) => ({
   number: { width: NUMBER_WIDTH, fontSize: 15, color: colors.muted },
   // Under the values, past the number.
   note: { paddingLeft: NUMBER_WIDTH + spacing.md },
-  medal: { fontSize: 13 },
   tiered: { borderRadius: 8, marginHorizontal: -spacing.xs, paddingHorizontal: spacing.xs, paddingVertical: 2 },
-  gold: { backgroundColor: colors.gold },
-  goldText: { color: colors.goldText },
-  silver: { backgroundColor: colors.silver },
-  silverText: { color: colors.silverText },
-  bronze: { backgroundColor: colors.bronze },
-  bronzeText: { color: colors.bronzeText },
   setText: { flex: 1, fontSize: 15, color: colors.text },
   muted: { fontSize: 15, color: colors.muted },
 }));
