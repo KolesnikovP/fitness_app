@@ -104,13 +104,14 @@ export type SessionBlock =
 /**
  * A finished Session's stats, worked out by the API from its Sets. volume is
  * in volumeUnit, the User's Unit preference. exerciseCount is how many
- * different Exercises it lists.
+ * different Exercises it lists, and setCount how many Sets were logged in it.
  */
 export type SessionStats = {
   durationSeconds: number;
   volume: number;
   volumeUnit: WeightUnit;
   exerciseCount: number;
+  setCount: number;
 };
 
 /**
@@ -241,12 +242,13 @@ export function formatVolume(volume: number, unit: WeightUnit): string {
   return `${Math.round(volume).toLocaleString('en-US')} ${unit}`;
 }
 
-/** "45 min · 2,102 lb · 3 exercises" */
+/** "45 min · 2,102 lb · 3 exercises · 12 sets" */
 export function formatStats(stats: SessionStats): string {
   return [
     formatDuration(stats.durationSeconds),
     formatVolume(stats.volume, stats.volumeUnit),
     countOf(stats.exerciseCount, 'exercise'),
+    countOf(stats.setCount, 'set'),
   ].join(' · ');
 }
 

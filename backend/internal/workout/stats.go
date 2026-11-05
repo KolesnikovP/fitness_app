@@ -20,12 +20,14 @@ import (
 // never stored (ADR 0007). Volume is the sum of weight × reps over its Sets,
 // in VolumeUnit, the User's Unit preference; a Set logged in the other unit
 // is converted, and a Set at weight 0 adds nothing. ExerciseCount is how many
-// different Exercises it lists.
+// different Exercises it lists, and SetCount how many Sets were logged in it,
+// at weight 0 too.
 type Stats struct {
 	DurationSeconds int64   `json:"durationSeconds"`
 	Volume          float64 `json:"volume"`
 	VolumeUnit      string  `json:"volumeUnit"`
 	ExerciseCount   int     `json:"exerciseCount"`
+	SetCount        int     `json:"setCount"`
 }
 
 // Totals are the stats of the Sessions finished in a time range, such as a
@@ -77,6 +79,7 @@ func statsOf(startedAt, finishedAt time.Time, exerciseCount int, sets []loggedSe
 		Volume:          volumeOf(sets, unit),
 		VolumeUnit:      unit,
 		ExerciseCount:   exerciseCount,
+		SetCount:        len(sets),
 	}
 }
 

@@ -338,6 +338,7 @@ function statsOf(session: FakeSession) {
     ),
     volumeUnit: unit,
     exerciseCount: exercisesDone(session).length,
+    setCount: session.exercises.flatMap((e) => e.sets).length,
   };
 }
 

@@ -49,7 +49,7 @@ describe('history', () => {
     await screen.findByRole('header', { name: 'History' });
     const history = within(screen.getByLabelText('Past workouts'));
     expect(await history.findByText('Dumbbell Bench Press')).toBeVisible();
-    expect(history.getByText('< 1 min · 325 kg · 1 exercise')).toBeVisible();
+    expect(history.getByText('< 1 min · 325 kg · 1 exercise · 1 set')).toBeVisible();
     const thisWeek = within(screen.getByLabelText('This week'));
     expect(await thisWeek.findByText('1 workout')).toBeVisible();
     expect(thisWeek.getByText('325 kg')).toBeVisible();
@@ -61,7 +61,7 @@ describe('history', () => {
     // Its detail, read-only.
     await fireEvent.press(history.getByRole('button', { name: /Dumbbell Bench Press/ }));
     const detail = within(await screen.findByLabelText('Workout detail'));
-    expect(detail.getByText('< 1 min · 325 kg · 1 exercise')).toBeVisible();
+    expect(detail.getByText('< 1 min · 325 kg · 1 exercise · 1 set')).toBeVisible();
     expect(detail.getByText('Dumbbell Bench Press')).toBeVisible();
     expect(detail.getByText('32.5 kg × 10')).toBeVisible();
     expect(detail.queryByRole('button', { name: /Log set|Edit set/ })).toBeNull();
@@ -192,9 +192,9 @@ describe('history', () => {
     await renderRouter('./src/app', { initialUrl: '/' });
 
     const history = within(await screen.findByLabelText('Past workouts'));
-    // 100 kg × 5 is 1,102.3 lb; the plank at 0 adds nothing.
-    expect(await history.findByText('45 min · 2,102 lb · 3 exercises')).toBeVisible();
-    expect(history.getByText('1 h 0 min · 1,323 lb · 1 exercise')).toBeVisible();
+    // 100 kg × 5 is 1,102.3 lb; the plank at 0 adds no Volume, but is a set.
+    expect(await history.findByText('45 min · 2,102 lb · 3 exercises · 3 sets')).toBeVisible();
+    expect(history.getByText('1 h 0 min · 1,323 lb · 1 exercise · 1 set')).toBeVisible();
     const week = within(screen.getByLabelText('This week'));
     expect(await week.findByText('1 workout')).toBeVisible();
     expect(week.getByText('2,102 lb')).toBeVisible();
