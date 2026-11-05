@@ -96,37 +96,37 @@ export function SessionDetailScreen() {
 }
 
 /**
- * A Set as a line: its number, its values and its note. A Set with a Record
- * tier is filled in the tier's colour, with its medal by the number, and says
- * its tier after its values, as in the set table.
+ * A Set as a line: its number and values, and its note below. A Set with a
+ * Record tier is filled in the tier's colour, ends in its medal, and says its
+ * tier after its values, as in the set table. The note is read on its own.
  */
 function SetLine({ set, number }: { set: SessionSet; number: number }) {
   const styles = useStyles();
   const tier = set.recordTier;
   const text = tier ? styles[`${tier}Text`] : null;
   return (
-    <View
-      accessible
-      accessibilityLabel={`Set ${number}`}
-      accessibilityValue={{ text: tier ? `${formatSet(set)}, ${recordTierLabels[tier]}` : formatSet(set) }}
-      style={[styles.set, tier && [styles.tiered, styles[tier]]]}
-    >
-      <Text style={[styles.number, text]}>
-        {number}
+    <View style={[styles.line, tier && [styles.tiered, styles[tier]]]}>
+      <View
+        accessible
+        accessibilityLabel={`Set ${number}`}
+        accessibilityValue={{ text: tier ? `${formatSet(set)}, ${recordTierLabels[tier]}` : formatSet(set) }}
+        style={styles.set}
+      >
+        <Text style={[styles.number, text]}>{number}</Text>
+        <Text style={[styles.setText, text]}>{formatSet(set)}</Text>
         {tier ? (
           <Text importantForAccessibility="no" style={styles.medal}>
-            {' '}
             {recordTierMedals[tier]}
           </Text>
         ) : null}
-      </Text>
-      <View style={styles.setBody}>
-        <Text style={[styles.setText, text]}>{formatSet(set)}</Text>
-        {set.note ? <Text style={[styles.muted, text]}>{set.note}</Text> : null}
       </View>
+      {set.note ? <Text style={[styles.muted, styles.note, text]}>{set.note}</Text> : null}
     </View>
   );
 }
+
+/** The Set number's column. */
+const NUMBER_WIDTH = 20;
 
 const useStyles = makeStyles((colors) => ({
   error: { color: colors.danger, fontSize: 15 },
@@ -134,9 +134,11 @@ const useStyles = makeStyles((colors) => ({
   exercise: { backgroundColor: colors.card, borderRadius: 12, padding: spacing.md, gap: spacing.sm },
   run: { gap: spacing.xs },
   name: { fontSize: 17, fontWeight: '700', color: colors.text },
+  line: { gap: 2 },
   set: { flexDirection: 'row', gap: spacing.md },
-  // Wide enough for a two-digit number and its medal.
-  number: { width: 44, fontSize: 15, color: colors.muted },
+  number: { width: NUMBER_WIDTH, fontSize: 15, color: colors.muted },
+  // Under the values, past the number.
+  note: { paddingLeft: NUMBER_WIDTH + spacing.md },
   medal: { fontSize: 13 },
   tiered: { borderRadius: 8, marginHorizontal: -spacing.xs, paddingHorizontal: spacing.xs, paddingVertical: 2 },
   gold: { backgroundColor: colors.gold },
@@ -145,7 +147,6 @@ const useStyles = makeStyles((colors) => ({
   silverText: { color: colors.silverText },
   bronze: { backgroundColor: colors.bronze },
   bronzeText: { color: colors.bronzeText },
-  setBody: { flex: 1, gap: 2 },
-  setText: { fontSize: 15, color: colors.text },
+  setText: { flex: 1, fontSize: 15, color: colors.text },
   muted: { fontSize: 15, color: colors.muted },
 }));

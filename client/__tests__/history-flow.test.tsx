@@ -108,16 +108,16 @@ describe('history', () => {
   it("colours a past workout's sets by how close they came to the best before it, even after a later record", async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     const day = 86_400_000;
-    const workout = (daysAgo: number, sets: [number, number][]) => {
+    const workout = (daysAgo: number, sets: [number, number, string?][]) => {
       const session = fakeApi.addSession(account.id, new Date(Date.now() - daysAgo * day));
       const exercise = fakeApi.addSessionExercise(session, 'Bench Press');
-      for (const [weight, reps] of sets) fakeApi.addSet(exercise, weight, 'kg', reps);
+      for (const [weight, reps, note] of sets) fakeApi.addSet(exercise, weight, 'kg', reps, note);
       fakeApi.finishSession(session, new Date(Date.now() - daysAgo * day + 3_600_000));
     };
     workout(3, [[100, 5]]);
     workout(2, [
       [105, 5],
-      [100, 5],
+      [100, 5, 'Paused at the chest'],
       [100, 4],
       [95, 5],
       [100, 3],
@@ -140,7 +140,11 @@ describe('history', () => {
     expect(within(line(1)).getByText('🏆')).toBeVisible();
     expect(within(line(2)).getByText('🥈')).toBeVisible();
     expect(within(line(3)).getByText('🥉')).toBeVisible();
+    expect(within(line(4)).getByText('🥉')).toBeVisible();
     expect(within(line(5)).queryByText(/🏆|🥈|🥉/)).toBeNull();
+    // A Set's note is read on its own, not swallowed by the Set's line.
+    expect(detail.getByText('Paused at the chest')).toBeVisible();
+    expect(within(line(2)).queryByText('Paused at the chest')).toBeNull();
   });
 
   it('names a workout after its routine, or else the day and the part of it it started in', async () => {
