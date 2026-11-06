@@ -6,7 +6,8 @@ Go HTTP API backed by Postgres.
 
 ```sh
 make db-up   # start Postgres in Docker (creates the fitness and fitness_test databases)
-make run     # start the API on :8080; migrations apply on startup
+make dev     # start the API on :8080, restart it on every .go or .sql change; logs to tmp/api.log
+make run     # start the API once; migrations apply on startup
 make test    # integration tests against fitness_test
 ```
 
