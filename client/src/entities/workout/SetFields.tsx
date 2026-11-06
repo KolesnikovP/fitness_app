@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import type { UnitPreference } from '@/shared/model';
 import { Button, Select, spacing, TextField } from '@/shared/ui';
-
-import type { WeightUnit } from '@/shared/model';
 
 import { repsInput, RPE_SCALE, weightInput, type SetDraft } from './model';
 
@@ -12,7 +11,7 @@ const RPE_OPTIONS = RPE_SCALE.map(({ rpe, meaning }) => ({ value: rpe, label: St
 type SetFieldsProps = {
   value: SetDraft;
   onChange: (draft: SetDraft) => void;
-  weightUnit: WeightUnit;
+  weightUnit: UnitPreference;
 };
 
 /**

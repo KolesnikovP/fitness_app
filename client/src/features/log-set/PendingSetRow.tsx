@@ -13,7 +13,7 @@ import {
   type SetDraft,
 } from '@/entities/workout';
 import { errorMessage } from '@/shared/api';
-import type { WeightUnit } from '@/shared/model';
+import type { UnitPreference } from '@/shared/model';
 import { makeStyles, Select, spacing, TextField } from '@/shared/ui';
 
 const RPE_OPTIONS = RPE_SCALE.map(({ rpe, meaning }) => ({ value: rpe, label: String(rpe), description: meaning }));
@@ -25,7 +25,7 @@ type PendingSetRowProps = {
   number: number;
   draft: SetDraft;
   onChange: (draft: SetDraft) => void;
-  weightUnit: WeightUnit;
+  weightUnit: UnitPreference;
   onLogged: (session: Session) => void;
 };
 

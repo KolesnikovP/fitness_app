@@ -1,8 +1,8 @@
-/** The unit a User weighs in: their Unit preference, and the unit a weight was logged in. */
+/**
+ * A Unit preference: whether a User sees weights in kilograms or pounds. A
+ * weight carries the one it was logged or planned in.
+ */
 export type UnitPreference = 'kg' | 'lb';
 
-/** The unit a weight was logged or planned in. */
-export type WeightUnit = UnitPreference;
-
-/** A pointer to an Exercise in the library, by id, with its name to show. */
+/** An Exercise, named: what a Routine or Session refers to one by. */
 export type ExerciseRef = { exerciseId: string; name: string };

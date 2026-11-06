@@ -3,9 +3,9 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { equipmentLabel, getExercise } from '@/entities/exercise';
-import type { ExerciseRef } from '@/shared/model';
 import { swapChoices, swappedFrom, swapSessionExercise, type Session, type SessionExercise } from '@/entities/workout';
 import { errorMessage } from '@/shared/api';
+import type { ExerciseRef } from '@/shared/model';
 import { makeStyles, spacing } from '@/shared/ui';
 
 type SwapSheetProps = {

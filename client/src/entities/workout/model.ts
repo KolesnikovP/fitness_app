@@ -1,5 +1,5 @@
 import type { MuscleGroup } from '@/entities/exercise/@x/workout';
-import type { ExerciseRef, WeightUnit } from '@/shared/model';
+import type { ExerciseRef, UnitPreference } from '@/shared/model';
 
 /**
  * A logged Set. exerciseId and name are the Exercise actually done, which
@@ -13,7 +13,7 @@ export type SessionSet = {
   exerciseId: string;
   name: string;
   weight: number;
-  weightUnit: WeightUnit;
+  weightUnit: UnitPreference;
   reps: number;
   rpe: number | null;
   note: string;
@@ -47,7 +47,7 @@ export type SessionTarget = {
   sets: number;
   reps: number;
   weight: number;
-  weightUnit: WeightUnit;
+  weightUnit: UnitPreference;
   restSeconds: number | null;
   note: string;
 };
@@ -107,7 +107,7 @@ export type SessionBlock =
 export type SessionStats = {
   durationSeconds: number;
   volume: number;
-  volumeUnit: WeightUnit;
+  volumeUnit: UnitPreference;
   exerciseCount: number;
 };
 
@@ -124,10 +124,10 @@ export type PersonalRecord = {
   exerciseId: string;
   name: string;
   weight: number;
-  weightUnit: WeightUnit;
+  weightUnit: UnitPreference;
   reps: number;
   estimated1RM: number;
-  estimated1RMUnit: WeightUnit;
+  estimated1RMUnit: UnitPreference;
 };
 
 /** A Set holding one of the User's current records for an Exercise. */
@@ -136,10 +136,10 @@ export type BestSet = {
   setId: string;
   achievedAt: string;
   weight: number;
-  weightUnit: WeightUnit;
+  weightUnit: UnitPreference;
   reps: number;
   estimated1RM: number;
-  estimated1RMUnit: WeightUnit;
+  estimated1RMUnit: UnitPreference;
 };
 
 /**
@@ -196,7 +196,7 @@ export type SessionSummary = {
 export type Totals = {
   sessionCount: number;
   volume: number;
-  volumeUnit: WeightUnit;
+  volumeUnit: UnitPreference;
   /** Most sets first. */
   setsPerMuscleGroup: { muscleGroup: MuscleGroup; sets: number }[];
 };
@@ -235,7 +235,7 @@ export function countOf(n: number, noun: string): string {
 }
 
 /** "2,102 lb", to the nearest whole unit. */
-export function formatVolume(volume: number, unit: WeightUnit): string {
+export function formatVolume(volume: number, unit: UnitPreference): string {
   return `${Math.round(volume).toLocaleString('en-US')} ${unit}`;
 }
 
@@ -273,8 +273,8 @@ export function setDraftOf(set: SessionSet): SetDraft {
 /** The Set a draft describes, in weightUnit, or null while it's incomplete. */
 export function parseSetDraft(
   draft: SetDraft,
-  weightUnit: WeightUnit,
-): { weight: number; weightUnit: WeightUnit; reps: number; rpe: number | null; note: string } | null {
+  weightUnit: UnitPreference,
+): { weight: number; weightUnit: UnitPreference; reps: number; rpe: number | null; note: string } | null {
   const weight = parseWeight(draft.weight);
   const reps = parseReps(draft.reps);
   if (weight === null || reps === null) return null;
@@ -288,7 +288,12 @@ export function formatSet(set: Pick<SessionSet, 'weight' | 'weightUnit' | 'reps'
 }
 
 /** "3 × 5 · 100 kg", or "3 × 5" with no weight (0) planned. */
-export function formatTarget(target: { sets: number; reps: number; weight: number; weightUnit: WeightUnit }): string {
+export function formatTarget(target: {
+  sets: number;
+  reps: number;
+  weight: number;
+  weightUnit: UnitPreference;
+}): string {
   const base = `${target.sets} × ${target.reps}`;
   return target.weight === 0 ? base : `${base} · ${target.weight} ${target.weightUnit}`;
 }
@@ -302,7 +307,7 @@ export function formatRest(seconds: number): string {
  * The draft to log the next Set from: the target's reps, and its weight when
  * one is planned (not 0) in the unit the Set is logged in.
  */
-export function setDraftFromTarget(target: SessionTarget | null, weightUnit: WeightUnit): SetDraft {
+export function setDraftFromTarget(target: SessionTarget | null, weightUnit: UnitPreference): SetDraft {
   if (!target) return emptySetDraft;
   return {
     ...emptySetDraft,
@@ -334,7 +339,7 @@ export function addedAfterLogging(exercise: SessionExercise, added: number): num
  * What a row for the next Set starts at: the Target's reps, and the weight of
  * the last Set logged for this Exercise, else the Target's.
  */
-export function nextSetDraft(exercise: SessionExercise, weightUnit: WeightUnit): SetDraft {
+export function nextSetDraft(exercise: SessionExercise, weightUnit: UnitPreference): SetDraft {
   const draft = setDraftFromTarget(currentTarget(exercise), weightUnit);
   const last = exercise.sets.findLast((s) => s.exerciseId === exercise.exerciseId && s.weightUnit === weightUnit);
   return last ? { ...draft, weight: String(last.weight) } : draft;

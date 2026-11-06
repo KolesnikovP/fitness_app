@@ -1,5 +1,4 @@
 import { apiRequest } from '@/shared/api';
-
 import type { UnitPreference } from '@/shared/model';
 
 import type { Me } from './model';

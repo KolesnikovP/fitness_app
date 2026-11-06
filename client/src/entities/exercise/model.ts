@@ -44,7 +44,6 @@ export type Exercise = {
   animatedDemoUrl: string | null;
 };
 
-/** An Exercise, named: what a Routine or Session refers to one by. */
 export function muscleGroupLabel(value: MuscleGroup): string {
   return MUSCLE_GROUPS.find((g) => g.value === value)?.label ?? value;
 }

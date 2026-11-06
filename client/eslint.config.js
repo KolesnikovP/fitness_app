@@ -7,52 +7,84 @@ const path = require('node:path');
 const globals = require('globals');
 
 // Feature-Sliced layers, lowest first (see README "Layout"). A layer imports
-// only from layers below it, through each slice's index.ts; slices of one
-// layer don't import each other. The one door between entities is @x: an
-// entity may import '@/entities/<other>/@x/<itself>', which <other> exports
-// for it alone.
-const layers = ['shared', 'entities', 'features', 'widgets', 'screens', 'app'];
-const DEEP = "Import a slice through its index.ts, e.g. '@/entities/workout'.";
+// only from layers below it, through each slice's index.ts (screens through
+// the layer's own index.ts), and slices of one layer don't import each other.
+// Shared segments may use each other through their index.ts. The one door
+// between entities is @x: an entity may import '@/entities/<other>/@x/<itself>',
+// which <other> exports for it alone. Zones match the file an import resolves
+// to, so relative imports, import() and require() are held to it too.
+const LAYERS = ['shared', 'entities', 'features', 'widgets', 'screens', 'app'];
+const PUBLIC_API = ['./index.ts', './index.tsx'];
 
-function importRule(files, patterns) {
-  return { files, rules: { 'no-restricted-imports': ['error', { patterns }] } };
+const srcPath = (...parts) => path.join('src', ...parts);
+
+function slicesOf(layer) {
+  return fs
+    .readdirSync(path.join(__dirname, 'src', layer), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
 }
 
-function aboveRule(layer, above) {
-  return above.map((other) => ({
-    regex: `^@/${other}(/|$)`,
-    message: `${layer} can't import from ${other}, a layer above it.`,
+/** Where code in layer/slice (or in the app layer, with no slice) may not import from. */
+function zonesFor(layer, slice) {
+  const target = slice ? srcPath(layer, slice) : srcPath(layer);
+  const at = LAYERS.indexOf(layer);
+  const zones = LAYERS.slice(at + 1).map((upper) => ({
+    target,
+    from: srcPath(upper),
+    message: `${layer} can't import from ${upper}, a layer above it.`,
   }));
+  for (const lower of LAYERS.slice(0, at)) {
+    if (lower === 'screens') {
+      zones.push({
+        target,
+        from: srcPath('screens'),
+        except: ['./index.ts'],
+        message: "Import screens from '@/screens'.",
+      });
+      continue;
+    }
+    zones.push({ target, from: srcPath(lower, 'index.ts'), message: `Import a ${lower} slice from its own index.ts.` });
+    for (const other of slicesOf(lower)) {
+      zones.push({
+        target,
+        from: srcPath(lower, other),
+        except: PUBLIC_API,
+        message: `Import ${lower}/${other} through its index.ts: '@/${lower}/${other}'.`,
+      });
+    }
+  }
+  if (!slice) return zones;
+  zones.push({ target, from: srcPath(layer, 'index.ts'), message: `Import a ${layer} slice from its own index.ts.` });
+  for (const other of slicesOf(layer).filter((s) => s !== slice)) {
+    if (layer === 'shared') {
+      zones.push({
+        target,
+        from: srcPath(layer, other),
+        except: PUBLIC_API,
+        message: `Import shared/${other} through its index.ts: '@/shared/${other}'.`,
+      });
+    } else if (layer === 'entities') {
+      zones.push({
+        target,
+        from: srcPath(layer, other),
+        except: [`./@x/${slice}.ts`],
+        message: `Entities don't import each other; use what ${other} exports for ${slice} in '@/entities/${other}/@x/${slice}'.`,
+      });
+    } else {
+      zones.push({
+        target,
+        from: srcPath(layer, other),
+        message: `${layer} slices don't import each other; move what they share down a layer.`,
+      });
+    }
+  }
+  return zones;
 }
 
-const layerRules = layers.flatMap((layer, i) => {
-  const above = aboveRule(layer, layers.slice(i + 1));
-  if (layer === 'entities') {
-    return fs.readdirSync(path.join(__dirname, 'src/entities')).map((slice) =>
-      importRule(
-        [`src/entities/${slice}/**`],
-        [
-          ...above,
-          {
-            regex: `^@/entities(?!/[^/]+/@x/${slice}$)(/|$)`,
-            message: `Entities don't import each other; use what the other entity exports for ${slice} in its @x/${slice}.ts.`,
-          },
-          { regex: `^@/(?!entities/[^/]+/@x/${slice}$)[^/]+/[^/]+/`, message: DEEP },
-        ],
-      ),
-    );
-  }
-  const sameLayer =
-    layer === 'shared' || layer === 'app'
-      ? []
-      : [
-          {
-            regex: `^@/${layer}(/|$)`,
-            message: `${layer} slices don't import each other; move what they share down a layer.`,
-          },
-        ];
-  return [importRule([`src/${layer}/**`], [...above, ...sameLayer, { regex: '^@/[^/]+/[^/]+/', message: DEEP }])];
-});
+const layerZones = LAYERS.flatMap((layer) =>
+  layer === 'app' ? zonesFor(layer) : slicesOf(layer).flatMap((slice) => zonesFor(layer, slice)),
+);
 
 module.exports = defineConfig([
   expoConfig,
@@ -62,5 +94,5 @@ module.exports = defineConfig([
   // jest.mock factories are hoisted above imports, so they reach their module with require().
   { files: ['jest.setup.ts'], rules: { '@typescript-eslint/no-require-imports': 'off' } },
   { files: ['scripts/**', 'eslint.config.js'], languageOptions: { globals: globals.node } },
-  ...layerRules,
+  { files: ['src/**'], rules: { 'import/no-restricted-paths': ['error', { zones: layerZones }] } },
 ]);
