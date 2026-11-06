@@ -64,6 +64,10 @@ jobs:
           cache: npm
           cache-dependency-path: client/package-lock.json
       - run: npm ci
+      - name: expo native modules match the SDK
+        # Offline, against the installed SDK's own list, so the check only
+        # changes with the lockfile, not whenever Expo publishes a patch.
+        run: EXPO_OFFLINE=1 npx expo install --check
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run format:check
