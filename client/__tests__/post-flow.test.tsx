@@ -40,6 +40,17 @@ async function finishABenchWorkout() {
   await screen.findByRole('header', { name: 'Workout finished' });
 }
 
+/**
+ * Presses a button that saves to the Post. The fake API can answer while the
+ * press is still settling, after its act() has closed, so press inside an
+ * outer act() that stays open until then.
+ */
+async function pressAndSave(button: Parameters<typeof fireEvent.press>[0]) {
+  await act(async () => {
+    await fireEvent.press(button);
+  });
+}
+
 describe('posts', () => {
   it('finish a workout, add a caption and photo, see them on the Post, and save its Carousel', async () => {
     const account = await openApp();
@@ -48,10 +59,10 @@ describe('posts', () => {
 
     // The finished screen sets up the Post.
     await fireEvent.changeText(screen.getByLabelText('Caption'), 'New bench PR 💪');
-    await fireEvent.press(screen.getByRole('button', { name: 'Save caption' }));
+    await pressAndSave(screen.getByRole('button', { name: 'Save caption' }));
     await waitFor(() => expect(fakeApi.post(today.id).caption).toBe('New bench PR 💪'));
     imagePicker.nextPick = { uri: 'file:///photos/mirror.jpg', mimeType: 'image/jpeg', fileName: 'mirror.jpg' };
-    await fireEvent.press(screen.getByRole('button', { name: 'Add progress photo' }));
+    await pressAndSave(screen.getByRole('button', { name: 'Add progress photo' }));
     expect(await screen.findByLabelText('Progress photo')).toBeVisible();
     expect(fakeApi.photoUploads).toEqual([{ postId: today.id, fileName: 'mirror.jpg', type: 'image/jpeg' }]);
 
@@ -69,7 +80,7 @@ describe('posts', () => {
 
     // Saving puts the images in Photos, in order, and the caption on the clipboard.
     const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
-    await fireEvent.press(screen.getByRole('button', { name: 'Save to Photos' }));
+    await pressAndSave(screen.getByRole('button', { name: 'Save to Photos' }));
     expect(await screen.findByText('Saved 4 images to Photos. The caption is copied.')).toBeVisible();
     expect(sharing.savedToPhotos).toEqual(sharing.captured);
     expect(sharing.savedToPhotos).toHaveLength(4);
@@ -94,17 +105,17 @@ describe('posts', () => {
     expect(within(screen.getByLabelText('Carousel image 1 of 3')).getByText('Deadlift')).toBeVisible();
 
     imagePicker.nextPick = { uri: 'file:///photos/back.jpg', mimeType: 'image/jpeg', fileName: 'back.jpg' };
-    await fireEvent.press(screen.getByRole('button', { name: 'Add progress photo' }));
+    await pressAndSave(screen.getByRole('button', { name: 'Add progress photo' }));
     await waitFor(() => expect(fakeApi.post(session.id).photoUrl).not.toBeNull());
-    await fireEvent.press(await screen.findByRole('button', { name: 'Remove photo' }));
+    await pressAndSave(await screen.findByRole('button', { name: 'Remove photo' }));
     await waitFor(() => expect(fakeApi.post(session.id).photoUrl).toBeNull());
     expect(screen.queryByLabelText('Progress photo')).toBeNull();
 
     await fireEvent.changeText(screen.getByLabelText('Caption'), 'Pulled');
-    await fireEvent.press(screen.getByRole('button', { name: 'Save caption' }));
+    await pressAndSave(screen.getByRole('button', { name: 'Save caption' }));
     await waitFor(() => expect(fakeApi.post(session.id).caption).toBe('Pulled'));
     await fireEvent.changeText(screen.getByLabelText('Caption'), '');
-    await fireEvent.press(screen.getByRole('button', { name: 'Save caption' }));
+    await pressAndSave(screen.getByRole('button', { name: 'Save caption' }));
     await waitFor(() => expect(fakeApi.post(session.id).caption).toBe(''));
   });
 
@@ -120,7 +131,7 @@ describe('posts', () => {
     await act(async () => router.navigate(`/posts/${session.id}`));
     await screen.findByLabelText('Post');
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Save to Photos' }));
+    await pressAndSave(screen.getByRole('button', { name: 'Save to Photos' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Allow access to Photos in Settings to save the images.',
