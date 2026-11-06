@@ -4,6 +4,7 @@ import { Platform, Text, View } from 'react-native';
 import { CartesianChart, Line, Scatter } from 'victory-native';
 
 import {
+  countOf,
   formatSessionDate,
   formatVolume,
   getExerciseProgress,
@@ -11,18 +12,29 @@ import {
   type ProgressPoint,
 } from '@/entities/workout';
 import { errorMessage } from '@/shared/api';
+import type { UnitPreference } from '@/shared/model';
 import { ChipGroup, makeStyles, spacing, Spinner, useTheme, type ChipOption } from '@/shared/ui';
 
-type Metric = 'estimated1RM' | 'heaviestWeight' | 'volume';
-type Range = '3m' | '1y' | 'all';
+type MetricKey = 'estimated1RM' | 'heaviestWeight' | 'volume';
+type RangeKey = '3m' | '1y' | 'all';
 
-const METRICS: readonly ChipOption<Metric>[] = [
-  { value: 'estimated1RM', label: 'Estimated 1RM' },
-  { value: 'heaviestWeight', label: 'Heaviest weight' },
-  { value: 'volume', label: 'Volume' },
+type Metric = ChipOption<MetricKey> & {
+  /** What each point is, under the chart. */
+  caption: string;
+  format: (value: number, unit: UnitPreference) => string;
+};
+
+type Range = ChipOption<RangeKey> & { months: number | null; phrase: string };
+
+const asWeight = (value: number, unit: UnitPreference) => `${value} ${unit}`;
+
+const METRICS: readonly Metric[] = [
+  { value: 'estimated1RM', label: 'Estimated 1RM', caption: 'Best Estimated 1RM per workout', format: asWeight },
+  { value: 'heaviestWeight', label: 'Heaviest weight', caption: 'Heaviest weight per workout', format: asWeight },
+  { value: 'volume', label: 'Volume', caption: 'Volume per workout', format: formatVolume },
 ];
 
-const RANGES: readonly (ChipOption<Range> & { months: number | null; phrase: string })[] = [
+const RANGES: readonly Range[] = [
   { value: '3m', label: '3 months', months: 3, phrase: 'last 3 months' },
   { value: '1y', label: '1 year', months: 12, phrase: 'last year' },
   { value: 'all', label: 'All time', months: null, phrase: 'all time' },
@@ -30,47 +42,48 @@ const RANGES: readonly (ChipOption<Range> & { months: number | null; phrase: str
 
 const font = matchFont({ fontFamily: Platform.select({ ios: 'Helvetica', default: 'sans-serif' }), fontSize: 11 });
 
-/** The finished Sessions in range, oldest first, given the date it ends now. */
-function inRange(sessions: ProgressPoint[], range: Range, now: Date) {
-  const { months } = RANGES.find((r) => r.value === range)!;
-  if (months === null) return sessions;
-  const from = new Date(now.getFullYear(), now.getMonth() - months, now.getDate()).getTime();
+/** The same day `months` before `now`, or the last day of that month if it's shorter. */
+function monthsBefore(now: Date, months: number) {
+  const year = now.getFullYear();
+  const month = now.getMonth() - months;
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  return new Date(year, month, Math.min(now.getDate(), lastDay));
+}
+
+/** The Sessions finished within the range, up to now. */
+function sessionsIn(range: Range, sessions: ProgressPoint[], now: Date) {
+  if (range.months === null) return sessions;
+  const from = monthsBefore(now, range.months).getTime();
   return sessions.filter((s) => Date.parse(s.finishedAt) >= from);
 }
 
-/** "126.7 kg", or Volume as "1,026 kg". */
-function formatValue(metric: Metric, value: number, unit: ExerciseProgress['unit']) {
-  return metric === 'volume' ? formatVolume(value, unit) : `${value} ${unit}`;
-}
-
 /**
- * The chart, said in words for screen readers: "Estimated 1RM, last 3
- * months, 2 workouts: Mon, Oct 6: 126.7 kg, Personal record; …".
+ * The chart in words, for screen readers: "Estimated 1RM, last 3 months, 2
+ * workouts: Mon, Oct 6: 126.7 kg, Personal record; Tue, Nov 4: 121 kg".
  */
-function describe(metric: Metric, range: Range, points: ProgressPoint[], unit: ExerciseProgress['unit']) {
-  const metricLabel = METRICS.find((m) => m.value === metric)!.label;
-  const { phrase } = RANGES.find((r) => r.value === range)!;
-  const count = `${points.length} ${points.length === 1 ? 'workout' : 'workouts'}`;
-  const each = points.map(
+function chartDescription(metric: Metric, range: Range, points: ProgressPoint[], unit: UnitPreference) {
+  const pointDescriptions = points.map(
     (p) =>
-      `${formatSessionDate(p.finishedAt)}: ${formatValue(metric, p[metric], unit)}${p.personalRecord ? ', Personal record' : ''}`,
+      `${formatSessionDate(p.finishedAt)}: ${metric.format(p[metric.value], unit)}${p.personalRecord ? ', Personal record' : ''}`,
   );
-  return `${metricLabel}, ${phrase}, ${count}: ${each.join('; ')}`;
+  return `${metric.label}, ${range.phrase}, ${countOf(points.length, 'workout')}: ${pointDescriptions.join('; ')}`;
 }
 
 /**
  * The User's progress at an Exercise: a point per finished Session, by the
  * metric chosen (best Estimated 1RM, heaviest weight or Volume) over a range,
  * marking the Sessions that set a Personal record. In the User's Unit
- * preference.
+ * preference. An Exercise only ever logged at weight 0 has nothing to chart.
  */
 export function ExerciseProgressChart({ token, exerciseId }: { token: string; exerciseId: string }) {
   const styles = useStyles();
   const { colors } = useTheme();
   const [progress, setProgress] = useState<ExerciseProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [metric, setMetric] = useState<Metric>('estimated1RM');
-  const [range, setRange] = useState<Range>('3m');
+  const [metricKey, setMetricKey] = useState<MetricKey>('estimated1RM');
+  const [rangeKey, setRangeKey] = useState<RangeKey>('3m');
+  const metric = METRICS.find((m) => m.value === metricKey)!;
+  const range = RANGES.find((r) => r.value === rangeKey)!;
 
   useEffect(() => {
     let current = true;
@@ -82,8 +95,11 @@ export function ExerciseProgressChart({ token, exerciseId }: { token: string; ex
     };
   }, [token, exerciseId]);
 
-  const points = useMemo(() => (progress ? inRange(progress.sessions, range, new Date()) : []), [progress, range]);
-  const data = useMemo(() => points.map((p) => ({ x: Date.parse(p.finishedAt), y: p[metric] })), [points, metric]);
+  const points = useMemo(() => (progress ? sessionsIn(range, progress.sessions, new Date()) : []), [progress, range]);
+  const data = useMemo(
+    () => points.map((p) => ({ x: Date.parse(p.finishedAt), y: p[metric.value] })),
+    [points, metric],
+  );
 
   let body;
   if (error) {
@@ -96,19 +112,20 @@ export function ExerciseProgressChart({ token, exerciseId }: { token: string; ex
     body = <Spinner />;
   } else if (progress.sessions.length === 0) {
     body = <Text style={styles.muted}>No sets of this exercise yet.</Text>;
+  } else if (progress.sessions.every((s) => s.heaviestWeight === 0)) {
+    body = <Text style={styles.muted}>Only sets without weight so far, so there's nothing to chart.</Text>;
   } else {
-    const { phrase } = RANGES.find((r) => r.value === range)!;
     body = (
       <>
-        <ChipGroup label="Metric" options={METRICS} value={metric} onChange={(m) => m && setMetric(m)} />
-        <ChipGroup label="Range" options={RANGES} value={range} onChange={(r) => r && setRange(r)} />
+        <ChipGroup label="Metric" options={METRICS} value={metricKey} onChange={(m) => m && setMetricKey(m)} />
+        <ChipGroup label="Range" options={RANGES} value={rangeKey} onChange={(r) => r && setRangeKey(r)} />
         {points.length === 0 ? (
-          <Text style={styles.muted}>No workouts in the {phrase}.</Text>
+          <Text style={styles.muted}>No workouts in the {range.phrase}.</Text>
         ) : (
           <View
             accessible
             accessibilityRole="image"
-            accessibilityLabel={describe(metric, range, points, progress.unit)}
+            accessibilityLabel={chartDescription(metric, range, points, progress.unit)}
             style={styles.chart}
           >
             <CartesianChart
@@ -134,12 +151,12 @@ export function ExerciseProgressChart({ token, exerciseId }: { token: string; ex
                 },
               ]}
             >
-              {({ points: drawn }) => (
+              {({ points: plotted }) => (
                 <>
-                  <Line points={drawn.y} color={colors.text} strokeWidth={2} curveType="linear" />
-                  <Scatter points={drawn.y} radius={3} color={colors.text} />
+                  <Line points={plotted.y} color={colors.text} strokeWidth={2} curveType="linear" />
+                  <Scatter points={plotted.y} radius={3} color={colors.text} />
                   <Scatter
-                    points={drawn.y.filter((_, i) => points[i]?.personalRecord)}
+                    points={plotted.y.filter((_, i) => points[i]?.personalRecord)}
                     radius={6}
                     color={colors.link}
                   />
@@ -148,7 +165,9 @@ export function ExerciseProgressChart({ token, exerciseId }: { token: string; ex
             </CartesianChart>
           </View>
         )}
-        <Text style={styles.muted}>{unitNote(metric, progress.unit)}</Text>
+        <Text style={styles.muted}>
+          {metric.caption}, in {progress.unit}. Larger points mark a workout that set a Personal record.
+        </Text>
       </>
     );
   }
@@ -160,17 +179,6 @@ export function ExerciseProgressChart({ token, exerciseId }: { token: string; ex
       {body}
     </View>
   );
-}
-
-/** What the chart's numbers are, and what the gold points mean. */
-function unitNote(metric: Metric, unit: ExerciseProgress['unit']) {
-  const per =
-    metric === 'volume'
-      ? 'Volume per workout'
-      : metric === 'heaviestWeight'
-        ? 'Heaviest set per workout'
-        : 'Best Estimated 1RM per workout';
-  return `${per}, in ${unit}. Gold points set a Personal record.`;
 }
 
 const useStyles = makeStyles((colors) => ({
