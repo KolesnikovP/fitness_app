@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AuthProvider, useAuth } from '@/entities/auth';
 import { ThemeProvider, useTheme, useThemedStackOptions } from '@/shared/ui';
@@ -11,12 +12,16 @@ import { ThemeProvider, useTheme, useThemedStackOptions } from '@/shared/ui';
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  // Charts (victory-native) take touches through gesture handler, which
+  // needs its root view above them.
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <RootNavigator />
-      </AuthProvider>
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
+        <AuthProvider>
+          <RootNavigator />
+        </AuthProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 

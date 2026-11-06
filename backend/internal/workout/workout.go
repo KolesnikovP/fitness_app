@@ -165,6 +165,7 @@ func (s *Service) Routes(mux *http.ServeMux, accounts Accounts) {
 	mux.Handle("GET /workouts/sessions/current", accounts.RequireAuth(http.HandlerFunc(h.current)))
 	mux.Handle("GET /workouts/sessions/{id}", accounts.RequireAuth(http.HandlerFunc(h.get)))
 	mux.Handle("GET /workouts/exercises/{id}/records", accounts.RequireAuth(http.HandlerFunc(h.exerciseRecords)))
+	mux.Handle("GET /workouts/exercises/{id}/progress", accounts.RequireAuth(http.HandlerFunc(h.exerciseProgress)))
 	mux.Handle("GET /workouts/totals", accounts.RequireAuth(http.HandlerFunc(h.totals)))
 	mux.Handle("POST /workouts/sessions/{id}/exercises", accounts.RequireAuth(http.HandlerFunc(h.addExercise)))
 	mux.Handle("PATCH /workouts/sessions/{id}/exercises/{sessionExerciseId}", accounts.RequireAuth(http.HandlerFunc(h.changeExercise)))

@@ -147,13 +147,7 @@ func recordsBySession(sets []store.ListFinishedSetsOfExercisesRow) (map[uuid.UUI
 	tiers := make(map[uuid.UUID]RecordTier)
 	priorE1RM := make(map[uuid.UUID]float64)
 	priorReps := make(map[exerciseReps]float64)
-	for start := 0; start < len(sets); {
-		end := start
-		for end < len(sets) && sets[end].SessionID == sets[start].SessionID {
-			end++
-		}
-		session := sets[start:end]
-
+	for _, session := range bySession(sets) {
 		// The Session's best Set of each kind, the first logged of equals.
 		bestE1RM := make(map[uuid.UUID]best)
 		bestReps := make(map[exerciseReps]best)
@@ -215,9 +209,23 @@ func recordsBySession(sets []store.ListFinishedSetsOfExercisesRow) (map[uuid.UUI
 			key := exerciseReps{s.ExerciseID, s.Reps}
 			priorReps[key] = max(priorReps[key], kg)
 		}
-		start = end
 	}
 	return out, tiers
+}
+
+// bySession splits sets, each Session's together, into each Session's, in
+// the order they come.
+func bySession(sets []store.ListFinishedSetsOfExercisesRow) [][]store.ListFinishedSetsOfExercisesRow {
+	var out [][]store.ListFinishedSetsOfExercisesRow
+	for start := 0; start < len(sets); {
+		end := start
+		for end < len(sets) && sets[end].SessionID == sets[start].SessionID {
+			end++
+		}
+		out = append(out, sets[start:end])
+		start = end
+	}
+	return out
 }
 
 // personalRecords works out the records each of the caller's finished
@@ -258,34 +266,46 @@ func (h handlers) personalRecords(ctx context.Context, caller uuid.UUID, exercis
 	return out, tiers, nil
 }
 
-// exerciseRecords serves the caller's current records for the {id} Exercise.
-func (h handlers) exerciseRecords(w http.ResponseWriter, r *http.Request) {
+// exerciseSets loads the caller's Sets of the {id} Exercise in their finished
+// Sessions, in the order they were done, and the caller's Unit preference. It
+// writes a 404 if the caller can't see the Exercise, or an error, and then
+// returns false.
+func (h handlers) exerciseSets(w http.ResponseWriter, r *http.Request) ([]store.ListFinishedSetsOfExercisesRow, string, bool) {
 	ctx := r.Context()
 	caller, _ := auth.AccountID(ctx)
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		writeExerciseNotFound(w)
-		return
+		return nil, "", false
 	}
 	names, err := h.exercises.ExerciseNames(ctx, caller, []uuid.UUID{id})
 	if err != nil {
 		httpx.WriteInternalError(w, r, err)
-		return
+		return nil, "", false
 	}
 	if _, ok := names[id]; !ok {
 		writeExerciseNotFound(w)
-		return
+		return nil, "", false
 	}
 	sets, err := h.queries.ListFinishedSetsOfExercises(ctx, store.ListFinishedSetsOfExercisesParams{
 		AccountID: caller, ExerciseIds: []uuid.UUID{id},
 	})
 	if err != nil {
 		httpx.WriteInternalError(w, r, fmt.Errorf("list sets of exercise: %w", err))
-		return
+		return nil, "", false
 	}
 	unit, err := h.profiles.UnitPreference(ctx, caller)
 	if err != nil {
 		httpx.WriteInternalError(w, r, err)
+		return nil, "", false
+	}
+	return sets, unit, true
+}
+
+// exerciseRecords serves the caller's current records for the {id} Exercise.
+func (h handlers) exerciseRecords(w http.ResponseWriter, r *http.Request) {
+	sets, unit, ok := h.exerciseSets(w, r)
+	if !ok {
 		return
 	}
 

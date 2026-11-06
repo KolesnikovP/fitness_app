@@ -167,3 +167,86 @@ describe('exercise library', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Upload a PNG, JPEG, WebP or GIF image.');
   });
 });
+
+describe('exercise progress chart', () => {
+  const day = (n: number) => new Date(Date.now() - n * 86_400_000);
+
+  /** Logs a finished Session of one exercise n days ago with the given sets. */
+  function logWorkout(ownerId: string, name: string, daysAgo: number, ...sets: [number, 'kg' | 'lb', number][]) {
+    const session = fakeApi.addSession(ownerId, day(daysAgo));
+    const exercise = fakeApi.addSessionExercise(session, name);
+    for (const [weight, unit, reps] of sets) fakeApi.addSet(exercise, weight, unit, reps);
+    fakeApi.finishSession(session, day(daysAgo));
+  }
+
+  async function openProgress(name: string) {
+    await fireEvent.press(await screen.findByRole('button', { name }));
+    return within(await screen.findByLabelText('Progress'));
+  }
+
+  it("charts an exercise's best Estimated 1RM per workout, and switches metric and range", async () => {
+    const account = await openExercisesTab();
+    logWorkout(account.id, 'Bench Press', 400, [80, 'kg', 5]); // 93.3 kg estimated
+    logWorkout(account.id, 'Bench Press', 200, [100, 'kg', 5]); // 116.7 kg: a Personal record
+    logWorkout(account.id, 'Bench Press', 30, [100, 'kg', 8]); // 126.7 kg: a Personal record
+    logWorkout(account.id, 'Bench Press', 1, [110, 'kg', 3]); // 121 kg
+
+    const progress = await openProgress('Bench Press');
+
+    const chart = await progress.findByRole('image');
+    expect(chart).toHaveAccessibleName(
+      /^Estimated 1RM, last 3 months, 2 workouts: .*126\.7 kg, Personal record; .*121 kg$/,
+    );
+
+    await fireEvent.press(progress.getByRole('radio', { name: 'All time' }));
+    expect(progress.getByRole('image')).toHaveAccessibleName(
+      /^Estimated 1RM, all time, 4 workouts: .*93\.3 kg; .*116\.7 kg, Personal record; .*126\.7 kg, Personal record; .*121 kg$/,
+    );
+
+    await fireEvent.press(progress.getByRole('radio', { name: 'Heaviest weight' }));
+    expect(progress.getByRole('image')).toHaveAccessibleName(
+      /^Heaviest weight, all time, 4 workouts: .*80 kg; .*100 kg, Personal record; .*100 kg, Personal record; .*110 kg$/,
+    );
+
+    await fireEvent.press(progress.getByRole('radio', { name: 'Volume' }));
+    expect(progress.getByRole('image')).toHaveAccessibleName(
+      /^Volume, all time, 4 workouts: .*400 kg; .*500 kg, Personal record; .*800 kg, Personal record; .*330 kg$/,
+    );
+
+    await fireEvent.press(progress.getByRole('radio', { name: '1 year' }));
+    expect(progress.getByRole('image')).toHaveAccessibleName(
+      /^Volume, last year, 3 workouts: .*500 kg, Personal record; .*800 kg, Personal record; .*330 kg$/,
+    );
+  });
+
+  it('shows a single workout as its one point', async () => {
+    const account = await openExercisesTab();
+    logWorkout(account.id, 'Bench Press', 2, [60, 'kg', 10]);
+
+    const progress = await openProgress('Bench Press');
+
+    expect(await progress.findByRole('image')).toHaveAccessibleName(
+      /^Estimated 1RM, last 3 months, 1 workout: .*80 kg$/,
+    );
+  });
+
+  it('says so instead of charting an exercise never logged, only without weight, or not in the range', async () => {
+    const account = await openExercisesTab();
+    logWorkout(account.id, 'Bench Press', 200, [100, 'kg', 5]);
+    logWorkout(account.id, 'Push-up', 3, [0, 'kg', 20]);
+
+    const bench = await openProgress('Bench Press');
+    expect(await bench.findByText('No workouts in the last 3 months.')).toBeVisible();
+    expect(bench.queryByRole('image')).toBeNull();
+
+    await act(async () => router.back());
+    const plank = await openProgress('Plank');
+    expect(await plank.findByText('No sets of this exercise yet.')).toBeVisible();
+    expect(plank.queryByRole('image')).toBeNull();
+
+    await act(async () => router.back());
+    const pushUp = await openProgress('Push-up');
+    expect(await pushUp.findByText("Only sets without weight so far, so there's nothing to chart.")).toBeVisible();
+    expect(pushUp.queryByRole('image')).toBeNull();
+  });
+});

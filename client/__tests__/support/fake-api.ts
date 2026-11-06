@@ -716,6 +716,31 @@ const handlers = [
     });
   }),
 
+  http.get('*/workouts/exercises/:id/progress', ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    if (!visibleExercise(account, params.id)) return error(404, 'exercise_not_found', 'Exercise not found.');
+    const unit = unitOf(account.id);
+    const points = sessions
+      .filter((s) => s.ownerId === account.id && s.finishedAt)
+      .sort((a, b) => a.finishedAt!.localeCompare(b.finishedAt!))
+      .flatMap((session) => {
+        const sets = setsOf(session).filter((set) => set.exerciseId === params.id);
+        if (sets.length === 0) return [];
+        return [
+          {
+            sessionId: session.id,
+            finishedAt: session.finishedAt,
+            estimated1RM: toUnit(Math.max(...sets.map((s) => estimated1RM(kgOf(s), s.reps))), unit),
+            heaviestWeight: toUnit(Math.max(...sets.map(kgOf)), unit),
+            volume: volumeOf(sets, unit),
+            personalRecord: recordHitsOf(session).some((hit) => hit.set.exerciseId === params.id),
+          },
+        ];
+      });
+    return HttpResponse.json({ unit, sessions: points });
+  }),
+
   http.get('*/workouts/totals', ({ request }) => {
     const account = caller(request);
     if (!account) return unauthorized();

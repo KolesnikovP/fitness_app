@@ -150,6 +150,23 @@ export type BestSet = {
  */
 export type ExerciseRecords = { estimated1RM: BestSet | null; repRecords: BestSet[] };
 
+/**
+ * One finished Session's Sets of an Exercise: their best Estimated 1RM,
+ * heaviest weight and Volume, and whether the Session set a Personal record
+ * of any kind for the Exercise.
+ */
+export type ProgressPoint = {
+  sessionId: string;
+  finishedAt: string;
+  estimated1RM: number;
+  heaviestWeight: number;
+  volume: number;
+  personalRecord: boolean;
+};
+
+/** The User's progress at an Exercise, oldest Session first, weights in unit. */
+export type ExerciseProgress = { unit: UnitPreference; sessions: ProgressPoint[] };
+
 /** The records after has that before didn't: those a Set just logged or corrected set. */
 export function newRecords(before: Session, after: Session): PersonalRecord[] {
   const had = new Set(before.personalRecords.map((r) => `${r.setId}/${r.kind}`));
