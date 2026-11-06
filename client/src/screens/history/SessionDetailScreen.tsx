@@ -7,19 +7,24 @@ import {
   formatClockTime,
   formatSessionDate,
   formatSet,
+  formatSetWithTier,
   getSession,
   PersonalRecordList,
+  RecordTierMedal,
   SessionStatsLine,
   setRuns,
   workoutName,
   type Session,
+  type SessionSet,
+  useRecordTierColours,
 } from '@/entities/workout';
 import { errorMessage } from '@/shared/api';
 import { makeStyles, Screen, spacing, Spinner } from '@/shared/ui';
 
 /**
  * A finished Session, read-only: its stats and Personal records, then each of
- * its Exercises with its Sets, as many as its exercise count says.
+ * its Exercises with its Sets, as many as its exercise count says. A Set
+ * with a Record tier is filled in its colour and shows its medal.
  */
 export function SessionDetailScreen() {
   const styles = useStyles();
@@ -79,13 +84,7 @@ export function SessionDetailScreen() {
                   {run.name}
                 </Text>
                 {run.sets.map(({ set, number }) => (
-                  <View key={set.id} style={styles.set}>
-                    <Text style={styles.number}>{number}</Text>
-                    <View style={styles.setBody}>
-                      <Text style={styles.setText}>{formatSet(set)}</Text>
-                      {set.note ? <Text style={styles.muted}>{set.note}</Text> : null}
-                    </View>
-                  </View>
+                  <SetLine key={set.id} set={set} number={number} />
                 ))}
               </View>
             ))}
@@ -97,15 +96,47 @@ export function SessionDetailScreen() {
   );
 }
 
+/**
+ * A Set as a line: its number and values, and its note below. A Set with a
+ * Record tier is filled in the tier's colour, ends in its medal, and says its
+ * tier after its values, as in the set table. The note is read on its own.
+ */
+function SetLine({ set, number }: { set: SessionSet; number: number }) {
+  const styles = useStyles();
+  const tier = set.recordTier;
+  const colours = useRecordTierColours(tier);
+  return (
+    <View style={[styles.line, tier && styles.tiered, colours.fill]}>
+      <View
+        accessible
+        accessibilityLabel={`Set ${number}`}
+        accessibilityValue={{ text: formatSetWithTier(set) }}
+        style={styles.set}
+      >
+        <Text style={[styles.number, colours.text]}>{number}</Text>
+        <Text style={[styles.setText, colours.text]}>{formatSet(set)}</Text>
+        {tier ? <RecordTierMedal tier={tier} /> : null}
+      </View>
+      {set.note ? <Text style={[styles.muted, styles.note, colours.text]}>{set.note}</Text> : null}
+    </View>
+  );
+}
+
+/** The Set number's column. */
+const NUMBER_WIDTH = 20;
+
 const useStyles = makeStyles((colors) => ({
   error: { color: colors.danger, fontSize: 15 },
   detail: { gap: spacing.md },
   exercise: { backgroundColor: colors.card, borderRadius: 12, padding: spacing.md, gap: spacing.sm },
   run: { gap: spacing.xs },
   name: { fontSize: 17, fontWeight: '700', color: colors.text },
+  line: { gap: 2 },
   set: { flexDirection: 'row', gap: spacing.md },
-  number: { width: 20, fontSize: 15, color: colors.muted },
-  setBody: { flex: 1, gap: 2 },
-  setText: { fontSize: 15, color: colors.text },
+  number: { width: NUMBER_WIDTH, fontSize: 15, color: colors.muted },
+  // Under the values, past the number.
+  note: { paddingLeft: NUMBER_WIDTH + spacing.md },
+  tiered: { borderRadius: 8, marginHorizontal: -spacing.xs, paddingHorizontal: spacing.xs, paddingVertical: 2 },
+  setText: { flex: 1, fontSize: 15, color: colors.text },
   muted: { fontSize: 15, color: colors.muted },
 }));

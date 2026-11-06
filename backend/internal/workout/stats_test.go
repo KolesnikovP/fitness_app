@@ -17,20 +17,23 @@ func TestSessionStats(t *testing.T) {
 	srv := testutil.NewServer(t)
 
 	// A workout of an hour and a half: 100 kg × 5 bench, 100 lb × 10 squat,
-	// and pull-ups at bodyweight (0), which add no Volume.
+	// and two sets of pull-ups at bodyweight (0), which add no Volume but
+	// count as Sets.
 	logMixedWorkout := func(t *testing.T, token string) string {
 		t.Helper()
 		id := startSession(t, srv, token)
 		logSetIn(t, srv, token, id, addExercise(t, srv, token, id, "Bench Press"), 100, "kg", 5)
 		logSetIn(t, srv, token, id, addExercise(t, srv, token, id, "Back Squat"), 100, "lb", 10)
-		logSetIn(t, srv, token, id, addExercise(t, srv, token, id, "Pull-up"), 0, "kg", 10)
+		pullUp := addExercise(t, srv, token, id, "Pull-up")
+		logSetIn(t, srv, token, id, pullUp, 0, "kg", 10)
+		logSetIn(t, srv, token, id, pullUp, 0, "kg", 8)
 		finishSession(t, srv, token, id)
 		started := time.Date(2026, 10, 28, 18, 0, 0, 0, time.UTC)
 		setSessionTimes(t, id, started, started.Add(90*time.Minute))
 		return id
 	}
 
-	t.Run("lists each finished session with its duration, Volume and exercise count", func(t *testing.T) {
+	t.Run("lists each finished session with its duration, Volume, exercise count and set count", func(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
 		setUnitPreference(t, srv, token, "kg")
 		logMixedWorkout(t, token)
@@ -38,7 +41,7 @@ func TestSessionStats(t *testing.T) {
 		res := testutil.Do(t, srv, http.MethodGet, "/workouts/sessions", token, nil)
 
 		stats := statsOf(t, objects(t, res.Body, "sessions")[0])
-		wantStats(t, stats, 90*60, 953.6, "kg", 3) // 500 kg + 1000 lb (453.59 kg)
+		wantStats(t, stats, 90*60, 953.6, "kg", 3, 4) // 500 kg + 1000 lb (453.59 kg)
 	})
 
 	t.Run("shows Volume in the user's unit preference", func(t *testing.T) {
@@ -49,7 +52,7 @@ func TestSessionStats(t *testing.T) {
 		res := testutil.Do(t, srv, http.MethodGet, "/workouts/sessions", token, nil)
 
 		stats := statsOf(t, objects(t, res.Body, "sessions")[0])
-		wantStats(t, stats, 90*60, 2102.3, "lb", 3) // 500 kg (1102.31 lb) + 1000 lb
+		wantStats(t, stats, 90*60, 2102.3, "lb", 3, 4) // 500 kg (1102.31 lb) + 1000 lb
 	})
 
 	t.Run("serves a session's detail with the same stats", func(t *testing.T) {
@@ -65,7 +68,7 @@ func TestSessionStats(t *testing.T) {
 		if got := sessionExercises(t, res); len(got) != 3 || len(objects(t, got[1], "sets")) != 1 {
 			t.Errorf("exercises = %v, want the three exercises with their sets", got)
 		}
-		wantStats(t, statsOf(t, res.Body), 90*60, 953.6, "kg", 3)
+		wantStats(t, statsOf(t, res.Body), 90*60, 953.6, "kg", 3, 4)
 	})
 
 	t.Run("has no stats while in progress", func(t *testing.T) {
@@ -270,7 +273,7 @@ func statsOf(t *testing.T, session map[string]any) map[string]any {
 	return stats
 }
 
-func wantStats(t *testing.T, stats map[string]any, durationSeconds, volume float64, unit string, exerciseCount float64) {
+func wantStats(t *testing.T, stats map[string]any, durationSeconds, volume float64, unit string, exerciseCount, setCount float64) {
 	t.Helper()
 	if stats["durationSeconds"] != durationSeconds {
 		t.Errorf("durationSeconds = %v, want %v", stats["durationSeconds"], durationSeconds)
@@ -280,5 +283,8 @@ func wantStats(t *testing.T, stats map[string]any, durationSeconds, volume float
 	}
 	if stats["exerciseCount"] != exerciseCount {
 		t.Errorf("exerciseCount = %v, want %v", stats["exerciseCount"], exerciseCount)
+	}
+	if stats["setCount"] != setCount {
+		t.Errorf("setCount = %v, want %v", stats["setCount"], setCount)
 	}
 }

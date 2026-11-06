@@ -5,7 +5,10 @@ import type { within } from 'expo-router/testing-library';
  * a screen reader: "140 kg × 5", "140 kg × 5 @ RPE 8".
  */
 export function loggedSets(card: ReturnType<typeof within>): string[] {
-  return card
-    .queryAllByRole('button', { name: /^Edit set \d+$/ })
-    .map((row) => (row.props.accessibilityValue as { text: string }).text);
+  return readouts(card.queryAllByRole('button', { name: /^Edit set \d+$/ }));
+}
+
+/** What a screen reader says each of these elements' value is, in order. */
+export function readouts(elements: { props: { accessibilityValue?: unknown } }[]): string[] {
+  return elements.map((element) => (element.props.accessibilityValue as { text: string }).text);
 }

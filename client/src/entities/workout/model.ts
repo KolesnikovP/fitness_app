@@ -102,13 +102,14 @@ export type SessionBlock =
 /**
  * A finished Session's stats, worked out by the API from its Sets. volume is
  * in volumeUnit, the User's Unit preference. exerciseCount is how many
- * different Exercises it lists.
+ * different Exercises it lists, and setCount how many Sets were logged in it.
  */
 export type SessionStats = {
   durationSeconds: number;
   volume: number;
   volumeUnit: UnitPreference;
   exerciseCount: number;
+  setCount: number;
 };
 
 /**
@@ -239,12 +240,13 @@ export function formatVolume(volume: number, unit: UnitPreference): string {
   return `${Math.round(volume).toLocaleString('en-US')} ${unit}`;
 }
 
-/** "45 min · 2,102 lb · 3 exercises" */
+/** "45 min · 2,102 lb · 3 exercises · 12 sets" */
 export function formatStats(stats: SessionStats): string {
   return [
     formatDuration(stats.durationSeconds),
     formatVolume(stats.volume, stats.volumeUnit),
     countOf(stats.exerciseCount, 'exercise'),
+    countOf(stats.setCount, 'set'),
   ].join(' · ');
 }
 
@@ -285,6 +287,14 @@ export function parseSetDraft(
 export function formatSet(set: Pick<SessionSet, 'weight' | 'weightUnit' | 'reps' | 'rpe'>): string {
   const base = `${set.weight} ${set.weightUnit} × ${set.reps}`;
   return set.rpe === null ? base : `${base} @ RPE ${set.rpe}`;
+}
+
+/**
+ * A logged Set as a screen reader says it: its values, then its Record tier
+ * if it has one. "100 kg × 5, Silver".
+ */
+export function formatSetWithTier(set: SessionSet): string {
+  return set.recordTier ? `${formatSet(set)}, ${recordTierLabels[set.recordTier]}` : formatSet(set);
 }
 
 /** "3 × 5 · 100 kg", or "3 × 5" with no weight (0) planned. */

@@ -3,6 +3,7 @@ import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-rout
 
 import { fakeApi } from './support/fake-api';
 import { secureStore } from './support/secure-store';
+import { readouts } from './support/set-table';
 
 /** Launches the app signed in as a user with unit, on the first tab. */
 async function openApp(unit: 'kg' | 'lb') {
@@ -49,7 +50,7 @@ describe('history', () => {
     await screen.findByRole('header', { name: 'History' });
     const history = within(screen.getByLabelText('Past workouts'));
     expect(await history.findByText('Dumbbell Bench Press')).toBeVisible();
-    expect(history.getByText('< 1 min · 325 kg · 1 exercise')).toBeVisible();
+    expect(history.getByText('< 1 min · 325 kg · 1 exercise · 1 set')).toBeVisible();
     const thisWeek = within(screen.getByLabelText('This week'));
     expect(await thisWeek.findByText('1 workout')).toBeVisible();
     expect(thisWeek.getByText('325 kg')).toBeVisible();
@@ -61,7 +62,7 @@ describe('history', () => {
     // Its detail, read-only.
     await fireEvent.press(history.getByRole('button', { name: /Dumbbell Bench Press/ }));
     const detail = within(await screen.findByLabelText('Workout detail'));
-    expect(detail.getByText('< 1 min · 325 kg · 1 exercise')).toBeVisible();
+    expect(detail.getByText('< 1 min · 325 kg · 1 exercise · 1 set')).toBeVisible();
     expect(detail.getByText('Dumbbell Bench Press')).toBeVisible();
     expect(detail.getByText('32.5 kg × 10')).toBeVisible();
     expect(detail.queryByRole('button', { name: /Log set|Edit set/ })).toBeNull();
@@ -103,6 +104,48 @@ describe('history', () => {
     await fireEvent.press(history.getAllByRole('button', { name: /Bench Press/ })[0]);
     const records = within(await screen.findByLabelText('Personal records'));
     expect(records.getByText('Bench Press: Estimated 1RM 122.5 kg, from 105 kg × 5')).toBeVisible();
+  });
+
+  it("colours a past workout's sets by how close they came to the best before it, even after a later record", async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const day = 86_400_000;
+    const workout = (daysAgo: number, sets: [number, number, string?][]) => {
+      const session = fakeApi.addSession(account.id, new Date(Date.now() - daysAgo * day));
+      const exercise = fakeApi.addSessionExercise(session, 'Bench Press');
+      for (const [weight, reps, note] of sets) fakeApi.addSet(exercise, weight, 'kg', reps, note);
+      fakeApi.finishSession(session, new Date(Date.now() - daysAgo * day + 3_600_000));
+    };
+    workout(3, [[100, 5]]);
+    workout(2, [
+      [105, 5],
+      [100, 5, 'Paused at the chest'],
+      [100, 4],
+      [95, 5],
+      [100, 3],
+    ]);
+    workout(1, [[120, 5]]); // A later record.
+    secureStore.set('auth-token', fakeApi.issueToken(account.id));
+    await renderRouter('./src/app', { initialUrl: '/' });
+
+    const history = within(await screen.findByLabelText('Past workouts'));
+    await fireEvent.press((await history.findAllByRole('button', { name: /Bench Press/ }))[1]);
+    const detail = within(await screen.findByLabelText('Workout detail'));
+    const line = (n: number) => detail.getByLabelText(`Set ${n}`);
+    expect(readouts([1, 2, 3, 4, 5].map(line))).toEqual([
+      '105 kg × 5, Personal record',
+      '100 kg × 5, Silver', // A tie with the best.
+      '100 kg × 4, Bronze',
+      '95 kg × 5, Bronze',
+      '100 kg × 3',
+    ]);
+    expect(within(line(1)).getByText('🏆')).toBeVisible();
+    expect(within(line(2)).getByText('🥈')).toBeVisible();
+    expect(within(line(3)).getByText('🥉')).toBeVisible();
+    expect(within(line(4)).getByText('🥉')).toBeVisible();
+    expect(within(line(5)).queryByText(/🏆|🥈|🥉/)).toBeNull();
+    // A Set's note is read on its own, not swallowed by the Set's line.
+    expect(detail.getByText('Paused at the chest')).toBeVisible();
+    expect(within(line(2)).queryByText('Paused at the chest')).toBeNull();
   });
 
   it('names a workout after its routine, or else the day and the part of it it started in', async () => {
@@ -150,9 +193,9 @@ describe('history', () => {
     await renderRouter('./src/app', { initialUrl: '/' });
 
     const history = within(await screen.findByLabelText('Past workouts'));
-    // 100 kg × 5 is 1,102.3 lb; the plank at 0 adds nothing.
-    expect(await history.findByText('45 min · 2,102 lb · 3 exercises')).toBeVisible();
-    expect(history.getByText('1 h 0 min · 1,323 lb · 1 exercise')).toBeVisible();
+    // 100 kg × 5 is 1,102.3 lb; the plank at 0 adds no Volume, but is a set.
+    expect(await history.findByText('45 min · 2,102 lb · 3 exercises · 3 sets')).toBeVisible();
+    expect(history.getByText('1 h 0 min · 1,323 lb · 1 exercise · 1 set')).toBeVisible();
     const week = within(screen.getByLabelText('This week'));
     expect(await week.findByText('1 workout')).toBeVisible();
     expect(week.getByText('2,102 lb')).toBeVisible();

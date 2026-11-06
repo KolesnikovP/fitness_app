@@ -4,18 +4,17 @@ import { Pressable, Text, View } from 'react-native';
 import { useAuth } from '@/entities/auth';
 import {
   addedAfterLogging,
-  formatSet,
+  formatSetWithTier,
   nextSetDraft,
   pendingSetCount,
-  recordTierLabels,
-  recordTierMedals,
+  RecordTierMedal,
   setColumns,
   setRuns,
-  type RecordTier,
   type Session,
   type SessionExercise,
   type SessionSet,
   type SetDraft,
+  useRecordTierColours,
 } from '@/entities/workout';
 import { EditSetForm } from '@/features/edit-set';
 import { PendingSetRow } from '@/features/log-set';
@@ -156,19 +155,24 @@ type LoggedSetRowProps = {
 function LoggedSetRow({ set, number, unit, onPress }: LoggedSetRowProps) {
   const styles = useStyles();
   const tier = set.recordTier;
-  const text = tier ? styles[`${tier}Text`] : null;
+  const { fill, text } = useRecordTierColours(tier);
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Edit set ${number}`}
-      accessibilityValue={{ text: tier ? `${formatSet(set)}, ${recordTierLabels[tier]}` : formatSet(set) }}
+      accessibilityValue={{ text: formatSetWithTier(set) }}
       onPress={onPress}
       style={({ pressed }) => pressed && styles.pressed}
     >
-      <View style={[setColumns.row, styles.logged, tier && styles[tier]]}>
+      <View style={[setColumns.row, styles.logged, fill]}>
         <Text style={[setColumns.number, styles.number, text]}>
           {number}
-          {tier ? <Medal tier={tier} /> : null}
+          {tier ? (
+            <>
+              {' '}
+              <RecordTierMedal tier={tier} />
+            </>
+          ) : null}
         </Text>
         <Text style={[setColumns.weight, styles.value, text]}>
           {set.weight}
@@ -187,17 +191,6 @@ function LoggedSetRow({ set, number, unit, onPress }: LoggedSetRowProps) {
   );
 }
 
-/** A Record tier's medal, after the Set number; the row's value says the tier. */
-function Medal({ tier }: { tier: RecordTier }) {
-  const styles = useStyles();
-  return (
-    <Text importantForAccessibility="no" style={styles.medal}>
-      {' '}
-      {recordTierMedals[tier]}
-    </Text>
-  );
-}
-
 const useStyles = makeStyles((colors) => ({
   table: { gap: spacing.xs },
   header: { paddingBottom: 2 },
@@ -206,13 +199,6 @@ const useStyles = makeStyles((colors) => ({
   runLabel: { fontSize: 13, fontWeight: '600', color: colors.text, paddingTop: spacing.xs },
   pressed: { opacity: 0.5 },
   number: { fontSize: 17, color: colors.muted, textAlign: 'center' },
-  medal: { fontSize: 13 },
-  gold: { backgroundColor: colors.gold },
-  goldText: { color: colors.goldText },
-  silver: { backgroundColor: colors.silver },
-  silverText: { color: colors.silverText },
-  bronze: { backgroundColor: colors.bronze },
-  bronzeText: { color: colors.bronzeText },
   value: { fontSize: 17, color: colors.text, textAlign: 'center' },
   // The box a row still to do shows, ticked.
   checked: {
