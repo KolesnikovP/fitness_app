@@ -179,6 +179,23 @@ func (s *Service) Routes(mux *http.ServeMux, accounts Accounts) {
 	mux.Handle("POST /workouts/sessions/{id}/routine", accounts.RequireAuth(http.HandlerFunc(h.saveAsRoutine)))
 }
 
+// ErrSessionNotFound is returned by FinishedSession when the caller has no
+// such finished Session.
+var ErrSessionNotFound = errors.New("session not found")
+
+// FinishedSession returns callerID's finished Session id as GET
+// /workouts/sessions/{id} does, with its stats and Personal records as they
+// are now (ADR 0007), or ErrSessionNotFound if callerID has no such finished
+// Session. The feed module uses it through feed.Sessions.
+func (s *Service) FinishedSession(ctx context.Context, callerID, id uuid.UUID) (Session, error) {
+	h := handlers{pool: s.pool, queries: s.queries, exercises: s.exercises, routines: s.routines, profiles: s.profiles}
+	session, err := h.loadSession(ctx, callerID, id)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && session.FinishedAt == nil) {
+		return Session{}, ErrSessionNotFound
+	}
+	return session, err
+}
+
 type handlers struct {
 	pool      *pgxpool.Pool
 	queries   *store.Queries
@@ -400,7 +417,7 @@ func (h handlers) current(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteInternalError(w, r, fmt.Errorf("find session in progress: %w", err))
 		return
 	}
-	session, err := h.loadSession(r.Context(), id)
+	session, err := h.loadSession(r.Context(), callerOf(r), id)
 	if err != nil {
 		httpx.WriteInternalError(w, r, err)
 		return
@@ -813,7 +830,7 @@ func (h handlers) saveAsRoutine(w http.ResponseWriter, r *http.Request) {
 		writeSessionNotFound(w)
 		return
 	}
-	session, err := h.loadSession(ctx, id)
+	session, err := h.loadSession(ctx, caller, id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeSessionNotFound(w)
 		return
@@ -953,7 +970,7 @@ func writeExerciseNotFound(w http.ResponseWriter) {
 // writeSession loads the caller's session id and writes it, or a 404 if the
 // caller has no such session.
 func (h handlers) writeSession(w http.ResponseWriter, r *http.Request, status int, id uuid.UUID) {
-	session, err := h.loadSession(r.Context(), id)
+	session, err := h.loadSession(r.Context(), callerOf(r), id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeSessionNotFound(w)
 		return
@@ -965,10 +982,15 @@ func (h handlers) writeSession(w http.ResponseWriter, r *http.Request, status in
 	httpx.WriteJSON(w, status, session)
 }
 
-// loadSession loads the caller's session id with its exercises and sets, and
-// its stats once finished. It returns pgx.ErrNoRows when the caller has no such session.
-func (h handlers) loadSession(ctx context.Context, id uuid.UUID) (Session, error) {
-	caller, _ := auth.AccountID(ctx)
+// callerOf returns the signed-in caller of r.
+func callerOf(r *http.Request) uuid.UUID {
+	caller, _ := auth.AccountID(r.Context())
+	return caller
+}
+
+// loadSession loads caller's session id with its exercises and sets, and its
+// stats once finished. It returns pgx.ErrNoRows when caller has no such session.
+func (h handlers) loadSession(ctx context.Context, caller, id uuid.UUID) (Session, error) {
 	row, err := h.queries.GetSession(ctx, store.GetSessionParams{ID: id, AccountID: caller})
 	if err != nil {
 		return Session{}, fmt.Errorf("load session: %w", err)

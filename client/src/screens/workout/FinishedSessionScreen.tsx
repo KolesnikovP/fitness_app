@@ -1,15 +1,18 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
-import { getSession, PersonalRecordList, saveSessionAsRoutine, type PersonalRecord } from '@/entities/workout';
+import { getPost, PostPhoto, type Post } from '@/entities/post';
+import { PersonalRecordList, saveSessionAsRoutine } from '@/entities/workout';
+import { PostEditor } from '@/features/edit-post';
 import { errorMessage } from '@/shared/api';
-import { Button, makeStyles, Screen, TextField } from '@/shared/ui';
+import { Button, makeStyles, Screen, spacing, TextField } from '@/shared/ui';
 
 /**
- * Shown after finishing a Session: the Personal records it set, and for a
- * Freeform session an offer to save it as a Routine to repeat.
+ * Shown after finishing a Session: the Personal records it set, its Post's
+ * caption and Progress photo to set, and for a Freeform session an offer to
+ * save it as a Routine to repeat.
  */
 export function FinishedSessionScreen() {
   const styles = useStyles();
@@ -18,15 +21,15 @@ export function FinishedSessionScreen() {
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [records, setRecords] = useState<PersonalRecord[]>([]);
+  const [post, setPost] = useState<Post | null>(null);
   const token = state.status === 'signedIn' ? state.token : null;
 
   useEffect(() => {
     if (!token) return;
     let current = true;
-    // Records are a bonus here: without them the screen still works.
-    getSession(token, sessionId)
-      .then((session) => current && setRecords(session.personalRecords))
+    // The Post is a bonus here: without it the screen still works.
+    getPost(token, sessionId)
+      .then((found) => current && setPost(found))
       .catch(() => {});
     return () => {
       current = false;
@@ -50,7 +53,18 @@ export function FinishedSessionScreen() {
 
   return (
     <Screen title="Workout finished">
-      <PersonalRecordList records={records} />
+      {post ? (
+        <View style={styles.post}>
+          <PersonalRecordList records={post.session.personalRecords} />
+          {post.photoUrl ? <PostPhoto path={post.photoUrl} token={signedInToken} style={styles.photo} /> : null}
+          <PostEditor post={post} onChange={setPost} />
+          <Button
+            label="View post"
+            variant="secondary"
+            onPress={() => router.push({ pathname: '/posts/[id]', params: { id: sessionId } })}
+          />
+        </View>
+      ) : null}
       {freeform !== 'false' ? (
         <>
           <Text style={styles.muted}>
@@ -71,6 +85,8 @@ export function FinishedSessionScreen() {
 }
 
 const useStyles = makeStyles((colors) => ({
+  post: { gap: spacing.md },
+  photo: { width: '100%', aspectRatio: 4 / 5, borderRadius: 12, backgroundColor: colors.card },
   error: { color: colors.danger, fontSize: 15 },
   muted: { fontSize: 17, color: colors.muted },
 }));

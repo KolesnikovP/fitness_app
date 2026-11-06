@@ -1,0 +1,1 @@
+export { PostCarousel } from './PostCarousel';

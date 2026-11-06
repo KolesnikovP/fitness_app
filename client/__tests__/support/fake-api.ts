@@ -4,8 +4,8 @@ import { setupServer } from 'msw/node';
 /**
  * An in-memory fake of the backend API, served at the network boundary with
  * MSW. It follows the real API's contract (see backend/internal/auth,
- * backend/internal/user, backend/internal/exercise, backend/internal/workout
- * and backend/internal/program): same paths, bodies, status codes and error
+ * backend/internal/user, backend/internal/exercise, backend/internal/workout,
+ * backend/internal/program and backend/internal/feed): same paths, bodies, status codes and error
  * shape.
  */
 type FakeAccount = {
@@ -112,6 +112,8 @@ let tokens = new Map<string, string>(); // token -> account id
 let exercises: FakeExercise[] = [];
 let sessions: FakeSession[] = [];
 let routines: FakeRoutine[] = [];
+/** What Users added to their Posts, by Session id. A finished Session not here has a Post with neither. */
+let posts = new Map<string, { caption: string; photoUrl: string | null }>();
 let nextId = 1;
 
 function seedExercises() {
@@ -133,6 +135,8 @@ export const fakeApi = {
   authHeaders: [] as (string | null)[],
   /** Every media upload the API accepted, in order. */
   uploads: [] as { exerciseId: string; fileName: string; type: string }[],
+  /** Every Progress photo upload the API accepted, in order. */
+  photoUploads: [] as { postId: string; fileName: string; type: string }[],
 
   reset() {
     accounts = [];
@@ -140,9 +144,11 @@ export const fakeApi = {
     seedExercises();
     sessions = [];
     routines = [];
+    posts = new Map();
     nextId = 1;
     this.authHeaders = [];
     this.uploads = [];
+    this.photoUploads = [];
   },
 
   addAccount(email: string, password: string, unitPreference: FakeAccount['unitPreference']) {
@@ -275,6 +281,11 @@ export const fakeApi = {
 
   routines(ownerId: string) {
     return routines.filter((r) => r.ownerId === ownerId);
+  },
+
+  /** What the User added to a finished Session's Post. */
+  post(sessionId: string) {
+    return posts.get(sessionId) ?? { caption: '', photoUrl: null };
   },
 };
 
@@ -469,6 +480,20 @@ function sessionInProgress(account: FakeAccount, id: string | readonly string[] 
   if (!session) return { response: error(404, 'session_not_found', 'Workout not found.') };
   if (session.finishedAt) return { response: error(409, 'session_finished', 'This workout is already finished.') };
   return { session };
+}
+
+/**
+ * The Post of the caller's finished {id} session, or the error response the
+ * real API sends instead.
+ */
+function ownPost(account: FakeAccount, id: string | readonly string[] | undefined) {
+  const session = sessions.find((s) => s.id === id && s.ownerId === account.id && s.finishedAt);
+  if (!session) return { response: error(404, 'post_not_found', 'Post not found.') };
+  return { session };
+}
+
+function postJson(session: FakeSession) {
+  return { id: session.id, ...fakeApi.post(session.id), session: sessionJson(session) };
 }
 
 function sessionExerciseNotFound() {
@@ -1095,6 +1120,56 @@ const handlers = [
     if (kind === 'image') exercise.imageUrl = url;
     else exercise.animatedDemoUrl = url;
     return HttpResponse.json(exerciseJson(exercise));
+  }),
+
+  http.get('*/posts/:id', ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const { session, response } = ownPost(account, params.id);
+    if (!session) return response;
+    return HttpResponse.json(postJson(session));
+  }),
+
+  http.patch('*/posts/:id', async ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const { caption } = (await request.json()) as { caption: string };
+    // Counted in characters, as the real API does, not UTF-16 units.
+    if ([...caption].length > 2200) {
+      return error(400, 'caption_too_long', 'Captions must be 2,200 characters or fewer.');
+    }
+    const { session, response } = ownPost(account, params.id);
+    if (!session) return response;
+    posts.set(session.id, { ...fakeApi.post(session.id), caption });
+    return HttpResponse.json(postJson(session));
+  }),
+
+  http.put('*/posts/:id/photo', async ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const { session, response } = ownPost(account, params.id);
+    if (!session) return response;
+    const form = (await request.formData()) as unknown as { get(name: string): unknown };
+    const file = form.get('file');
+    if (!(file instanceof File)) {
+      return error(400, 'missing_file', 'Send the file as the "file" field of a multipart form.');
+    }
+    if (MEDIA_KINDS[file.type] !== 'image') {
+      return error(415, 'unsupported_media_type', 'Upload a PNG, JPEG or WebP image.');
+    }
+    fakeApi.photoUploads.push({ postId: session.id, fileName: file.name, type: file.type });
+    const photoUrl = `/posts/${session.id}/photo?v=${fakeApi.photoUploads.length}`;
+    posts.set(session.id, { ...fakeApi.post(session.id), photoUrl });
+    return HttpResponse.json(postJson(session));
+  }),
+
+  http.delete('*/posts/:id/photo', ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const { session, response } = ownPost(account, params.id);
+    if (!session) return response;
+    posts.set(session.id, { ...fakeApi.post(session.id), photoUrl: null });
+    return HttpResponse.json(postJson(session));
   }),
 ];
 

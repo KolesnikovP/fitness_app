@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 
@@ -19,7 +19,7 @@ import {
   useRecordTierColours,
 } from '@/entities/workout';
 import { errorMessage } from '@/shared/api';
-import { makeStyles, Screen, spacing, Spinner } from '@/shared/ui';
+import { Button, makeStyles, Screen, spacing, Spinner } from '@/shared/ui';
 
 /**
  * A finished Session, read-only: its stats and Personal records, then each of
@@ -67,6 +67,11 @@ export function SessionDetailScreen() {
           {formatSessionDate(finishedAt)}, {formatClockTime(session.startedAt)} – {formatClockTime(finishedAt)}
         </Text>
         {session.stats ? <SessionStatsLine stats={session.stats} /> : null}
+        <Button
+          label="View post"
+          variant="secondary"
+          onPress={() => router.push({ pathname: '/posts/[id]', params: { id: session.id } })}
+        />
         <PersonalRecordList records={session.personalRecords} />
         {session.exercises.map((exercise) => (
           <View key={exercise.id} style={styles.exercise}>

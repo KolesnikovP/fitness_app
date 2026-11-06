@@ -68,6 +68,10 @@ _Avoid_: Cycle, lap
 A User's finished Sessions, newest first, with the stats of each. It is only the User's own; a feed of other Users' workouts is postponed past v1.
 _Avoid_: Log, journal, feed (until there is one)
 
+**Volume**:
+The total weight a User moved: the sum of weight × reps over Sets, in the User's Unit preference. A Set logged in the other unit is converted by the one fixed factor, and a Set at weight 0 adds nothing. A Session's Volume is over its Sets; a week's, over the Sets of the Sessions finished in it.
+_Avoid_: Tonnage, total load, work
+
 **Estimated 1RM**:
 The weight a Set suggests the User could lift for one rep, by the Epley formula: weight × (1 + reps / 30), or the weight itself for a 1-rep Set. Weights in lb are converted to kg by one fixed factor first.
 _Avoid_: Max, 1RM (as the computed value), e1RM
@@ -135,6 +139,16 @@ _Avoid_: Body part, target, primary muscle
 **Equipment type**:
 What an Exercise is done with, from a fixed list (barbell, dumbbell, machine, ...). Used to suggest substitutes, so an Exercise has exactly one.
 _Avoid_: Equipment (as a count noun), gear, implement
+
+### Progress and sharing
+
+**Post**:
+A finished Session as the User shows it: the Session with its stats and Personal records as they are now, an optional Progress photo, and an optional caption of up to 2,200 characters. Every finished Session has exactly one, from the moment it's finished, and it shares the Session's id. It can't be deleted. Only its User sees it until there is a feed.
+_Avoid_: Share, story, workout post (as the term)
+
+**Carousel**:
+A Post exported as 4:5 images to save to Photos and post on Instagram, in order: a cover (the Progress photo with the date and title over it, or the stats without one), the stats, the Personal records if there are any, then the Exercises with their Sets, about four to an image. Once saved it doesn't change when its Post does.
+_Avoid_: Slides, gallery, export (as the term)
 
 **Progress photo**:
 A Post's photo: one picture of the User, to see their body change over time. The User's Posts, in date order, are the timeline of these.
