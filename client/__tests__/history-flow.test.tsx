@@ -3,6 +3,7 @@ import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-rout
 
 import { fakeApi } from './support/fake-api';
 import { secureStore } from './support/secure-store';
+import { readouts } from './support/set-table';
 
 /** Launches the app signed in as a user with unit, on the first tab. */
 async function openApp(unit: 'kg' | 'lb') {
@@ -130,7 +131,7 @@ describe('history', () => {
     await fireEvent.press((await history.findAllByRole('button', { name: /Bench Press/ }))[1]);
     const detail = within(await screen.findByLabelText('Workout detail'));
     const line = (n: number) => detail.getByLabelText(`Set ${n}`);
-    expect([1, 2, 3, 4, 5].map((n) => (line(n).props.accessibilityValue as { text: string }).text)).toEqual([
+    expect(readouts([1, 2, 3, 4, 5].map(line))).toEqual([
       '105 kg × 5, Personal record',
       '100 kg × 5, Silver', // A tie with the best.
       '100 kg × 4, Bronze',

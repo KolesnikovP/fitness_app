@@ -106,7 +106,7 @@ function SetLine({ set, number }: { set: SessionSet; number: number }) {
   const tier = set.recordTier;
   const colours = useRecordTierColours(tier);
   return (
-    <View style={[styles.line, tier && [styles.tiered, colours.fill]]}>
+    <View style={[styles.line, tier && styles.tiered, colours.fill]}>
       <View
         accessible
         accessibilityLabel={`Set ${number}`}
