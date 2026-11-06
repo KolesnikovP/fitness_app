@@ -8,10 +8,13 @@ Start the backend first (see `../backend/README.md`), then:
 
 ```sh
 npm install
-npx expo start      # press i for the iOS simulator; shift+i to pick a device
+npm run dev         # Metro on 8081, logging to tmp/metro.log; press i for the iOS simulator
+npm run reload      # reload every connected app, and check the bundle builds
 npm test            # flow tests (Jest + React Native Testing Library + MSW)
 npm run typecheck
 ```
+
+`npm run dev` frees port 8081 first, so an old Metro never pushes the new one onto another port. To see what Metro or a device logged, read `tmp/metro.log`.
 
 Add native packages with `npx expo install <package>`, not `npm install`. It picks the versions SDK 57 expects.
 

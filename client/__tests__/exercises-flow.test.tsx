@@ -24,6 +24,17 @@ function listedExercises() {
     .map((row) => row.props.accessibilityLabel as string);
 }
 
+/**
+ * Presses an upload button. The fake upload can answer while the press is
+ * still settling, after its act() has closed, so press inside an outer act()
+ * that stays open until then.
+ */
+async function upload(button: Parameters<typeof fireEvent.press>[0]) {
+  await act(async () => {
+    await fireEvent.press(button);
+  });
+}
+
 function chip(group: string, label: string) {
   return within(screen.getByLabelText(group)).getByRole('radio', { name: label });
 }
@@ -148,7 +159,7 @@ describe('exercise library', () => {
     await screen.findByRole('header', { name: 'Sled Push' });
     expect(screen.queryByLabelText('Sled Push animated demo')).toBeNull();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Add image or GIF' }));
+    await upload(screen.getByRole('button', { name: 'Add image or GIF' }));
 
     expect(await screen.findByLabelText('Sled Push animated demo')).toBeVisible();
     expect(fakeApi.uploads).toEqual([{ exerciseId: exercise.id, fileName: 'sled.gif', type: 'image/gif' }]);
@@ -162,7 +173,7 @@ describe('exercise library', () => {
     imagePicker.nextPick = { uri: 'file:///docs/notes.txt', mimeType: 'text/plain', fileName: 'notes.txt' };
 
     await act(async () => router.navigate(`/exercises/${exercise.id}`));
-    await fireEvent.press(await screen.findByRole('button', { name: 'Add image or GIF' }));
+    await upload(await screen.findByRole('button', { name: 'Add image or GIF' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Upload a PNG, JPEG, WebP or GIF image.');
   });
