@@ -3,9 +3,12 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
-import { removePostPhoto, setPostCaption, setPostPhoto, type Post } from '@/entities/post';
+import { MAX_CAPTION_CHARS, removePostPhoto, setPostCaption, setPostPhoto, type Post } from '@/entities/post';
 import { errorMessage } from '@/shared/api';
 import { Button, makeStyles, spacing, TextField } from '@/shared/ui';
+
+/** What the editor is saving: the caption, a new photo, or the photo's removal. */
+type Saving = 'caption' | 'photo' | 'remove';
 
 type PostEditorProps = {
   post: Post;
@@ -21,13 +24,16 @@ export function PostEditor({ post, onChange }: PostEditorProps) {
   const styles = useStyles();
   const { state } = useAuth();
   const [caption, setCaption] = useState(post.caption);
-  const [busy, setBusy] = useState<'caption' | 'photo' | 'remove' | null>(null);
+  const [busy, setBusy] = useState<Saving | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   if (state.status !== 'signedIn') return null;
   const token = state.token;
+  // Counted by code point, as the API counts, so an emoji is one character.
+  const captionLength = [...caption].length;
+  const captionTooLong = captionLength > MAX_CAPTION_CHARS;
 
-  async function run(what: 'caption' | 'photo' | 'remove', change: () => Promise<Post>) {
+  async function run(what: Saving, change: () => Promise<Post>) {
     setError(null);
     setBusy(what);
     try {
@@ -84,6 +90,9 @@ export function PostEditor({ post, onChange }: PostEditorProps) {
         ) : null}
       </View>
       <TextField label="Caption" placeholder="How did it go?" value={caption} onChangeText={setCaption} multiline />
+      <Text style={[styles.count, captionTooLong && styles.over]}>
+        {`${captionLength.toLocaleString('en-US')} / ${MAX_CAPTION_CHARS.toLocaleString('en-US')}`}
+      </Text>
       {error ? (
         <Text accessibilityRole="alert" style={styles.error}>
           {error}
@@ -94,7 +103,7 @@ export function PostEditor({ post, onChange }: PostEditorProps) {
         variant="secondary"
         onPress={() => run('caption', () => setPostCaption(token, post.id, caption))}
         loading={busy === 'caption'}
-        disabled={busy !== null || caption === post.caption}
+        disabled={busy !== null || caption === post.caption || captionTooLong}
       />
     </View>
   );
@@ -105,4 +114,6 @@ const useStyles = makeStyles((colors) => ({
   photoButtons: { flexDirection: 'row', gap: spacing.sm },
   grow: { flex: 1 },
   error: { color: colors.danger, fontSize: 15 },
+  count: { fontSize: 13, color: colors.muted, alignSelf: 'flex-end' },
+  over: { color: colors.danger },
 }));

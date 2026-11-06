@@ -14,11 +14,14 @@ import {
 import { darkColors, spacing } from '@/shared/ui';
 import { listNames } from '@/shared/utils';
 
-import { MAX_SETS_SHOWN, type CarouselPage } from './model';
+import { MAX_SETS_SHOWN, type CarouselImage } from './model';
 
-/** A slide's size on screen. Saved, it's scaled to 1080 × 1350, Instagram's 4:5. */
-export const SLIDE_WIDTH = 300;
-export const SLIDE_HEIGHT = (SLIDE_WIDTH * 5) / 4;
+/** An image's size on screen, 4:5. Saved, it's scaled to SAVED_WIDTH × SAVED_HEIGHT. */
+export const IMAGE_WIDTH = 300;
+export const IMAGE_HEIGHT = (IMAGE_WIDTH * 5) / 4;
+/** The size, in pixels, each image is saved at: Instagram's 4:5 portrait. */
+export const SAVED_WIDTH = 1080;
+export const SAVED_HEIGHT = 1350;
 
 /**
  * Saved images look the same whatever the phone's theme: always the dark
@@ -26,39 +29,49 @@ export const SLIDE_HEIGHT = (SLIDE_WIDTH * 5) / 4;
  */
 const colors = darkColors;
 
-type CarouselSlideProps = {
+type CarouselImageViewProps = {
   post: Post;
-  page: CarouselPage;
+  image: CarouselImage;
   token: string;
   /** "Carousel image 2 of 5" */
   label: string;
+  /** Called once the cover's Progress photo has loaded, or failed to, so it can be captured. */
+  onPhotoSettled: () => void;
 };
 
 /** One 4:5 image of a Carousel, with the app mark in its corner. */
-export const CarouselSlide = forwardRef<View, CarouselSlideProps>(function CarouselSlide(
-  { post, page, token, label },
+export const CarouselImageView = forwardRef<View, CarouselImageViewProps>(function CarouselImageView(
+  { post, image, token, label, onPhotoSettled },
   ref,
 ) {
   return (
     // collapsable={false} keeps the view on Android, so it can be captured.
-    <View ref={ref} collapsable={false} accessible accessibilityLabel={label} style={styles.slide}>
-      <PageContent post={post} page={page} token={token} />
+    <View ref={ref} collapsable={false} accessible accessibilityLabel={label} style={styles.image}>
+      <ImageContent post={post} image={image} token={token} onPhotoSettled={onPhotoSettled} />
       <Text style={styles.mark}>FITNESS</Text>
     </View>
   );
 });
 
-function PageContent({ post, page, token }: { post: Post; page: CarouselPage; token: string }) {
+function ImageContent({ post, image, token, onPhotoSettled }: Omit<CarouselImageViewProps, 'label'>) {
   const { session } = post;
   const date = formatSessionDate(session.finishedAt ?? session.startedAt);
   const title = workoutName(session);
 
-  switch (page.kind) {
+  switch (image.kind) {
     case 'cover':
       if (post.photoUrl) {
         return (
           <>
-            <PostPhoto path={post.photoUrl} token={token} accessible={false} style={StyleSheet.absoluteFill} />
+            <PostPhoto
+              path={post.photoUrl}
+              token={token}
+              accessible={false}
+              testID="carousel-cover-photo"
+              style={StyleSheet.absoluteFill}
+              onLoad={onPhotoSettled}
+              onError={onPhotoSettled}
+            />
             <View style={styles.coverBand}>
               <Text style={styles.muted}>{date}</Text>
               <Text style={styles.title}>{title}</Text>
@@ -114,7 +127,7 @@ function PageContent({ post, page, token }: { post: Post; page: CarouselPage; to
     case 'exercises':
       return (
         <View style={styles.body}>
-          {page.runs.map((run) => {
+          {image.runs.map((run) => {
             const hidden = run.sets.length - MAX_SETS_SHOWN;
             return (
               <View key={run.sets[0].set.id} style={styles.run}>
@@ -140,9 +153,9 @@ function exerciseNames(post: Post): string[] {
 }
 
 const styles = StyleSheet.create({
-  slide: {
-    width: SLIDE_WIDTH,
-    height: SLIDE_HEIGHT,
+  image: {
+    width: IMAGE_WIDTH,
+    height: IMAGE_HEIGHT,
     backgroundColor: colors.background,
     borderRadius: 4,
     overflow: 'hidden',

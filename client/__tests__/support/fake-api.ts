@@ -1133,7 +1133,10 @@ const handlers = [
   http.patch('*/posts/:id', async ({ request, params }) => {
     const account = caller(request);
     if (!account) return unauthorized();
-    const { caption } = (await request.json()) as { caption: string };
+    const { caption } = (await request.json()) as { caption?: string };
+    if (caption === undefined) {
+      return error(400, 'missing_caption', 'Send the caption as "caption"; an empty one clears it.');
+    }
     // Counted in characters, as the real API does, not UTF-16 units.
     if ([...caption].length > 2200) {
       return error(400, 'caption_too_long', 'Captions must be 2,200 characters or fewer.');

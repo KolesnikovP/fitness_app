@@ -83,8 +83,10 @@ func (h handlers) get(w http.ResponseWriter, r *http.Request) {
 // maxCaptionChars is Instagram's caption limit, so a caption always fits.
 const maxCaptionChars = 2200
 
+// updateBody's Caption is required: a body without one is refused, rather
+// than read as clearing the caption.
 type updateBody struct {
-	Caption string `json:"caption"`
+	Caption *string `json:"caption"`
 }
 
 // update sets the caption of one of the caller's Posts; an empty caption
@@ -94,7 +96,12 @@ func (h handlers) update(w http.ResponseWriter, r *http.Request) {
 	if !httpx.DecodeJSON(w, r, &body) {
 		return
 	}
-	if utf8.RuneCountInString(body.Caption) > maxCaptionChars {
+	if body.Caption == nil {
+		httpx.WriteError(w, http.StatusBadRequest, "missing_caption", `Send the caption as "caption"; an empty one clears it.`)
+		return
+	}
+	caption := *body.Caption
+	if utf8.RuneCountInString(caption) > maxCaptionChars {
 		httpx.WriteError(w, http.StatusBadRequest, "caption_too_long", "Captions must be 2,200 characters or fewer.")
 		return
 	}
@@ -104,7 +111,7 @@ func (h handlers) update(w http.ResponseWriter, r *http.Request) {
 	}
 	caller, _ := auth.AccountID(r.Context())
 	if err := h.queries.UpsertCaption(r.Context(), store.UpsertCaptionParams{
-		SessionID: session.ID, AccountID: caller, Caption: body.Caption,
+		SessionID: session.ID, AccountID: caller, Caption: caption,
 	}); err != nil {
 		httpx.WriteInternalError(w, r, fmt.Errorf("save caption: %w", err))
 		return

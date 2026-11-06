@@ -79,6 +79,10 @@ describe('posts', () => {
     expect(within(carousel.getByLabelText('Carousel image 4 of 4')).getByText('105 kg × 5')).toBeVisible();
 
     // Saving puts the images in Photos, in order, and the caption on the clipboard.
+    // Saving waits for the cover's photo, so the image isn't captured without it.
+    expect(screen.getByRole('button', { name: 'Save to Photos' })).toBeDisabled();
+    await act(async () => fireEvent(screen.getByTestId('carousel-cover-photo'), 'load'));
+    expect(screen.getByRole('button', { name: 'Save to Photos' })).toBeEnabled();
     const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
     await pressAndSave(screen.getByRole('button', { name: 'Save to Photos' }));
     expect(await screen.findByText('Saved 4 images to Photos. The caption is copied.')).toBeVisible();
@@ -114,6 +118,13 @@ describe('posts', () => {
     await fireEvent.changeText(screen.getByLabelText('Caption'), 'Pulled');
     await pressAndSave(screen.getByRole('button', { name: 'Save caption' }));
     await waitFor(() => expect(fakeApi.post(session.id).caption).toBe('Pulled'));
+    // A caption is at most 2,200 characters, counted as people count them: an emoji is one.
+    await fireEvent.changeText(screen.getByLabelText('Caption'), '💪'.repeat(2200));
+    expect(screen.getByText('2,200 / 2,200')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Save caption' })).toBeEnabled();
+    await fireEvent.changeText(screen.getByLabelText('Caption'), '💪'.repeat(2201));
+    expect(screen.getByText('2,201 / 2,200')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Save caption' })).toBeDisabled();
     await fireEvent.changeText(screen.getByLabelText('Caption'), '');
     await pressAndSave(screen.getByRole('button', { name: 'Save caption' }));
     await waitFor(() => expect(fakeApi.post(session.id).caption).toBe(''));

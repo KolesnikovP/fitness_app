@@ -46,6 +46,21 @@ func TestPost(t *testing.T) {
 		}
 	})
 
+	t.Run("a request without a caption is refused, not taken as clearing it", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := logWorkout(t, srv, token, "Bench Press", set{100, 5})
+		testutil.Do(t, srv, http.MethodPatch, "/posts/"+id, token, map[string]string{"caption": "Kept"})
+
+		res := testutil.Do(t, srv, http.MethodPatch, "/posts/"+id, token, map[string]string{})
+
+		if res.Status != http.StatusBadRequest || res.ErrorCode() != "missing_caption" {
+			t.Errorf("no caption: status %d, code %q; want 400 missing_caption", res.Status, res.ErrorCode())
+		}
+		if got := getPost(t, srv, token, id)["caption"]; got != "Kept" {
+			t.Errorf("caption = %v, want it kept", got)
+		}
+	})
+
 	t.Run("a caption is at most 2,200 characters", func(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
 		id := logWorkout(t, srv, token, "Bench Press", set{100, 5})

@@ -10,10 +10,12 @@ type PostPhotoProps = {
   /** Read as "Progress photo"; false for a photo that's only decoration, as on a Carousel cover. */
   accessible?: boolean;
   onLoad?: () => void;
+  onError?: () => void;
+  testID?: string;
 };
 
 /** A Post's Progress photo. It's only served to its owner, so it loads with the login token. */
-export function PostPhoto({ path, token, style, accessible = true, onLoad }: PostPhotoProps) {
+export function PostPhoto({ path, token, style, accessible = true, onLoad, onError, testID }: PostPhotoProps) {
   return (
     <Image
       accessible={accessible}
@@ -23,6 +25,8 @@ export function PostPhoto({ path, token, style, accessible = true, onLoad }: Pos
       style={style}
       resizeMode="cover"
       onLoad={onLoad}
+      onError={onError}
+      testID={testID}
     />
   );
 }

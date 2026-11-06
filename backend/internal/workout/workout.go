@@ -158,8 +158,12 @@ type SessionSummary struct {
 	PersonalRecords []PersonalRecord `json:"personalRecords"`
 }
 
+func (s *Service) handlers() handlers {
+	return handlers{pool: s.pool, queries: s.queries, exercises: s.exercises, routines: s.routines, profiles: s.profiles}
+}
+
 func (s *Service) Routes(mux *http.ServeMux, accounts Accounts) {
-	h := handlers{pool: s.pool, queries: s.queries, exercises: s.exercises, routines: s.routines, profiles: s.profiles}
+	h := s.handlers()
 	mux.Handle("POST /workouts/sessions", accounts.RequireAuth(http.HandlerFunc(h.start)))
 	mux.Handle("GET /workouts/sessions", accounts.RequireAuth(http.HandlerFunc(h.history)))
 	mux.Handle("GET /workouts/sessions/current", accounts.RequireAuth(http.HandlerFunc(h.current)))
@@ -188,8 +192,7 @@ var ErrSessionNotFound = errors.New("session not found")
 // are now (ADR 0007), or ErrSessionNotFound if callerID has no such finished
 // Session. The feed module uses it through feed.Sessions.
 func (s *Service) FinishedSession(ctx context.Context, callerID, id uuid.UUID) (Session, error) {
-	h := handlers{pool: s.pool, queries: s.queries, exercises: s.exercises, routines: s.routines, profiles: s.profiles}
-	session, err := h.loadSession(ctx, callerID, id)
+	session, err := s.handlers().loadSession(ctx, callerID, id)
 	if errors.Is(err, pgx.ErrNoRows) || (err == nil && session.FinishedAt == nil) {
 		return Session{}, ErrSessionNotFound
 	}
