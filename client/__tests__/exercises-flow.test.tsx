@@ -167,3 +167,77 @@ describe('exercise library', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Upload a PNG, JPEG, WebP or GIF image.');
   });
 });
+
+describe('exercise progress chart', () => {
+  const day = (n: number) => new Date(Date.now() - n * 86_400_000);
+
+  /** Logs a finished Session of Bench Press n days ago with the given sets. */
+  function logBench(ownerId: string, daysAgo: number, ...sets: [number, 'kg' | 'lb', number][]) {
+    const session = fakeApi.addSession(ownerId, day(daysAgo));
+    const exercise = fakeApi.addSessionExercise(session, 'Bench Press');
+    for (const [weight, unit, reps] of sets) fakeApi.addSet(exercise, weight, unit, reps);
+    fakeApi.finishSession(session, day(daysAgo));
+  }
+
+  async function openProgress(name: string) {
+    await fireEvent.press(await screen.findByRole('button', { name }));
+    return within(await screen.findByLabelText('Progress'));
+  }
+
+  it("charts an exercise's best Estimated 1RM per workout, and switches metric and range", async () => {
+    const account = await openExercisesTab();
+    logBench(account.id, 200, [100, 'kg', 5]); // 116.7 kg estimated
+    logBench(account.id, 30, [100, 'kg', 8]); // 126.7 kg: a Personal record
+    logBench(account.id, 1, [110, 'kg', 3]); // 121 kg
+
+    const progress = await openProgress('Bench Press');
+
+    const chart = await progress.findByRole('image');
+    expect(chart).toHaveAccessibleName(
+      /^Estimated 1RM, last 3 months, 2 workouts: .*126\.7 kg, Personal record; .*121 kg$/,
+    );
+
+    await fireEvent.press(progress.getByRole('radio', { name: 'All time' }));
+    expect(progress.getByRole('image')).toHaveAccessibleName(
+      /^Estimated 1RM, all time, 3 workouts: .*116\.7 kg; .*126\.7 kg, Personal record; .*121 kg$/,
+    );
+
+    await fireEvent.press(progress.getByRole('radio', { name: 'Heaviest weight' }));
+    expect(progress.getByRole('image')).toHaveAccessibleName(
+      /^Heaviest weight, all time, 3 workouts: .*100 kg; .*100 kg, Personal record; .*110 kg$/,
+    );
+
+    await fireEvent.press(progress.getByRole('radio', { name: 'Volume' }));
+    expect(progress.getByRole('image')).toHaveAccessibleName(
+      /^Volume, all time, 3 workouts: .*500 kg; .*800 kg, Personal record; .*330 kg$/,
+    );
+
+    await fireEvent.press(progress.getByRole('radio', { name: '1 year' }));
+    expect(progress.getByRole('image')).toHaveAccessibleName(/^Volume, last year, 3 workouts: /);
+  });
+
+  it('shows a single workout as its one point', async () => {
+    const account = await openExercisesTab();
+    logBench(account.id, 2, [60, 'kg', 10]);
+
+    const progress = await openProgress('Bench Press');
+
+    expect(await progress.findByRole('image')).toHaveAccessibleName(
+      /^Estimated 1RM, last 3 months, 1 workout: .*80 kg$/,
+    );
+  });
+
+  it('says so instead of charting an exercise never logged, or no workouts in the range', async () => {
+    const account = await openExercisesTab();
+    logBench(account.id, 200, [100, 'kg', 5]);
+
+    const bench = await openProgress('Bench Press');
+    expect(await bench.findByText('No workouts in the last 3 months.')).toBeVisible();
+    expect(bench.queryByRole('image')).toBeNull();
+
+    await act(async () => router.back());
+    const plank = await openProgress('Plank');
+    expect(await plank.findByText('No sets of this exercise yet.')).toBeVisible();
+    expect(plank.queryByRole('image')).toBeNull();
+  });
+});

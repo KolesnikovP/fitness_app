@@ -1,0 +1,1 @@
+export { ExerciseProgressChart } from './ExerciseProgressChart';

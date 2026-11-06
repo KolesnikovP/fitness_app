@@ -6,6 +6,7 @@ import { useAuth } from '@/entities/auth';
 import { equipmentLabel, ExerciseMedia, getExercise, muscleGroupLabel, type Exercise } from '@/entities/exercise';
 import { ExerciseRecordsCard } from '@/entities/workout';
 import { UploadMediaButton } from '@/features/upload-exercise-media';
+import { ExerciseProgressChart } from '@/widgets/exercise-progress-chart';
 import { errorMessage } from '@/shared/api';
 import { makeStyles, Screen, spacing, Spinner } from '@/shared/ui';
 
@@ -55,6 +56,7 @@ export function ExerciseDetailScreen() {
         <Text style={styles.value}>{equipmentLabel(exercise.equipmentType)}</Text>
       </View>
       <ExerciseRecordsCard token={token} exerciseId={exercise.id} />
+      <ExerciseProgressChart token={token} exerciseId={exercise.id} />
       {exercise.animatedDemoUrl ? (
         <ExerciseMedia
           path={exercise.animatedDemoUrl}
