@@ -68,3 +68,18 @@ jobs:
       - run: npm run typecheck
       - run: npm run format:check
       - run: npm test -- --runInBand
+
+  closes-issue:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: The PR closes its branch's issue
+        # Through env, never inlined: a branch name or body can hold shell syntax.
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BRANCH: ${{ github.head_ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: .github/scripts/closes-issue.sh "$BRANCH" "$BASE_SHA"
