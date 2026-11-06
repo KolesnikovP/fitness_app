@@ -1,7 +1,5 @@
-import type { ExerciseRef, MuscleGroup } from '@/entities/exercise';
-import type { UnitPreference } from '@/entities/user';
-
-export type WeightUnit = UnitPreference;
+import type { MuscleGroup } from '@/entities/exercise/@x/workout';
+import type { ExerciseRef, WeightUnit } from '@/shared/model';
 
 /**
  * A logged Set. exerciseId and name are the Exercise actually done, which

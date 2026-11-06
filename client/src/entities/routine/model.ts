@@ -1,5 +1,5 @@
-import type { ExerciseRef } from '@/entities/exercise';
-import { parseReps, parseWeight, type WeightUnit } from '@/entities/workout';
+import { parseReps, parseWeight } from '@/entities/workout/@x/routine';
+import type { ExerciseRef, WeightUnit } from '@/shared/model';
 
 /** The most Substitutes a slot can plan. */
 export const MAX_SUBSTITUTES = 10;

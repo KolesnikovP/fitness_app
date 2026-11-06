@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 
-import type { ExerciseRef } from '@/entities/exercise';
+import type { ExerciseRef } from '@/shared/model';
 import type { SlotDraft } from '@/entities/routine';
 
 /** An exercise picked on the Add exercises screen. */

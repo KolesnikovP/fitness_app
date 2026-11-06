@@ -3,7 +3,9 @@ import { StyleSheet, View } from 'react-native';
 
 import { Button, Select, spacing, TextField } from '@/shared/ui';
 
-import { repsInput, RPE_SCALE, weightInput, type SetDraft, type WeightUnit } from './model';
+import type { WeightUnit } from '@/shared/model';
+
+import { repsInput, RPE_SCALE, weightInput, type SetDraft } from './model';
 
 const RPE_OPTIONS = RPE_SCALE.map(({ rpe, meaning }) => ({ value: rpe, label: String(rpe), description: meaning }));
 

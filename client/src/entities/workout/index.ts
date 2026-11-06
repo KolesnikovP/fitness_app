@@ -46,7 +46,6 @@ export {
   type SetDraft,
   type SupersetProgress,
   type Totals,
-  type WeightUnit,
   weekAround,
   weightInput,
   workoutName,

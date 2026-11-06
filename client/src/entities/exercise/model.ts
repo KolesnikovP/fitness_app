@@ -45,8 +45,6 @@ export type Exercise = {
 };
 
 /** An Exercise, named: what a Routine or Session refers to one by. */
-export type ExerciseRef = { exerciseId: string; name: string };
-
 export function muscleGroupLabel(value: MuscleGroup): string {
   return MUSCLE_GROUPS.find((g) => g.value === value)?.label ?? value;
 }

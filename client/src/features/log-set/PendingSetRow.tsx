@@ -11,9 +11,9 @@ import {
   weightInput,
   type Session,
   type SetDraft,
-  type WeightUnit,
 } from '@/entities/workout';
 import { errorMessage } from '@/shared/api';
+import type { WeightUnit } from '@/shared/model';
 import { makeStyles, Select, spacing, TextField } from '@/shared/ui';
 
 const RPE_OPTIONS = RPE_SCALE.map(({ rpe, meaning }) => ({ value: rpe, label: String(rpe), description: meaning }));

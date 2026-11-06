@@ -1,6 +1,8 @@
 import { apiRequest } from '@/shared/api';
 
-import type { ExerciseRecords, Session, SessionSummary, Totals, WeightUnit } from './model';
+import type { WeightUnit } from '@/shared/model';
+
+import type { ExerciseRecords, Session, SessionSummary, Totals } from './model';
 
 const base = '/workouts/sessions';
 const path = (sessionId: string, ...rest: string[]) =>

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
-import type { ExerciseRef } from '@/entities/exercise';
+import type { ExerciseRef } from '@/shared/model';
 import {
   parseRoutineDraft,
   slotBlocks,

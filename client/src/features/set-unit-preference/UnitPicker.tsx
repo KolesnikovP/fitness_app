@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
-import type { UnitPreference } from '@/entities/user';
+import type { UnitPreference } from '@/shared/model';
 import { makeStyles, spacing } from '@/shared/ui';
 
 const OPTIONS: { value: UnitPreference; title: string; detail: string }[] = [
