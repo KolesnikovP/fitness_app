@@ -14,6 +14,7 @@ STAMP=tmp/.dev-stamp
 mkdir -p tmp
 : >"$LOG"
 pid=""
+built_from=""
 
 log() { echo "dev: $*" >>"$LOG"; }
 
@@ -26,6 +27,8 @@ free_port() {
     lsof -t -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null || return
     sleep 0.5
   done
+  log "port $PORT still held after 5s; killing it"
+  kill -9 $holders 2>/dev/null
 }
 
 stop() {
@@ -36,6 +39,7 @@ stop() {
 # Builds, then swaps the running server for the new build.
 restart() {
   touch "$STAMP"
+  built_from=$(sources)
   if ! go build -o tmp/api.next ./cmd/api >>"$LOG" 2>&1; then
     log "build failed; the last good build keeps running"
     return
@@ -47,8 +51,14 @@ restart() {
   pid=$!
 }
 
+sources() {
+  find . -path ./tmp -prune -o \( -name '*.go' -o -name '*.sql' \) -print | sort
+}
+
+# A source edited since the last build, or one added or deleted.
 changed() {
-  [ -n "$(find . -path ./tmp -prune -o \( -name '*.go' -o -name '*.sql' \) -newer "$STAMP" -print | head -1)" ]
+  [ -n "$(find . -path ./tmp -prune -o \( -name '*.go' -o -name '*.sql' \) -newer "$STAMP" -print | head -1)" ] ||
+    [ "$(sources)" != "$built_from" ]
 }
 
 tail -n +1 -f "$LOG" &
@@ -59,6 +69,11 @@ trap 'stop; kill $tailer 2>/dev/null' EXIT
 restart
 while :; do
   sleep 1
+  if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
+    wait "$pid" 2>/dev/null
+    log "the API exited (status $?); waiting for a change to rebuild"
+    pid=""
+  fi
   if changed; then
     log "change seen; rebuilding"
     restart

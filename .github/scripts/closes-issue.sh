@@ -14,8 +14,15 @@ if [ -z "$n" ]; then
   exit 0
 fi
 
-text=$(printf '%s\n' "${PR_BODY:-}"; git log --format=%B "$base..HEAD")
-if printf '%s\n' "$text" | grep -qiE "(close[sd]?|fix(e[sd])?|resolve[sd]?) #$n([^0-9]|$)"; then
+if ! commits=$(git log --format=%B "$base..HEAD" 2>&1); then
+  echo "::warning title=Issue check skipped::Couldn't read the PR's commits: $commits"
+  commits=""
+fi
+
+# GitHub's closing keywords, an optional colon, and #<n> or owner/repo#<n>.
+keyword='(close[sd]?|fix(e[sd])?|resolve[sd]?)'
+pattern="(^|[^[:alnum:]_])$keyword:?[[:space:]]+([[:alnum:]_.-]+/[[:alnum:]_.-]+)?#$n([^0-9]|$)"
+if printf '%s\n%s\n' "${PR_BODY:-}" "$commits" | grep -qiE "$pattern"; then
   echo "Closes #$n."
 else
   echo "::warning title=Issue left open::Branch $branch is for #$n, but neither the PR body nor its commits say \"Closes #$n\". Merging won't close it."
