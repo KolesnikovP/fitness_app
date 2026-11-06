@@ -1,6 +1,7 @@
 import { apiRequest } from '@/shared/api';
+import type { UnitPreference } from '@/shared/model';
 
-import type { Me, UnitPreference } from './model';
+import type { Me } from './model';
 
 export function getMe(token: string): Promise<Me> {
   return apiRequest<Me>('/users/me', { token });

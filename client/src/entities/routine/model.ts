@@ -1,5 +1,5 @@
-import type { ExerciseRef } from '@/entities/exercise';
-import { parseReps, parseWeight, type WeightUnit } from '@/entities/workout';
+import { parseReps, parseWeight } from '@/entities/workout/@x/routine';
+import type { ExerciseRef, UnitPreference } from '@/shared/model';
 
 /** The most Substitutes a slot can plan. */
 export const MAX_SUBSTITUTES = 10;
@@ -18,7 +18,7 @@ export type RoutineSlot = {
   targetSets: number;
   targetReps: number;
   targetWeight: number;
-  weightUnit: WeightUnit;
+  weightUnit: UnitPreference;
   restSeconds: number | null;
   note: string;
   supersetGroup: number | null;
@@ -45,7 +45,7 @@ export type SlotDraft = {
   sets: string;
   reps: string;
   weight: string;
-  weightUnit: WeightUnit;
+  weightUnit: UnitPreference;
   restSeconds: number | null;
   note: string;
   supersetGroup: number | null;
@@ -164,7 +164,7 @@ export function parseRoutineDraft(draft: RoutineDraft): RoutineInput | null {
 export function withSlotAdded(
   draft: RoutineDraft,
   exercise: { id: string; name: string },
-  weightUnit: WeightUnit,
+  weightUnit: UnitPreference,
 ): RoutineDraft {
   const slot: SlotDraft = {
     key: newKey(),

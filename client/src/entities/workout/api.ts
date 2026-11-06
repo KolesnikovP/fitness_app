@@ -1,6 +1,7 @@
 import { apiRequest } from '@/shared/api';
+import type { UnitPreference } from '@/shared/model';
 
-import type { ExerciseRecords, Session, SessionSummary, Totals, WeightUnit } from './model';
+import type { ExerciseRecords, Session, SessionSummary, Totals } from './model';
 
 const base = '/workouts/sessions';
 const path = (sessionId: string, ...rest: string[]) =>
@@ -68,7 +69,7 @@ export function swapSessionExercise(token: string, sessionId: string, sessionExe
 }
 
 /** A Set to log. rpe is null when left blank. */
-export type NewSet = { weight: number; weightUnit: WeightUnit; reps: number; rpe: number | null; note: string };
+export type NewSet = { weight: number; weightUnit: UnitPreference; reps: number; rpe: number | null; note: string };
 
 export function logSet(token: string, sessionId: string, sessionExerciseId: string, set: NewSet): Promise<Session> {
   return apiRequest<Session>(path(sessionId, 'exercises', sessionExerciseId, 'sets'), {

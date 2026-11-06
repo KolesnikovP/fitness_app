@@ -4,3 +4,4 @@
 # Go build output
 /backend/api
 /backend/bin/
+/backend/tmp/

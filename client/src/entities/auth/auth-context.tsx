@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import { getMe, setUnitPreference as setUnitPreferenceRequest, type Me, type UnitPreference } from '@/entities/user';
+import { getMe, setUnitPreference as setUnitPreferenceRequest, type Me } from '@/entities/user/@x/auth';
 import { ApiError } from '@/shared/api';
+import type { UnitPreference } from '@/shared/model';
 
 import { logInRequest, signUpRequest } from './api';
 import { tokenStorage } from './token-storage';

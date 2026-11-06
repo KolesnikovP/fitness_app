@@ -1,6 +1,6 @@
 import { Text, View } from 'react-native';
 
-import { muscleGroupLabel } from '@/entities/exercise';
+import { muscleGroupLabel } from '@/entities/exercise/@x/workout';
 import { makeStyles, spacing } from '@/shared/ui';
 
 import { countOf, formatVolume, type Totals } from './model';

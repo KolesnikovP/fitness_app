@@ -6,7 +6,6 @@ export {
   muscleGroupLabel,
   type EquipmentType,
   type Exercise,
-  type ExerciseRef,
   type MuscleGroup,
 } from './model';
 export {
