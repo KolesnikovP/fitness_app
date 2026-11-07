@@ -75,12 +75,14 @@ func NewService(pool *pgxpool.Pool, exercises Exercises, routines Routines, prof
 	return &Service{pool: pool, queries: store.New(pool), exercises: exercises, routines: routines, profiles: profiles}
 }
 
-// Session is one logged workout as the API returns it. RoutineID is the
-// Routine it was started from, null for a freeform Session (or once that
-// Routine is deleted), and RoutineName that Routine's name as it is now.
-// FinishedAt and Stats are null while the Session is in progress.
+// Session is one logged workout as the API returns it. Name is its Session
+// name. RoutineID is the Routine it was started from, null for a freeform
+// Session (or once that Routine is deleted), and RoutineName that Routine's
+// name as it is now. FinishedAt and Stats are null while the Session is in
+// progress.
 type Session struct {
 	ID          uuid.UUID         `json:"id"`
+	Name        string            `json:"name"`
 	RoutineID   *uuid.UUID        `json:"routineId"`
 	RoutineName *string           `json:"routineName"`
 	StartedAt   time.Time         `json:"startedAt"`
@@ -146,10 +148,11 @@ type Set struct {
 	RecordTier *RecordTier `json:"recordTier"`
 }
 
-// SessionSummary is a finished Session as the History lists it. RoutineName
-// and PersonalRecords are as on Session.
+// SessionSummary is a finished Session as the History lists it. Name,
+// RoutineName and PersonalRecords are as on Session.
 type SessionSummary struct {
 	ID              uuid.UUID        `json:"id"`
+	Name            string           `json:"name"`
 	RoutineName     *string          `json:"routineName"`
 	StartedAt       time.Time        `json:"startedAt"`
 	FinishedAt      time.Time        `json:"finishedAt"`
@@ -168,6 +171,7 @@ func (s *Service) Routes(mux *http.ServeMux, accounts Accounts) {
 	mux.Handle("GET /workouts/sessions", accounts.RequireAuth(http.HandlerFunc(h.history)))
 	mux.Handle("GET /workouts/sessions/current", accounts.RequireAuth(http.HandlerFunc(h.current)))
 	mux.Handle("GET /workouts/sessions/{id}", accounts.RequireAuth(http.HandlerFunc(h.get)))
+	mux.Handle("PATCH /workouts/sessions/{id}", accounts.RequireAuth(http.HandlerFunc(h.rename)))
 	mux.Handle("GET /workouts/exercises/{id}/records", accounts.RequireAuth(http.HandlerFunc(h.exerciseRecords)))
 	mux.Handle("GET /workouts/exercises/{id}/progress", accounts.RequireAuth(http.HandlerFunc(h.exerciseProgress)))
 	mux.Handle("GET /workouts/totals", accounts.RequireAuth(http.HandlerFunc(h.totals)))
@@ -207,12 +211,16 @@ type handlers struct {
 	profiles  Profiles
 }
 
+// startBody's TimeZone is the IANA time zone the User is in, which a
+// freeform Session is named in.
 type startBody struct {
 	RoutineID *string `json:"routineId"`
+	TimeZone  *string `json:"timeZone"`
 }
 
 // start starts a session: freeform with no body, or from {"routineId": ...},
-// pre-populated with the routine's slots and their targets.
+// pre-populated with the routine's slots and their targets. It's named after
+// its Routine, or else for when it started in {"timeZone": ...}.
 func (h handlers) start(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	caller, _ := auth.AccountID(ctx)
@@ -240,7 +248,7 @@ func (h handlers) start(w http.ResponseWriter, r *http.Request) {
 		routineID = &id
 	}
 
-	id, err := h.startSession(ctx, caller, routineID, routine.Slots)
+	id, err := h.startSession(ctx, caller, routineID, routine.Name, timeZone(body.TimeZone), routine.Slots)
 	switch {
 	case isViolation(err, "23505"):
 		httpx.WriteError(w, http.StatusConflict, "session_in_progress",
@@ -257,10 +265,11 @@ func (h handlers) start(w http.ResponseWriter, r *http.Request) {
 	h.writeSession(w, r, http.StatusCreated, id)
 }
 
-// startSession starts a session with an exercise for each slot, in order.
-// Slots sharing a superset group start in one new Superset.
-func (h handlers) startSession(ctx context.Context, caller uuid.UUID, routineID *uuid.UUID,
-	slots []program.Slot) (uuid.UUID, error) {
+// startSession starts a session with an exercise for each slot, in order,
+// named after routineName or else for when it starts in loc. Slots sharing a
+// superset group start in one new Superset.
+func (h handlers) startSession(ctx context.Context, caller uuid.UUID, routineID *uuid.UUID, routineName string,
+	loc *time.Location, slots []program.Slot) (uuid.UUID, error) {
 	tx, err := h.pool.Begin(ctx)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("begin: %w", err)
@@ -268,7 +277,14 @@ func (h handlers) startSession(ctx context.Context, caller uuid.UUID, routineID 
 	defer tx.Rollback(ctx)
 	q := h.queries.WithTx(tx)
 
-	id, err := q.StartSession(ctx, store.StartSessionParams{AccountID: caller, RoutineID: routineID})
+	// Named by the database's clock, which also times its start and finish.
+	startedAt, err := q.TransactionTime(ctx)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("transaction time: %w", err)
+	}
+	id, err := q.StartSession(ctx, store.StartSessionParams{
+		AccountID: caller, RoutineID: routineID, GivenName: givenName(routineName, startedAt, loc),
+	})
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -391,6 +407,7 @@ func (h handlers) history(w http.ResponseWriter, r *http.Request) {
 	for i, row := range rows {
 		out[i] = SessionSummary{
 			ID:            row.ID,
+			Name:          row.Name,
 			RoutineName:   routineName(routineNames, row.RoutineID),
 			StartedAt:     row.StartedAt,
 			FinishedAt:    *row.FinishedAt,
@@ -1031,6 +1048,7 @@ func (h handlers) loadSession(ctx context.Context, caller, id uuid.UUID) (Sessio
 	}
 	session := Session{
 		ID:         row.ID,
+		Name:       row.Name,
 		RoutineID:  row.RoutineID,
 		StartedAt:  row.StartedAt,
 		FinishedAt: row.FinishedAt,

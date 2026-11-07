@@ -3,16 +3,17 @@ import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
-import { getPost, PostPhoto, type Post } from '@/entities/post';
+import { getPost, type Post } from '@/entities/post';
 import { PersonalRecordList, saveSessionAsRoutine } from '@/entities/workout';
-import { PostEditor } from '@/features/edit-post';
+import { useWorkoutDraft, WorkoutFields } from '@/features/edit-workout';
 import { errorMessage } from '@/shared/api';
 import { Button, makeStyles, Screen, spacing, TextField } from '@/shared/ui';
 
 /**
- * Shown after finishing a Session: the Personal records it set, its Post's
- * caption and Progress photo to set, and for a Freeform session an offer to
- * save it as a Routine to repeat.
+ * Shown after finishing a Session: the Personal records it set, the Edit
+ * workout form (name, Progress photo and caption) with its Save, a way to
+ * view the workout, and for a Freeform session an offer to save it as a
+ * Routine to repeat.
  */
 export function FinishedSessionScreen() {
   const styles = useStyles();
@@ -53,18 +54,7 @@ export function FinishedSessionScreen() {
 
   return (
     <Screen title="Workout finished">
-      {post ? (
-        <View style={styles.post}>
-          <PersonalRecordList records={post.session.personalRecords} />
-          {post.photoUrl ? <PostPhoto path={post.photoUrl} token={signedInToken} style={styles.photo} /> : null}
-          <PostEditor post={post} onChange={setPost} />
-          <Button
-            label="View post"
-            variant="secondary"
-            onPress={() => router.push({ pathname: '/posts/[id]', params: { id: sessionId } })}
-          />
-        </View>
-      ) : null}
+      {post ? <FinishedWorkoutForm post={post} onSaved={setPost} /> : null}
       {freeform !== 'false' ? (
         <>
           <Text style={styles.muted}>
@@ -84,9 +74,32 @@ export function FinishedSessionScreen() {
   );
 }
 
+/** The finished Session's records, then the Edit workout form with its Save, then View workout. */
+function FinishedWorkoutForm({ post, onSaved }: { post: Post; onSaved: (post: Post) => void }) {
+  const styles = useStyles();
+  const draft = useWorkoutDraft(post);
+
+  async function save() {
+    const saved = await draft.save();
+    if (saved) onSaved(saved);
+  }
+
+  return (
+    <View style={styles.post}>
+      <PersonalRecordList records={post.session.personalRecords} />
+      <WorkoutFields draft={draft} />
+      <Button label="Save" onPress={save} loading={draft.saving} disabled={!draft.changed || draft.captionTooLong} />
+      <Button
+        label="View workout"
+        variant="secondary"
+        onPress={() => router.push({ pathname: '/workout/workouts/[id]', params: { id: post.id } })}
+      />
+    </View>
+  );
+}
+
 const useStyles = makeStyles((colors) => ({
   post: { gap: spacing.md },
-  photo: { width: '100%', aspectRatio: 4 / 5, borderRadius: 12, backgroundColor: colors.card },
   error: { color: colors.danger, fontSize: 15 },
   muted: { fontSize: 17, color: colors.muted },
 }));

@@ -2,14 +2,14 @@ import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { makeStyles, spacing } from '@/shared/ui';
 
-import { countOf, formatSessionDate, workoutName, type SessionSummary } from './model';
+import { countOf, formatSessionDate, type SessionSummary } from './model';
 import { SessionStatsLine } from './SessionStatsLine';
 
 /** One finished Session in the History: its name, date, Exercises, stats and how many Personal records it set. */
 export function SessionSummaryItem({ session, onPress }: { session: SessionSummary; onPress: () => void }) {
   const styles = useStyles();
   const date = formatSessionDate(session.finishedAt);
-  const name = workoutName(session);
+  const name = session.name;
   const names = session.exerciseNames.join(', ');
   return (
     <Pressable

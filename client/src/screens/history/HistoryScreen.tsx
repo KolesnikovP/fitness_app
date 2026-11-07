@@ -71,7 +71,7 @@ export function HistoryScreen() {
               <SessionSummaryItem
                 key={session.id}
                 session={session}
-                onPress={() => router.push({ pathname: '/sessions/[id]', params: { id: session.id } })}
+                onPress={() => router.push({ pathname: '/workouts/[id]', params: { id: session.id } })}
               />
             ))}
             {loaded.history.length === 0 ? <Text style={styles.muted}>No finished workouts yet.</Text> : null}

@@ -3,8 +3,6 @@
 export { LogInScreen } from './auth/LogInScreen';
 export { SignUpScreen } from './auth/SignUpScreen';
 export { HistoryScreen } from './history/HistoryScreen';
-export { PostScreen } from './history/PostScreen';
-export { SessionDetailScreen } from './history/SessionDetailScreen';
 export { OnboardingScreen } from './onboarding/OnboardingScreen';
 export { ServerUnavailableScreen } from './server-unavailable/ServerUnavailableScreen';
 export { ExerciseDetailScreen } from './exercises/ExerciseDetailScreen';
@@ -20,3 +18,5 @@ export { AddSessionExerciseScreen } from './workout/AddSessionExerciseScreen';
 export { CurrentSessionScreen } from './workout/CurrentSessionScreen';
 export { FinishedSessionScreen } from './workout/FinishedSessionScreen';
 export { WorkoutHomeScreen } from './workout/WorkoutHomeScreen';
+export { EditWorkoutScreen } from './workouts/EditWorkoutScreen';
+export { WorkoutScreen } from './workouts/WorkoutScreen';

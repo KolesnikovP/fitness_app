@@ -1,4 +1,3 @@
-import { forwardRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { PostPhoto, type Post } from '@/entities/post';
@@ -9,14 +8,13 @@ import {
   formatSessionDate,
   formatSet,
   formatVolume,
-  workoutName,
 } from '@/entities/workout';
 import { darkColors, spacing } from '@/shared/ui';
 import { listNames } from '@/shared/utils';
 
 import { MAX_SETS_SHOWN, type CarouselImage } from './model';
 
-/** An image's size on screen, 4:5. Saved, it's scaled to SAVED_WIDTH × SAVED_HEIGHT. */
+/** The size an image is drawn at, 4:5. On screen it's scaled to fit, and saved at SAVED_WIDTH × SAVED_HEIGHT. */
 export const IMAGE_WIDTH = 300;
 export const IMAGE_HEIGHT = (IMAGE_WIDTH * 5) / 4;
 /** The size, in pixels, each image is saved at: Instagram's 4:5 portrait. */
@@ -39,24 +37,23 @@ type CarouselImageViewProps = {
   onPhotoSettled: () => void;
 };
 
-/** One 4:5 image of a Carousel, with the app mark in its corner. */
-export const CarouselImageView = forwardRef<View, CarouselImageViewProps>(function CarouselImageView(
-  { post, image, token, label, onPhotoSettled },
-  ref,
-) {
+/**
+ * One 4:5 image of a Carousel, with the app mark in its corner, drawn at
+ * IMAGE_WIDTH × IMAGE_HEIGHT; the Carousel scales it to fit.
+ */
+export function CarouselImageView({ post, image, token, label, onPhotoSettled }: CarouselImageViewProps) {
   return (
-    // collapsable={false} keeps the view on Android, so it can be captured.
-    <View ref={ref} collapsable={false} accessible accessibilityLabel={label} style={styles.image}>
+    <View accessible accessibilityLabel={label} style={styles.image}>
       <ImageContent post={post} image={image} token={token} onPhotoSettled={onPhotoSettled} />
       <Text style={styles.mark}>FITNESS</Text>
     </View>
   );
-});
+}
 
 function ImageContent({ post, image, token, onPhotoSettled }: Omit<CarouselImageViewProps, 'label'>) {
   const { session } = post;
   const date = formatSessionDate(session.finishedAt ?? session.startedAt);
-  const title = workoutName(session);
+  const title = session.name;
 
   switch (image.kind) {
     case 'cover':

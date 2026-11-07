@@ -48,6 +48,7 @@ sql:
       - migrations/00005_rpe_and_supersets.sql
       - migrations/00006_programs.sql
       - migrations/00007_substitutes.sql
+      - migrations/00009_session_names.sql
     queries: internal/workout/queries.sql
     gen:
       go:
@@ -110,6 +111,7 @@ sql:
       - migrations/00006_programs.sql
       - migrations/00007_substitutes.sql
       - migrations/00008_posts.sql
+      - migrations/00009_session_names.sql
     queries: internal/feed/queries.sql
     gen:
       go:

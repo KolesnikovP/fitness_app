@@ -116,4 +116,6 @@ type WorkoutSession struct {
 	RoutineID  *uuid.UUID
 	StartedAt  time.Time
 	FinishedAt *time.Time
+	GivenName  string
+	Name       *string
 }

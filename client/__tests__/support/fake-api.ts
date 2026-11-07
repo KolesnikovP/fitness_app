@@ -61,6 +61,14 @@ type FakeSession = {
   id: string;
   ownerId: string;
   routineId: string | null;
+  /**
+   * What it was named when it started, or null for one added as if from
+   * before Session names were stored, which is named as the app showed it
+   * then: its Routine's name, else the day it started, on the device.
+   */
+  givenName: string | null;
+  /** What the User renamed it to, null until they do. */
+  name: string | null;
   startedAt: string;
   finishedAt: string | null;
   exercises: FakeSessionExercise[];
@@ -203,6 +211,8 @@ export const fakeApi = {
       id: `session-${nextId++}`,
       ownerId,
       routineId: null,
+      givenName: null,
+      name: null,
       startedAt: startedAt.toISOString(),
       finishedAt: null,
       exercises: [],
@@ -253,6 +263,21 @@ export const fakeApi = {
 
   sessions(ownerId: string) {
     return sessions.filter((s) => s.ownerId === ownerId);
+  },
+
+  /** What a session is called now. */
+  sessionName(sessionId: string) {
+    return nameOf(sessions.find((s) => s.id === sessionId)!);
+  },
+
+  /** Renames a session, as if the User had. */
+  setSessionName(sessionId: string, name: string) {
+    sessions.find((s) => s.id === sessionId)!.name = name;
+  },
+
+  /** Sets what the User added to a finished Session's Post, as if from an earlier run of the app. */
+  setPost(sessionId: string, post: { caption: string; photoUrl: string | null }) {
+    posts.set(sessionId, post);
   },
 
   /** Saves a routine for ownerId of the named library exercises, each 3 × 10 at 50 kg. */
@@ -452,11 +477,46 @@ function recordTiersOf(session: FakeSession) {
   return tiers;
 }
 
+const PARTS_OF_DAY: [fromHour: number, part: string][] = [
+  [21, 'Night'],
+  [17, 'Evening'],
+  [12, 'Afternoon'],
+  [5, 'Morning'],
+];
+
+/**
+ * What a Session is named when it starts: its Routine's name (its first 60
+ * characters), or the weekday and part of the day it started in timeZone
+ * (the device's when undefined).
+ */
+function givenNameOf(routineName: string | null, startedAt: Date, timeZone?: string) {
+  if (routineName) return [...routineName].slice(0, 60).join('');
+  const parts = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    hour: 'numeric',
+    hourCycle: 'h23',
+    timeZone,
+  }).formatToParts(startedAt);
+  const weekday = parts.find((p) => p.type === 'weekday')!.value;
+  const hour = Number(parts.find((p) => p.type === 'hour')!.value);
+  const part = PARTS_OF_DAY.find(([from]) => hour >= from)?.[1] ?? 'Night';
+  return `${weekday}'s ${part} Workout`;
+}
+
+/** What a Session is called: the User's name for it, else the one it was given. */
+function nameOf(session: FakeSession) {
+  if (session.name) return session.name;
+  if (session.givenName) return session.givenName;
+  const routineName = routines.find((r) => r.id === session.routineId)?.name ?? null;
+  return givenNameOf(routineName, new Date(session.startedAt));
+}
+
 function sessionJson(fakeSession: FakeSession) {
   const tiers = recordTiersOf(fakeSession);
-  const { ownerId: _ownerId, exercises: sessionExercises, ...session } = fakeSession;
+  const { ownerId: _ownerId, exercises: sessionExercises, givenName: _given, name: _name, ...session } = fakeSession;
   return {
     ...session,
+    name: nameOf(fakeSession),
     // The routine's name as it is now; null once it's deleted.
     routineName: routines.find((r) => r.id === session.routineId)?.name ?? null,
     stats: statsOf(fakeSession),
@@ -642,9 +702,9 @@ const handlers = [
       .sort((a, b) => b.finishedAt!.localeCompare(a.finishedAt!));
     return HttpResponse.json({
       sessions: finished.map((s) => {
-        const { id, routineName, startedAt, finishedAt, stats, personalRecords } = sessionJson(s);
+        const { id, name, routineName, startedAt, finishedAt, stats, personalRecords } = sessionJson(s);
         const exerciseNames = [...new Set(exercisesDone(s).map(exerciseName))];
-        return { id, routineName, startedAt, finishedAt, stats, personalRecords, exerciseNames };
+        return { id, name, routineName, startedAt, finishedAt, stats, personalRecords, exerciseNames };
       }),
     });
   }),
@@ -653,13 +713,20 @@ const handlers = [
     const account = caller(request);
     if (!account) return unauthorized();
     const text = await request.text();
-    const { routineId } = (text ? JSON.parse(text) : {}) as { routineId?: string };
+    const { routineId, timeZone } = (text ? JSON.parse(text) : {}) as { routineId?: string; timeZone?: string };
     const routine = routineId == null ? null : routines.find((r) => r.id === routineId && r.ownerId === account.id);
     if (routine === undefined) return routineNotFound();
     if (sessions.some((s) => s.ownerId === account.id && !s.finishedAt)) {
       return error(409, 'session_in_progress', 'Finish or discard your current workout before starting another.');
     }
     const session = fakeApi.addSession(account.id);
+    let zone: string | undefined = 'UTC';
+    try {
+      zone = new Intl.DateTimeFormat('en-US', { timeZone }).resolvedOptions().timeZone;
+    } catch {
+      // An unknown time zone: named in UTC, as the real API does.
+    }
+    session.givenName = givenNameOf(routine?.name ?? null, new Date(session.startedAt), timeZone ? zone : 'UTC');
     if (routine) {
       session.routineId = routine.id;
       const supersets = new Map<number, string>();
@@ -701,6 +768,19 @@ const handlers = [
     if (!account) return unauthorized();
     const session = sessions.find((s) => s.id === params.id && s.ownerId === account.id);
     if (!session) return error(404, 'session_not_found', 'Workout not found.');
+    return HttpResponse.json(sessionJson(session));
+  }),
+
+  http.patch('*/workouts/sessions/:id', async ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const { name } = (await request.json()) as { name?: string };
+    if (name === undefined) return error(400, 'missing_name', 'Send the name as "name"; an empty one clears it.');
+    const trimmed = name.trim();
+    if ([...trimmed].length > 60) return error(400, 'name_too_long', 'Workout names can be at most 60 characters.');
+    const session = sessions.find((s) => s.id === params.id && s.ownerId === account.id);
+    if (!session) return error(404, 'session_not_found', 'Workout not found.');
+    session.name = trimmed === '' ? null : trimmed;
     return HttpResponse.json(sessionJson(session));
   }),
 
