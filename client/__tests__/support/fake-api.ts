@@ -13,6 +13,9 @@ type FakeAccount = {
   email: string;
   password: string;
   unitPreference: 'kg' | 'lb' | null;
+  /** The name they chose, null until they do. */
+  name: string | null;
+  avatarUrl: string | null;
 };
 
 type FakeExercise = {
@@ -145,6 +148,8 @@ export const fakeApi = {
   uploads: [] as { exerciseId: string; fileName: string; type: string }[],
   /** Every Progress photo upload the API accepted, in order. */
   photoUploads: [] as { postId: string; fileName: string; type: string }[],
+  /** Every avatar upload the API accepted, in order. */
+  avatarUploads: [] as { accountId: string; fileName: string; type: string }[],
 
   reset() {
     accounts = [];
@@ -157,10 +162,18 @@ export const fakeApi = {
     this.authHeaders = [];
     this.uploads = [];
     this.photoUploads = [];
+    this.avatarUploads = [];
   },
 
   addAccount(email: string, password: string, unitPreference: FakeAccount['unitPreference']) {
-    const account = { id: `account-${nextId++}`, email, password, unitPreference };
+    const account: FakeAccount = {
+      id: `account-${nextId++}`,
+      email,
+      password,
+      unitPreference,
+      name: null,
+      avatarUrl: null,
+    };
     accounts.push(account);
     return account;
   },
@@ -688,7 +701,44 @@ function plannedRoutine(account: FakeAccount, body: { name?: string; slots?: Slo
 }
 
 function me(account: FakeAccount) {
-  return { id: account.id, email: account.email, unitPreference: account.unitPreference };
+  return {
+    id: account.id,
+    email: account.email,
+    name: account.name ?? account.email.split('@')[0],
+    avatarUrl: account.avatarUrl,
+    unitPreference: account.unitPreference,
+  };
+}
+
+/** The Monday of when's week, in the device's time zone, which the app sends as the User's. */
+function weekOf(when: Date) {
+  return new Date(when.getFullYear(), when.getMonth(), when.getDate() - ((when.getDay() + 6) % 7)).getTime();
+}
+
+/** Weeks in a row with a finished Session, up to this one; this week doesn't break it before it's over. */
+function streakOf(finished: Date[], now = new Date()) {
+  const weeks = new Set(finished.map(weekOf));
+  const back = (week: number) => {
+    const d = new Date(week);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate() - 7).getTime();
+  };
+  let week = weekOf(now);
+  if (!weeks.has(week)) week = back(week);
+  let n = 0;
+  for (; weeks.has(week); week = back(week)) n++;
+  return n;
+}
+
+function finishedSessionsOf(account: FakeAccount) {
+  return sessions
+    .filter((s) => s.ownerId === account.id && s.finishedAt)
+    .sort((a, b) => b.finishedAt!.localeCompare(a.finishedAt!));
+}
+
+function sessionSummaryJson(s: FakeSession) {
+  const { id, name, routineName, startedAt, finishedAt, stats, personalRecords } = sessionJson(s);
+  const exerciseNames = [...new Set(exercisesDone(s).map(exerciseName))];
+  return { id, name, routineName, startedAt, finishedAt, stats, personalRecords, exerciseNames };
 }
 
 // The workout handlers come first: '*/exercises' would also match
@@ -697,15 +747,39 @@ const handlers = [
   http.get('*/workouts/sessions', ({ request }) => {
     const account = caller(request);
     if (!account) return unauthorized();
-    const finished = sessions
-      .filter((s) => s.ownerId === account.id && s.finishedAt)
-      .sort((a, b) => b.finishedAt!.localeCompare(a.finishedAt!));
+    return HttpResponse.json({ sessions: finishedSessionsOf(account).map(sessionSummaryJson) });
+  }),
+
+  http.get('*/workouts/records', ({ request }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const unit = unitOf(account.id);
+    const best = new Map<string, { session: FakeSession; set: FakeSet; kg: number }>();
+    for (const session of finishedSessionsOf(account).reverse()) {
+      for (const set of setsOf(session)) {
+        if (set.weight <= 0) continue;
+        const kg = estimated1RM(kgOf(set), set.reps);
+        const top = best.get(set.exerciseId);
+        if (!top || kg > top.kg + BEATS_BY) best.set(set.exerciseId, { session, set, kg });
+      }
+    }
     return HttpResponse.json({
-      sessions: finished.map((s) => {
-        const { id, name, routineName, startedAt, finishedAt, stats, personalRecords } = sessionJson(s);
-        const exerciseNames = [...new Set(exercisesDone(s).map(exerciseName))];
-        return { id, name, routineName, startedAt, finishedAt, stats, personalRecords, exerciseNames };
-      }),
+      exercises: [...best.entries()]
+        .map(([exerciseId, { session, set, kg }]) => ({
+          exerciseId,
+          name: exerciseName(exerciseId),
+          best: {
+            sessionId: session.id,
+            setId: set.id,
+            achievedAt: session.finishedAt,
+            weight: set.weight,
+            weightUnit: set.weightUnit,
+            reps: set.reps,
+            estimated1RM: toUnit(kg, unit),
+            estimated1RMUnit: unit,
+          },
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
     });
   }),
 
@@ -1136,12 +1210,57 @@ const handlers = [
   http.patch('*/users/me', async ({ request }) => {
     const account = caller(request);
     if (!account) return error(401, 'unauthorized', 'Log in to continue.');
-    const { unitPreference } = (await request.json()) as { unitPreference: unknown };
-    if (unitPreference !== 'kg' && unitPreference !== 'lb') {
+    const { unitPreference, name } = (await request.json()) as { unitPreference?: unknown; name?: string };
+    if (
+      (name === undefined && unitPreference === undefined) ||
+      (unitPreference !== undefined && unitPreference !== 'kg' && unitPreference !== 'lb')
+    ) {
       return error(400, 'invalid_unit_preference', 'unitPreference must be "kg" or "lb".');
     }
-    account.unitPreference = unitPreference;
+    const trimmed = name?.trim();
+    if (trimmed !== undefined && [...trimmed].length > 50) {
+      return error(400, 'name_too_long', 'Names must be 50 characters or fewer.');
+    }
+    if (unitPreference !== undefined) account.unitPreference = unitPreference;
+    if (trimmed !== undefined) account.name = trimmed || null;
     return HttpResponse.json(me(account));
+  }),
+
+  http.put('*/users/me/avatar', async ({ request }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const form = (await request.formData()) as unknown as { get(name: string): unknown };
+    const file = form.get('file');
+    if (!(file instanceof File)) {
+      return error(400, 'missing_file', 'Send the file as the "file" field of a multipart form.');
+    }
+    if (MEDIA_KINDS[file.type] !== 'image') {
+      return error(415, 'unsupported_media_type', 'Upload a PNG, JPEG or WebP image.');
+    }
+    fakeApi.avatarUploads.push({ accountId: account.id, fileName: file.name, type: file.type });
+    account.avatarUrl = `/users/me/avatar?v=${fakeApi.avatarUploads.length}`;
+    return HttpResponse.json(me(account));
+  }),
+
+  http.delete('*/users/me/avatar', ({ request }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    account.avatarUrl = null;
+    return HttpResponse.json(me(account));
+  }),
+
+  http.get('*/users/me/counts', ({ request }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    if (!new URL(request.url).searchParams.get('timeZone')) {
+      return error(400, 'invalid_time_zone', 'Send timeZone as an IANA time zone, such as Europe/Berlin.');
+    }
+    const finished = finishedSessionsOf(account);
+    return HttpResponse.json({
+      workouts: finished.length,
+      personalRecords: finished.reduce((n, s) => n + personalRecordsOf(s).length, 0),
+      streak: streakOf(finished.map((s) => new Date(s.finishedAt!))),
+    });
   }),
 
   http.get('*/exercises', ({ request }) => {
@@ -1200,6 +1319,18 @@ const handlers = [
     if (kind === 'image') exercise.imageUrl = url;
     else exercise.animatedDemoUrl = url;
     return HttpResponse.json(exerciseJson(exercise));
+  }),
+
+  http.get('*/posts', ({ request }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    return HttpResponse.json({
+      posts: finishedSessionsOf(account).map((s) => ({
+        id: s.id,
+        ...fakeApi.post(s.id),
+        session: sessionSummaryJson(s),
+      })),
+    });
   }),
 
   http.get('*/posts/:id', ({ request, params }) => {

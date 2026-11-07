@@ -5,20 +5,29 @@
 package store
 
 import (
+	"time"
+
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Account struct {
 	ID           uuid.UUID
 	Email        string
 	PasswordHash string
-	CreatedAt    pgtype.Timestamptz
+	CreatedAt    time.Time
 }
 
 type Profile struct {
 	AccountID      uuid.UUID
 	UnitPreference *string
-	CreatedAt      pgtype.Timestamptz
-	UpdatedAt      pgtype.Timestamptz
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	Name           *string
+}
+
+type ProfileAvatar struct {
+	AccountID   uuid.UUID
+	ContentType string
+	Data        []byte
+	UpdatedAt   time.Time
 }

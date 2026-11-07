@@ -20,8 +20,6 @@ async function openApp() {
   // render() is async, so the pathname helpers are on the promise renderRouter returns.
   const app = renderRouter('./src/app', { initialUrl: '/' });
   await app;
-  await screen.findByRole('header', { name: 'History' });
-  await act(async () => router.navigate('/workout'));
   await screen.findByRole('header', { name: 'Workout' });
   return { account, app };
 }
@@ -152,8 +150,8 @@ describe('the workout screen', () => {
     fakeApi.setPost(session.id, { caption: 'Pulled', photoUrl: `/posts/${session.id}/photo?v=1` });
     secureStore.set('auth-token', fakeApi.issueToken(account.id));
     await renderRouter('./src/app', { initialUrl: '/' });
-    await screen.findByRole('header', { name: 'History' });
-    await act(async () => router.navigate(`/workouts/${session.id}`));
+    await screen.findByRole('header', { name: 'Workout' });
+    await act(async () => router.navigate(`/profile/workouts/${session.id}`));
     await screen.findByLabelText('Carousel');
 
     // Saving waits for the cover's photo, so the image isn't captured without it.
@@ -171,7 +169,7 @@ describe('the workout screen', () => {
     expect(openURL).toHaveBeenCalledWith('instagram://app');
   });
 
-  it('opens from History on top of it, and Edit workout changes or removes the photo and caption', async () => {
+  it('opens from Profile on top of it, and Edit workout changes or removes the photo and caption', async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     const session = fakeApi.addSession(account.id, new Date(Date.now() - 86_400_000));
     fakeApi.addSet(fakeApi.addSessionExercise(session, 'Deadlift'), 140, 'kg', 3);
@@ -179,11 +177,13 @@ describe('the workout screen', () => {
     secureStore.set('auth-token', fakeApi.issueToken(account.id));
     const app = renderRouter('./src/app', { initialUrl: '/' });
     await app;
+    await screen.findByRole('header', { name: 'Workout' });
+    await act(async () => router.navigate('/profile'));
 
-    const history = within(await screen.findByLabelText('Past workouts'));
-    await fireEvent.press(await history.findByRole('button', { name: /Deadlift/ }));
+    const workouts = within(await screen.findByLabelText('Workouts'));
+    await fireEvent.press(await workouts.findByRole('button', { name: /Deadlift/ }));
     await screen.findByLabelText('Carousel');
-    expect(app.getPathname()).toBe(`/workouts/${session.id}`);
+    expect(app.getPathname()).toBe(`/profile/workouts/${session.id}`);
     // With no photo, the Carousel opens on a stats cover.
     expect(within(screen.getByLabelText('Carousel image 1 of 3')).getByText('Deadlift')).toBeVisible();
 
@@ -212,10 +212,10 @@ describe('the workout screen', () => {
     expect(await screen.findByRole('button', { name: 'Add a caption…' })).toBeVisible();
     expect(fakeApi.post(session.id)).toEqual({ caption: '', photoUrl: null });
 
-    // Back returns to History.
+    // Back returns to Profile.
     await act(async () => router.back());
-    expect(await screen.findByRole('header', { name: 'History' })).toBeVisible();
-    expect(app.getPathname()).toBe('/');
+    expect(await screen.findByRole('header', { name: 'Profile' })).toBeVisible();
+    expect(app.getPathname()).toBe('/profile');
   });
 
   it('Cancel throws the changes away, and a cleared name goes back to the one it was given', async () => {
@@ -227,8 +227,8 @@ describe('the workout screen', () => {
     fakeApi.setSessionName(session.id, 'Heavy pulls');
     secureStore.set('auth-token', fakeApi.issueToken(account.id));
     await renderRouter('./src/app', { initialUrl: '/' });
-    await screen.findByRole('header', { name: 'History' });
-    await act(async () => router.navigate(`/workouts/${session.id}`));
+    await screen.findByRole('header', { name: 'Workout' });
+    await act(async () => router.navigate(`/profile/workouts/${session.id}`));
     await screen.findByRole('header', { name: 'Heavy pulls' });
 
     await fireEvent.press(screen.getByRole('button', { name: 'Edit workout' }));
@@ -259,8 +259,8 @@ describe('the workout screen', () => {
     fakeApi.finishSession(session, new Date(2026, 10, 5, 10, 5));
     secureStore.set('auth-token', fakeApi.issueToken(account.id));
     await renderRouter('./src/app', { initialUrl: '/' });
-    await screen.findByRole('header', { name: 'History' });
-    await act(async () => router.navigate(`/workouts/${session.id}`));
+    await screen.findByRole('header', { name: 'Workout' });
+    await act(async () => router.navigate(`/profile/workouts/${session.id}`));
     await screen.findByLabelText('Carousel');
 
     await pressAndSave(screen.getByRole('button', { name: 'Copy session summary' }));
@@ -299,8 +299,8 @@ describe('the workout screen', () => {
     secureStore.set('auth-token', fakeApi.issueToken(account.id));
     sharing.grantPhotos = false;
     await renderRouter('./src/app', { initialUrl: '/' });
-    await screen.findByRole('header', { name: 'History' });
-    await act(async () => router.navigate(`/workouts/${session.id}`));
+    await screen.findByRole('header', { name: 'Workout' });
+    await act(async () => router.navigate(`/profile/workouts/${session.id}`));
     await screen.findByLabelText('Carousel');
 
     await pressAndSave(screen.getByRole('button', { name: 'Save to Photos' }));

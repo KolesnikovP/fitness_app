@@ -148,7 +148,7 @@ type Set struct {
 	RecordTier *RecordTier `json:"recordTier"`
 }
 
-// SessionSummary is a finished Session as the History lists it. Name,
+// SessionSummary is a finished Session as a list of them shows it. Name,
 // RoutineName and PersonalRecords are as on Session.
 type SessionSummary struct {
 	ID              uuid.UUID        `json:"id"`
@@ -168,10 +168,11 @@ func (s *Service) handlers() handlers {
 func (s *Service) Routes(mux *http.ServeMux, accounts Accounts) {
 	h := s.handlers()
 	mux.Handle("POST /workouts/sessions", accounts.RequireAuth(http.HandlerFunc(h.start)))
-	mux.Handle("GET /workouts/sessions", accounts.RequireAuth(http.HandlerFunc(h.history)))
+	mux.Handle("GET /workouts/sessions", accounts.RequireAuth(http.HandlerFunc(h.listFinished)))
 	mux.Handle("GET /workouts/sessions/current", accounts.RequireAuth(http.HandlerFunc(h.current)))
 	mux.Handle("GET /workouts/sessions/{id}", accounts.RequireAuth(http.HandlerFunc(h.get)))
 	mux.Handle("PATCH /workouts/sessions/{id}", accounts.RequireAuth(http.HandlerFunc(h.rename)))
+	mux.Handle("GET /workouts/records", accounts.RequireAuth(http.HandlerFunc(h.exerciseBests)))
 	mux.Handle("GET /workouts/exercises/{id}/records", accounts.RequireAuth(http.HandlerFunc(h.exerciseRecords)))
 	mux.Handle("GET /workouts/exercises/{id}/progress", accounts.RequireAuth(http.HandlerFunc(h.exerciseProgress)))
 	mux.Handle("GET /workouts/totals", accounts.RequireAuth(http.HandlerFunc(h.totals)))
@@ -327,19 +328,33 @@ func writeRoutineNotFound(w http.ResponseWriter) {
 	httpx.WriteError(w, http.StatusNotFound, "routine_not_found", "Routine not found.")
 }
 
-type historyResponse struct {
+type finishedResponse struct {
 	Sessions []SessionSummary `json:"sessions"`
 }
 
-// history lists the caller's finished sessions, newest first, with their
-// stats.
-func (h handlers) history(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	caller, _ := auth.AccountID(ctx)
+// listFinished lists the caller's finished sessions, newest first, with
+// their stats.
+func (h handlers) listFinished(w http.ResponseWriter, r *http.Request) {
+	caller, _ := auth.AccountID(r.Context())
+	sessions, err := h.finishedSessions(r.Context(), caller)
+	if err != nil {
+		httpx.WriteInternalError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, finishedResponse{Sessions: sessions})
+}
+
+// FinishedSessions lists callerID's finished Sessions, newest first, with
+// their stats and Personal records as they are now (ADR 0007). The feed
+// module uses it through feed.Sessions.
+func (s *Service) FinishedSessions(ctx context.Context, callerID uuid.UUID) ([]SessionSummary, error) {
+	return s.handlers().finishedSessions(ctx, callerID)
+}
+
+func (h handlers) finishedSessions(ctx context.Context, caller uuid.UUID) ([]SessionSummary, error) {
 	rows, err := h.queries.ListFinishedSessions(ctx, caller)
 	if err != nil {
-		httpx.WriteInternalError(w, r, fmt.Errorf("list finished sessions: %w", err))
-		return
+		return nil, fmt.Errorf("list finished sessions: %w", err)
 	}
 	sessionIDs := make([]uuid.UUID, len(rows))
 	for i, row := range rows {
@@ -347,8 +362,7 @@ func (h handlers) history(w http.ResponseWriter, r *http.Request) {
 	}
 	exerciseRows, err := h.queries.ListExercisesOfSessions(ctx, sessionIDs)
 	if err != nil {
-		httpx.WriteInternalError(w, r, fmt.Errorf("list exercises of sessions: %w", err))
-		return
+		return nil, fmt.Errorf("list exercises of sessions: %w", err)
 	}
 	exerciseIDs := make([]uuid.UUID, len(exerciseRows))
 	for i, e := range exerciseRows {
@@ -356,8 +370,7 @@ func (h handlers) history(w http.ResponseWriter, r *http.Request) {
 	}
 	names, err := h.exercises.ExerciseNames(ctx, caller, exerciseIDs)
 	if err != nil {
-		httpx.WriteInternalError(w, r, err)
-		return
+		return nil, err
 	}
 	// Each exercise once, in the order it was first added.
 	namesBySession := make(map[uuid.UUID][]string)
@@ -372,13 +385,11 @@ func (h handlers) history(w http.ResponseWriter, r *http.Request) {
 	}
 	setsBySession, err := h.setsOfSessions(ctx, sessionIDs)
 	if err != nil {
-		httpx.WriteInternalError(w, r, err)
-		return
+		return nil, err
 	}
 	unit, err := h.profiles.UnitPreference(ctx, caller)
 	if err != nil {
-		httpx.WriteInternalError(w, r, err)
-		return
+		return nil, err
 	}
 	var setExerciseIDs []uuid.UUID
 	for _, sets := range setsBySession {
@@ -388,8 +399,7 @@ func (h handlers) history(w http.ResponseWriter, r *http.Request) {
 	}
 	records, _, err := h.personalRecords(ctx, caller, setExerciseIDs, unit, nil)
 	if err != nil {
-		httpx.WriteInternalError(w, r, err)
-		return
+		return nil, err
 	}
 	var routineIDs []uuid.UUID
 	for _, row := range rows {
@@ -399,8 +409,7 @@ func (h handlers) history(w http.ResponseWriter, r *http.Request) {
 	}
 	routineNames, err := h.routines.RoutineNames(ctx, caller, routineIDs)
 	if err != nil {
-		httpx.WriteInternalError(w, r, err)
-		return
+		return nil, err
 	}
 
 	out := make([]SessionSummary, len(rows))
@@ -417,7 +426,7 @@ func (h handlers) history(w http.ResponseWriter, r *http.Request) {
 			PersonalRecords: append([]PersonalRecord{}, records[row.ID]...),
 		}
 	}
-	httpx.WriteJSON(w, http.StatusOK, historyResponse{Sessions: out})
+	return out, nil
 }
 
 type currentResponse struct {

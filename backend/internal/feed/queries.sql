@@ -27,3 +27,11 @@ DELETE FROM post_photos WHERE session_id = $1;
 
 -- name: GetPhoto :one
 SELECT content_type, data FROM post_photos WHERE session_id = $1;
+
+-- name: ListPostsOfAccount :many
+-- The captions of the account's Posts that have a row, and when each one's
+-- Progress photo was last set, if it has one.
+SELECT p.session_id, p.caption, ph.updated_at AS photo_updated_at
+FROM posts p
+LEFT JOIN post_photos ph ON ph.session_id = p.session_id
+WHERE p.account_id = $1;

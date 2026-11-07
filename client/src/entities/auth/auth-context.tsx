@@ -20,6 +20,8 @@ type AuthContextValue = {
   logIn: (email: string, password: string) => Promise<void>;
   logOut: () => Promise<void>;
   setUnitPreference: (unit: UnitPreference) => Promise<void>;
+  /** Show me as the signed-in User, after a change to their Profile was saved. */
+  setMe: (me: Me) => void;
   /** Try restoring the stored login again, after 'unreachable'. */
   retry: () => Promise<void>;
 };
@@ -78,6 +80,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUnitPreference: async (unit) => {
         if (state.status !== 'signedIn') return;
         const me = await setUnitPreferenceRequest(state.token, unit);
+        setState({ status: 'signedIn', token: state.token, me });
+      },
+      setMe: (me) => {
+        if (state.status !== 'signedIn') return;
         setState({ status: 'signedIn', token: state.token, me });
       },
       retry: async () => {

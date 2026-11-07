@@ -34,6 +34,8 @@ type Sessions interface {
 	// FinishedSession returns callerID's finished Session id, or
 	// workout.ErrSessionNotFound if callerID has no such finished Session.
 	FinishedSession(ctx context.Context, callerID, id uuid.UUID) (workout.Session, error)
+	// FinishedSessions lists callerID's finished Sessions, newest first.
+	FinishedSessions(ctx context.Context, callerID uuid.UUID) ([]workout.SessionSummary, error)
 }
 
 type Service struct {
@@ -58,6 +60,7 @@ type Post struct {
 
 func (s *Service) Routes(mux *http.ServeMux, accounts Accounts) {
 	h := handlers{pool: s.pool, queries: s.queries, sessions: s.sessions}
+	mux.Handle("GET /posts", accounts.RequireAuth(http.HandlerFunc(h.list)))
 	mux.Handle("GET /posts/{id}", accounts.RequireAuth(http.HandlerFunc(h.get)))
 	mux.Handle("PATCH /posts/{id}", accounts.RequireAuth(http.HandlerFunc(h.update)))
 	mux.Handle("PUT /posts/{id}/photo", accounts.RequireAuth(http.HandlerFunc(h.setPhoto)))
@@ -69,6 +72,47 @@ type handlers struct {
 	pool     *pgxpool.Pool
 	queries  *store.Queries
 	sessions Sessions
+}
+
+// PostSummary is a Post as a list of them shows it: with its Session's
+// summary rather than every Set.
+type PostSummary struct {
+	ID       uuid.UUID              `json:"id"`
+	Caption  string                 `json:"caption"`
+	PhotoURL *string                `json:"photoUrl"`
+	Session  workout.SessionSummary `json:"session"`
+}
+
+type listResponse struct {
+	Posts []PostSummary `json:"posts"`
+}
+
+// list lists the caller's Posts, newest first: one for each finished Session.
+func (h handlers) list(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	caller, _ := auth.AccountID(ctx)
+	sessions, err := h.sessions.FinishedSessions(ctx, caller)
+	if err != nil {
+		httpx.WriteInternalError(w, r, err)
+		return
+	}
+	rows, err := h.queries.ListPostsOfAccount(ctx, caller)
+	if err != nil {
+		httpx.WriteInternalError(w, r, fmt.Errorf("list posts: %w", err))
+		return
+	}
+	byID := make(map[uuid.UUID]store.ListPostsOfAccountRow, len(rows))
+	for _, row := range rows {
+		byID[row.SessionID] = row
+	}
+	out := listResponse{Posts: make([]PostSummary, len(sessions))}
+	for i, session := range sessions {
+		row := byID[session.ID]
+		out.Posts[i] = PostSummary{
+			ID: session.ID, Caption: row.Caption, PhotoURL: photoURL(session.ID, row.PhotoUpdatedAt), Session: session,
+		}
+	}
+	httpx.WriteJSON(w, http.StatusOK, out)
 }
 
 // get returns one of the caller's Posts.

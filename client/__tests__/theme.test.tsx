@@ -24,24 +24,24 @@ async function launchSignedIn() {
   const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
   secureStore.set(TOKEN_KEY, fakeApi.issueToken(account.id));
   await renderRouter('./src/app', { initialUrl: '/' });
-  await screen.findByRole('header', { name: 'History' });
+  await screen.findByRole('header', { name: 'Workout' });
 }
 
-async function openProfile() {
-  await act(async () => router.navigate('/profile'));
-  return screen.findByRole('header', { name: 'Profile' });
+async function openSettings() {
+  await act(async () => router.navigate('/profile/settings'));
+  return screen.findByRole('header', { name: 'Settings' });
 }
 
 describe('theme', () => {
   it("follows the phone's light or dark mode until the user picks one", async () => {
     phone.setScheme('dark');
     await launchSignedIn();
-    expect(screen.getByRole('header', { name: 'History' })).toHaveStyle({ color: darkColors.text });
+    expect(screen.getByRole('header', { name: 'Workout' })).toHaveStyle({ color: darkColors.text });
 
     await setPhoneScheme('light');
-    expect(screen.getByRole('header', { name: 'History' })).toHaveStyle({ color: lightColors.text });
+    expect(screen.getByRole('header', { name: 'Workout' })).toHaveStyle({ color: lightColors.text });
 
-    await openProfile();
+    await openSettings();
     expect(screen.getByRole('radio', { name: 'System' })).toBeChecked();
   });
 
@@ -49,14 +49,14 @@ describe('theme', () => {
     phone.setScheme('dark');
     await launchSignedIn();
 
-    await openProfile();
+    await openSettings();
     await fireEvent.press(screen.getByRole('radio', { name: 'Light' }));
-    expect(screen.getByRole('header', { name: 'Profile' })).toHaveStyle({ color: lightColors.text });
+    expect(screen.getByRole('header', { name: 'Settings' })).toHaveStyle({ color: lightColors.text });
     expect(secureStore.get(THEME_KEY)).toBe('light');
 
     await setPhoneScheme('light');
     await setPhoneScheme('dark');
-    expect(screen.getByRole('header', { name: 'Profile' })).toHaveStyle({ color: lightColors.text });
+    expect(screen.getByRole('header', { name: 'Settings' })).toHaveStyle({ color: lightColors.text });
   });
 
   it('launches in the theme the user picked, whatever mode the phone is in', async () => {
@@ -64,20 +64,20 @@ describe('theme', () => {
     secureStore.set(THEME_KEY, 'dark');
     await launchSignedIn();
 
-    expect(screen.getByRole('header', { name: 'History' })).toHaveStyle({ color: darkColors.text });
-    await openProfile();
+    expect(screen.getByRole('header', { name: 'Workout' })).toHaveStyle({ color: darkColors.text });
+    await openSettings();
     expect(screen.getByRole('radio', { name: 'Dark' })).toBeChecked();
   });
 
   it('goes back to following the phone when System is picked', async () => {
     await launchSignedIn();
 
-    await openProfile();
+    await openSettings();
     await fireEvent.press(screen.getByRole('radio', { name: 'Dark' }));
-    expect(screen.getByRole('header', { name: 'Profile' })).toHaveStyle({ color: darkColors.text });
+    expect(screen.getByRole('header', { name: 'Settings' })).toHaveStyle({ color: darkColors.text });
 
     await fireEvent.press(screen.getByRole('radio', { name: 'System' }));
-    expect(screen.getByRole('header', { name: 'Profile' })).toHaveStyle({ color: lightColors.text });
+    expect(screen.getByRole('header', { name: 'Settings' })).toHaveStyle({ color: lightColors.text });
     expect(secureStore.get(THEME_KEY)).toBe('system');
   });
 
@@ -86,7 +86,7 @@ describe('theme', () => {
     await launchSignedIn();
     expect(setColorScheme).toHaveBeenLastCalledWith('unspecified');
 
-    await openProfile();
+    await openSettings();
     await fireEvent.press(screen.getByRole('radio', { name: 'Dark' }));
     expect(setColorScheme).toHaveBeenLastCalledWith('dark');
 

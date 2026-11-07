@@ -53,6 +53,7 @@ function RootNavigator() {
           <Stack.Screen name="onboarding" />
         </Stack.Protected>
         <Stack.Protected guard={onboarded}>
+          <Stack.Screen name="index" />
           <Stack.Screen name="(tabs)" />
           {/* Over whichever tab it's opened from. */}
           <Stack.Screen name="edit-workout/[id]" options={{ presentation: 'fullScreenModal' }} />

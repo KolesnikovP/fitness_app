@@ -15,7 +15,7 @@ A User's login identity: an email and password. Emails are unique regardless of 
 _Avoid_: Login, credentials, user (when you mean the identity)
 
 **Profile**:
-A User's settings and the face they show to other Users. Created together with the Account.
+A User's settings and the face they show to other Users: their name (until they choose one, the part of their email before the @), avatar (their initials without one), counts and Posts. Created together with the Account.
 _Avoid_: Settings, preferences (as the container), user record
 
 **Unit preference**:
@@ -159,5 +159,5 @@ A Post's photo: one picture of the User, to see their body change over time. The
 _Avoid_: Post image, selfie, picture (as the term)
 
 **Streak**:
-How many weeks in a row, up to this one, the User has finished at least one Session. Rest days never break it.
+How many weeks in a row, up to this one, the User has finished at least one Session, with weeks starting on Monday where the User is. Rest days never break it, and nor does this week before it's over: until the User finishes a Session this week, the Streak runs up to last week.
 _Avoid_: Day streak, run, chain

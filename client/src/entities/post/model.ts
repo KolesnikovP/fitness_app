@@ -1,4 +1,4 @@
-import type { Session } from '@/entities/workout/@x/post';
+import type { Session, SessionSummary } from '@/entities/workout/@x/post';
 
 /**
  * A finished Session as the User shows it. Its id is the Session's. caption
@@ -12,6 +12,9 @@ export type Post = {
   photoUrl: string | null;
   session: Session;
 };
+
+/** A Post as a list of them shows it, with its Session's summary rather than every Set. */
+export type PostSummary = Omit<Post, 'session'> & { session: SessionSummary };
 
 /** The most characters a caption may have: Instagram's limit. */
 export const MAX_CAPTION_CHARS = 2200;

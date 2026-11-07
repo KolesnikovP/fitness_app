@@ -30,7 +30,7 @@ describe('auth flow', () => {
     expect(await screen.findByRole('header', { name: 'Pick your units' })).toBeVisible();
     await fireEvent.press(screen.getByRole('button', { name: 'Kilograms' }));
 
-    expect(await screen.findByRole('header', { name: 'History' })).toBeVisible();
+    expect(await screen.findByRole('header', { name: 'Workout' })).toBeVisible();
     expect(fakeApi.findAccount('new@example.com')?.unitPreference).toBe('kg');
     expect(secureStore.get(TOKEN_KEY)).toBeTruthy();
     // Authenticated requests carry the stored token.
@@ -44,7 +44,7 @@ describe('auth flow', () => {
     await fillCredentials('lifter@example.com', PASSWORD);
     await fireEvent.press(screen.getByRole('button', { name: 'Log in' }));
 
-    expect(await screen.findByRole('header', { name: 'History' })).toBeVisible();
+    expect(await screen.findByRole('header', { name: 'Workout' })).toBeVisible();
     expect(screen.queryByRole('header', { name: 'Pick your units' })).toBeNull();
   });
 
@@ -89,7 +89,7 @@ describe('stored login', () => {
 
     await launchApp();
 
-    expect(await screen.findByRole('header', { name: 'History' })).toBeVisible();
+    expect(await screen.findByRole('header', { name: 'Workout' })).toBeVisible();
     expect(screen.queryByRole('header', { name: 'Log in' })).toBeNull();
   });
 
@@ -102,15 +102,16 @@ describe('stored login', () => {
     expect(secureStore.has(TOKEN_KEY)).toBe(false);
   });
 
-  it('logs out from the profile tab, clearing the token', async () => {
+  it("logs out from Profile's settings, clearing the token", async () => {
     const account = fakeApi.addAccount('lifter@example.com', PASSWORD, 'kg');
     secureStore.set(TOKEN_KEY, fakeApi.issueToken(account.id));
     await launchApp();
-    await screen.findByRole('header', { name: 'History' });
+    await screen.findByRole('header', { name: 'Workout' });
 
     // The native tab bar isn't rendered in Jest, so switch tabs the way a
     // tab press does: by navigating.
     await act(async () => router.navigate('/profile'));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Settings' }));
     expect(await screen.findByText('lifter@example.com')).toBeVisible();
     await fireEvent.press(screen.getByRole('button', { name: 'Log out' }));
 

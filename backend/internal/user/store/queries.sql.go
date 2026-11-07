@@ -7,6 +7,7 @@ package store
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -20,29 +21,82 @@ func (q *Queries) CreateProfile(ctx context.Context, accountID uuid.UUID) error 
 	return err
 }
 
-const getProfile = `-- name: GetProfile :one
-SELECT account_id, unit_preference
-FROM profiles
-WHERE account_id = $1
+const deleteAvatar = `-- name: DeleteAvatar :exec
+DELETE FROM profile_avatars WHERE account_id = $1
 `
 
-type GetProfileRow struct {
-	AccountID      uuid.UUID
-	UnitPreference *string
+func (q *Queries) DeleteAvatar(ctx context.Context, accountID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteAvatar, accountID)
+	return err
 }
 
-func (q *Queries) GetProfile(ctx context.Context, accountID uuid.UUID) (GetProfileRow, error) {
-	row := q.db.QueryRow(ctx, getProfile, accountID)
-	var i GetProfileRow
-	err := row.Scan(&i.AccountID, &i.UnitPreference)
+const getAvatar = `-- name: GetAvatar :one
+SELECT content_type, data FROM profile_avatars WHERE account_id = $1
+`
+
+type GetAvatarRow struct {
+	ContentType string
+	Data        []byte
+}
+
+func (q *Queries) GetAvatar(ctx context.Context, accountID uuid.UUID) (GetAvatarRow, error) {
+	row := q.db.QueryRow(ctx, getAvatar, accountID)
+	var i GetAvatarRow
+	err := row.Scan(&i.ContentType, &i.Data)
 	return i, err
 }
 
-const setUnitPreference = `-- name: SetUnitPreference :one
+const getProfile = `-- name: GetProfile :one
+SELECT p.account_id, p.unit_preference, p.name, a.updated_at AS avatar_updated_at
+FROM profiles p
+LEFT JOIN profile_avatars a ON a.account_id = p.account_id
+WHERE p.account_id = $1
+`
+
+type GetProfileRow struct {
+	AccountID       uuid.UUID
+	UnitPreference  *string
+	Name            *string
+	AvatarUpdatedAt *time.Time
+}
+
+// The profile, with when its avatar was last set (null without one).
+func (q *Queries) GetProfile(ctx context.Context, accountID uuid.UUID) (GetProfileRow, error) {
+	row := q.db.QueryRow(ctx, getProfile, accountID)
+	var i GetProfileRow
+	err := row.Scan(
+		&i.AccountID,
+		&i.UnitPreference,
+		&i.Name,
+		&i.AvatarUpdatedAt,
+	)
+	return i, err
+}
+
+const setName = `-- name: SetName :execrows
+UPDATE profiles
+SET name = $2, updated_at = now()
+WHERE account_id = $1
+`
+
+type SetNameParams struct {
+	AccountID uuid.UUID
+	Name      *string
+}
+
+// A null name clears it.
+func (q *Queries) SetName(ctx context.Context, arg SetNameParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setName, arg.AccountID, arg.Name)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const setUnitPreference = `-- name: SetUnitPreference :execrows
 UPDATE profiles
 SET unit_preference = $2, updated_at = now()
 WHERE account_id = $1
-RETURNING account_id, unit_preference
 `
 
 type SetUnitPreferenceParams struct {
@@ -50,14 +104,28 @@ type SetUnitPreferenceParams struct {
 	UnitPreference *string
 }
 
-type SetUnitPreferenceRow struct {
-	AccountID      uuid.UUID
-	UnitPreference *string
+func (q *Queries) SetUnitPreference(ctx context.Context, arg SetUnitPreferenceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setUnitPreference, arg.AccountID, arg.UnitPreference)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
-func (q *Queries) SetUnitPreference(ctx context.Context, arg SetUnitPreferenceParams) (SetUnitPreferenceRow, error) {
-	row := q.db.QueryRow(ctx, setUnitPreference, arg.AccountID, arg.UnitPreference)
-	var i SetUnitPreferenceRow
-	err := row.Scan(&i.AccountID, &i.UnitPreference)
-	return i, err
+const upsertAvatar = `-- name: UpsertAvatar :exec
+INSERT INTO profile_avatars (account_id, content_type, data)
+VALUES ($1, $2, $3)
+ON CONFLICT (account_id) DO UPDATE
+SET content_type = excluded.content_type, data = excluded.data, updated_at = now()
+`
+
+type UpsertAvatarParams struct {
+	AccountID   uuid.UUID
+	ContentType string
+	Data        []byte
+}
+
+func (q *Queries) UpsertAvatar(ctx context.Context, arg UpsertAvatarParams) error {
+	_, err := q.db.Exec(ctx, upsertAvatar, arg.AccountID, arg.ContentType, arg.Data)
+	return err
 }

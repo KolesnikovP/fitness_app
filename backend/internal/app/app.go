@@ -29,7 +29,7 @@ func NewHandler(pool *pgxpool.Pool, tokens *auth.Tokens) http.Handler {
 		httpx.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 	accounts.Routes(mux)
-	users.Routes(mux, accounts)
+	users.Routes(mux, accounts, workouts)
 	exercises.Routes(mux, accounts)
 	programs.Routes(mux, accounts)
 	workouts.Routes(mux, accounts)
