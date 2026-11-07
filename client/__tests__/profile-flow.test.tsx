@@ -21,6 +21,17 @@ async function launch(account: { id: string }) {
   return { app };
 }
 
+/**
+ * Presses a control whose handler saves (and may then navigate): the save is still
+ * settling after the press's own act() closes, so press inside an outer act()
+ * that stays open until then.
+ */
+async function pressAndSettle(button: Parameters<typeof fireEvent.press>[0]) {
+  await act(async () => {
+    await fireEvent.press(button);
+  });
+}
+
 async function openProfile() {
   await act(async () => router.navigate('/profile'));
   await screen.findByRole('header', { name: 'Profile' });
@@ -73,7 +84,7 @@ describe('profile', () => {
     await act(async () => router.back());
 
     await fireEvent.press(await screen.findByRole('button', { name: 'Settings' }));
-    await fireEvent.press(await screen.findByRole('radio', { name: 'Pounds' }));
+    await pressAndSettle(await screen.findByRole('radio', { name: 'Pounds' }));
     await waitFor(() => expect(screen.getByRole('radio', { name: 'Pounds' })).toBeChecked());
     await act(async () => router.back());
     // 325 kg is 716.5 lb.
@@ -87,6 +98,16 @@ describe('profile', () => {
     const progress = within(await screen.findByLabelText('Progress'));
     expect(await progress.findByRole('image')).toHaveAccessibleName(/^Estimated 1RM, .*95\.5 lb$/);
     expect(app.getPathname()).toMatch(/^\/profile\/exercises\//);
+
+    // And on the Workout tab, a new Set is logged in pounds.
+    await act(async () => router.navigate('/workout'));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Start Workout' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Add exercise' }));
+    const next = within(await screen.findByLabelText('Exercise picker'));
+    await fireEvent.changeText(next.getByLabelText('Search exercises'), 'bench');
+    await fireEvent.press(await next.findByRole('button', { name: 'Dumbbell Bench Press' }));
+    const nextCard = within(await screen.findByLabelText('Dumbbell Bench Press card'));
+    expect(nextCard.getByLabelText('Set 1 weight (lb)')).toBeVisible();
   });
 
   it('counts Personal records and the Streak, which an empty week breaks', async () => {
@@ -231,7 +252,7 @@ describe('profile', () => {
     await fireEvent.changeText(screen.getByLabelText('Name'), 'Petr Kolesnikov');
     imagePicker.nextPick = { uri: 'file:///me.jpg', mimeType: 'image/jpeg', fileName: 'me.jpg' };
     await fireEvent.press(screen.getByRole('button', { name: 'Add avatar' }));
-    await fireEvent.press(await screen.findByRole('button', { name: 'Save' }));
+    await pressAndSettle(await screen.findByRole('button', { name: 'Save' }));
 
     await screen.findByRole('header', { name: 'Profile' });
     expect(await screen.findByText('Petr Kolesnikov')).toBeVisible();
@@ -242,7 +263,7 @@ describe('profile', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Edit profile' }));
     await fireEvent.changeText(await screen.findByLabelText('Name'), '');
     await fireEvent.press(screen.getByRole('button', { name: 'Remove avatar' }));
-    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+    await pressAndSettle(screen.getByRole('button', { name: 'Save' }));
     await screen.findByRole('header', { name: 'Profile' });
     expect(await screen.findByText('petr.k')).toBeVisible();
     expect(within(screen.getByLabelText('Avatar')).getByText('P')).toBeVisible();

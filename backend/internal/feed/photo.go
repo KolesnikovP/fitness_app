@@ -12,10 +12,6 @@ import (
 	"github.com/KolesnikovP/fitness_app/backend/internal/platform/httpx"
 )
 
-// photoTypes are the content types a Progress photo may be, as sniffed from
-// its bytes.
-var photoTypes = map[string]bool{"image/png": true, "image/jpeg": true, "image/webp": true}
-
 // setPhoto sets the Progress photo of one of the caller's Posts, replacing
 // any earlier one. The file is the "file" field of a multipart form.
 func (h handlers) setPhoto(w http.ResponseWriter, r *http.Request) {
@@ -27,9 +23,8 @@ func (h handlers) setPhoto(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	contentType := http.DetectContentType(data)
-	if !photoTypes[contentType] {
-		httpx.WriteError(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "Upload a PNG, JPEG or WebP image.")
+	contentType, ok := httpx.ImageType(w, data)
+	if !ok {
 		return
 	}
 

@@ -97,7 +97,7 @@ func pngBytes(t *testing.T, fill color.Color) []byte {
 // uploadPhoto PUTs data as a Post's Progress photo.
 func uploadPhoto(t *testing.T, srv *httptest.Server, token, postID string, data []byte) testutil.Response {
 	t.Helper()
-	return testutil.Upload(t, srv, "/posts/"+postID+"/photo", token, data)
+	return testutil.Upload(t, srv, token, "/posts/"+postID+"/photo", data)
 }
 
 func fetch(t *testing.T, srv *httptest.Server, token, path string) (int, string, []byte) {

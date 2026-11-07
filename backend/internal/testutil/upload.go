@@ -26,8 +26,9 @@ func PNG(t *testing.T, fill color.Color) []byte {
 	return buf.Bytes()
 }
 
-// Upload PUTs data to path as the "file" field of a multipart form.
-func Upload(t *testing.T, srv *httptest.Server, path, token string, data []byte) Response {
+// Upload PUTs data to path as the "file" field of a multipart form. token may
+// be empty.
+func Upload(t *testing.T, srv *httptest.Server, token, path string, data []byte) Response {
 	t.Helper()
 	var body bytes.Buffer
 	form := multipart.NewWriter(&body)
@@ -59,7 +60,7 @@ func Upload(t *testing.T, srv *httptest.Server, path, token string, data []byte)
 	return out
 }
 
-// Fetch GETs path and returns the status, content type and bytes.
+// Fetch GETs path, with token if it isn't empty, and returns the status, content type and bytes.
 func Fetch(t *testing.T, srv *httptest.Server, token, path string) (status int, contentType string, data []byte) {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodGet, srv.URL+path, nil)

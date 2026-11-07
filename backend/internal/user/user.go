@@ -121,8 +121,11 @@ func (h handlers) patchMe(w http.ResponseWriter, r *http.Request) {
 	if !httpx.DecodeJSON(w, r, &body) {
 		return
 	}
-	if body.Name == nil && body.UnitPreference == nil ||
-		body.UnitPreference != nil && *body.UnitPreference != "kg" && *body.UnitPreference != "lb" {
+	if body.Name == nil && body.UnitPreference == nil {
+		httpx.WriteError(w, http.StatusBadRequest, "nothing_to_update", `Send "name", "unitPreference" or both.`)
+		return
+	}
+	if body.UnitPreference != nil && *body.UnitPreference != "kg" && *body.UnitPreference != "lb" {
 		httpx.WriteError(w, http.StatusBadRequest, "invalid_unit_preference", `unitPreference must be "kg" or "lb".`)
 		return
 	}
@@ -146,9 +149,11 @@ func (h handlers) patchMe(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(ctx)
 	q := h.queries.WithTx(tx)
-	var updated int64
+	// Each update touches the caller's one profile row, or none if their
+	// account is gone.
+	var profileRows int64
 	if body.UnitPreference != nil {
-		if updated, err = q.SetUnitPreference(ctx, store.SetUnitPreferenceParams{
+		if profileRows, err = q.SetUnitPreference(ctx, store.SetUnitPreferenceParams{
 			AccountID: id, UnitPreference: body.UnitPreference,
 		}); err != nil {
 			httpx.WriteInternalError(w, r, fmt.Errorf("set unit preference: %w", err))
@@ -156,12 +161,12 @@ func (h handlers) patchMe(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if body.Name != nil {
-		if updated, err = q.SetName(ctx, store.SetNameParams{AccountID: id, Name: name}); err != nil {
+		if profileRows, err = q.SetName(ctx, store.SetNameParams{AccountID: id, Name: name}); err != nil {
 			httpx.WriteInternalError(w, r, fmt.Errorf("set name: %w", err))
 			return
 		}
 	}
-	if updated == 0 {
+	if profileRows == 0 {
 		auth.WriteUnauthorized(w)
 		return
 	}

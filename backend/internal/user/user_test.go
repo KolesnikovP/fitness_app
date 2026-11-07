@@ -68,7 +68,17 @@ func TestSetUnitPreference(t *testing.T) {
 		}
 	})
 
-	for _, bad := range []any{"stone", "", "KG", nil} {
+	t.Run("refuses an update with nothing in it", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+
+		res := testutil.Do(t, srv, http.MethodPatch, "/users/me", token, map[string]any{"unitPreference": nil})
+
+		if res.Status != http.StatusBadRequest || res.ErrorCode() != "nothing_to_update" {
+			t.Fatalf("got %d %q, want 400 nothing_to_update", res.Status, res.ErrorCode())
+		}
+	})
+
+	for _, bad := range []any{"stone", "", "KG"} {
 		t.Run("rejects an invalid value", func(t *testing.T) {
 			_, _, token := testutil.SignUp(t, srv)
 

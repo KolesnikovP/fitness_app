@@ -70,7 +70,6 @@ export function ProfileFields({ draft }: { draft: ProfileDraft }) {
       <TextField
         label="Name"
         value={draft.name}
-        placeholder={me.email.split('@')[0]}
         // Kept to the limit in characters, as the API counts, so an emoji is one.
         onChangeText={(name) => draft.setName([...name].slice(0, MAX_NAME_CHARS).join(''))}
         returnKeyType="done"

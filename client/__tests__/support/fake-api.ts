@@ -1211,10 +1211,10 @@ const handlers = [
     const account = caller(request);
     if (!account) return error(401, 'unauthorized', 'Log in to continue.');
     const { unitPreference, name } = (await request.json()) as { unitPreference?: unknown; name?: string };
-    if (
-      (name === undefined && unitPreference === undefined) ||
-      (unitPreference !== undefined && unitPreference !== 'kg' && unitPreference !== 'lb')
-    ) {
+    if (name === undefined && unitPreference === undefined) {
+      return error(400, 'nothing_to_update', 'Send "name", "unitPreference" or both.');
+    }
+    if (unitPreference !== undefined && unitPreference !== 'kg' && unitPreference !== 'lb') {
       return error(400, 'invalid_unit_preference', 'unitPreference must be "kg" or "lb".');
     }
     const trimmed = name?.trim();

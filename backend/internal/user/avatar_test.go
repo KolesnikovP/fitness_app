@@ -29,7 +29,7 @@ func TestAvatar(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
 		avatar := testutil.PNG(t, color.RGBA{R: 255, A: 255})
 
-		res := testutil.Upload(t, srv, "/users/me/avatar", token, avatar)
+		res := testutil.Upload(t, srv, token, "/users/me/avatar", avatar)
 
 		url, _ := res.Body["avatarUrl"].(string)
 		if res.Status != http.StatusOK || url == "" {
@@ -46,10 +46,10 @@ func TestAvatar(t *testing.T) {
 
 	t.Run("a new avatar replaces the old one under a new URL", func(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
-		first := testutil.Upload(t, srv, "/users/me/avatar", token, testutil.PNG(t, color.RGBA{R: 255, A: 255})).Body["avatarUrl"]
+		first := testutil.Upload(t, srv, token, "/users/me/avatar", testutil.PNG(t, color.RGBA{R: 255, A: 255})).Body["avatarUrl"]
 		second := testutil.PNG(t, color.RGBA{B: 255, A: 255})
 
-		res := testutil.Upload(t, srv, "/users/me/avatar", token, second)
+		res := testutil.Upload(t, srv, token, "/users/me/avatar", second)
 
 		if res.Body["avatarUrl"] == first {
 			t.Fatalf("avatarUrl unchanged after replacing: %v", first)
@@ -61,7 +61,7 @@ func TestAvatar(t *testing.T) {
 
 	t.Run("a removed avatar is gone", func(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
-		testutil.Upload(t, srv, "/users/me/avatar", token, testutil.PNG(t, color.RGBA{R: 255, A: 255}))
+		testutil.Upload(t, srv, token, "/users/me/avatar", testutil.PNG(t, color.RGBA{R: 255, A: 255}))
 
 		res := testutil.Do(t, srv, http.MethodDelete, "/users/me/avatar", token, nil)
 
@@ -76,7 +76,7 @@ func TestAvatar(t *testing.T) {
 	t.Run("each User sees only their own avatar", func(t *testing.T) {
 		_, _, mine := testutil.SignUp(t, srv)
 		_, _, theirs := testutil.SignUp(t, srv)
-		testutil.Upload(t, srv, "/users/me/avatar", mine, testutil.PNG(t, color.RGBA{R: 255, A: 255}))
+		testutil.Upload(t, srv, mine, "/users/me/avatar", testutil.PNG(t, color.RGBA{R: 255, A: 255}))
 
 		if status, _, _ := testutil.Fetch(t, srv, theirs, "/users/me/avatar"); status != http.StatusNotFound {
 			t.Errorf("other User's GET avatar: status %d, want 404", status)
@@ -86,7 +86,7 @@ func TestAvatar(t *testing.T) {
 	t.Run("rejects files that are not PNG, JPEG or WebP", func(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
 
-		res := testutil.Upload(t, srv, "/users/me/avatar", token, []byte("just some text, not an image"))
+		res := testutil.Upload(t, srv, token, "/users/me/avatar", []byte("just some text, not an image"))
 
 		if res.Status != http.StatusUnsupportedMediaType || res.ErrorCode() != "unsupported_media_type" {
 			t.Errorf("got %d %q, want 415 unsupported_media_type", res.Status, res.ErrorCode())
@@ -94,7 +94,7 @@ func TestAvatar(t *testing.T) {
 	})
 
 	t.Run("requires a token", func(t *testing.T) {
-		res := testutil.Upload(t, srv, "/users/me/avatar", "", testutil.PNG(t, color.RGBA{R: 255, A: 255}))
+		res := testutil.Upload(t, srv, "", "/users/me/avatar", testutil.PNG(t, color.RGBA{R: 255, A: 255}))
 
 		if res.Status != http.StatusUnauthorized {
 			t.Errorf("status %d, want 401", res.Status)
