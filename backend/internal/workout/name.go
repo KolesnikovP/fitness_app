@@ -87,7 +87,7 @@ func (h handlers) rename(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(*body.Name)
 	if utf8.RuneCountInString(name) > MaxNameChars {
 		httpx.WriteError(w, http.StatusBadRequest, "name_too_long",
-			fmt.Sprintf("Workout names can be at most %d characters.", MaxNameChars))
+			fmt.Sprintf("Names can be at most %d characters.", MaxNameChars))
 		return
 	}
 	var stored *string

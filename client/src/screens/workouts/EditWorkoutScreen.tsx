@@ -58,7 +58,7 @@ function EditWorkoutForm({ post }: { post: Post }) {
 
   return (
     <Screen>
-      <TopBar onSave={save} saving={draft.saving} canSave={draft.changed && !draft.captionTooLong} />
+      <TopBar onSave={save} saving={draft.saving} canSave={draft.canSave} />
       <WorkoutFields draft={draft} />
     </Screen>
   );

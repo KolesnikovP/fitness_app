@@ -88,7 +88,7 @@ function FinishedWorkoutForm({ post, onSaved }: { post: Post; onSaved: (post: Po
     <View style={styles.post}>
       <PersonalRecordList records={post.session.personalRecords} />
       <WorkoutFields draft={draft} />
-      <Button label="Save" onPress={save} loading={draft.saving} disabled={!draft.changed || draft.captionTooLong} />
+      <Button label="Save" onPress={save} loading={draft.saving} disabled={!draft.canSave} />
       <Button
         label="View workout"
         variant="secondary"

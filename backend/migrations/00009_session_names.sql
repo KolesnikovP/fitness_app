@@ -13,7 +13,9 @@ ALTER TABLE workout_sessions
 -- Existing Sessions keep the name the app showed for them: their Routine's
 -- name as it is now, or the weekday and part of the day they started. No
 -- time zone was recorded for them, so that's worked out in America/Chicago,
--- where every User with Sessions so far trains.
+-- where every User with Sessions so far trains. This one-off backfill reads
+-- the program module's routines, as no running code may (ADR 0001): a
+-- migration sees the whole schema, and this one runs before either module.
 UPDATE workout_sessions s
 SET given_name = coalesce(
     (SELECT left(r.name, 60) FROM routines r WHERE r.id = s.routine_id),

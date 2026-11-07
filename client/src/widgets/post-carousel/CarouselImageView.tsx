@@ -53,7 +53,7 @@ export function CarouselImageView({ post, image, token, label, onPhotoSettled }:
 function ImageContent({ post, image, token, onPhotoSettled }: Omit<CarouselImageViewProps, 'label'>) {
   const { session } = post;
   const date = formatSessionDate(session.finishedAt ?? session.startedAt);
-  const title = session.name;
+  const name = session.name;
 
   switch (image.kind) {
     case 'cover':
@@ -71,7 +71,7 @@ function ImageContent({ post, image, token, onPhotoSettled }: Omit<CarouselImage
             />
             <View style={styles.coverBand}>
               <Text style={styles.muted}>{date}</Text>
-              <Text style={styles.title}>{title}</Text>
+              <Text style={styles.title}>{name}</Text>
             </View>
           </>
         );
@@ -79,7 +79,7 @@ function ImageContent({ post, image, token, onPhotoSettled }: Omit<CarouselImage
       return (
         <View style={styles.body}>
           <Text style={styles.muted}>{date}</Text>
-          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.title}>{name}</Text>
           {session.stats ? (
             <Text style={styles.big}>{formatVolume(session.stats.volume, session.stats.volumeUnit)}</Text>
           ) : null}
@@ -98,7 +98,7 @@ function ImageContent({ post, image, token, onPhotoSettled }: Omit<CarouselImage
       ];
       return (
         <View style={styles.body}>
-          <Text style={styles.heading}>{title}</Text>
+          <Text style={styles.heading}>{name}</Text>
           {rows.map(([name, value]) => (
             <View key={name} style={styles.stat}>
               <Text style={styles.muted}>{name}</Text>

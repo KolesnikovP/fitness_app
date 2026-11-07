@@ -777,7 +777,7 @@ const handlers = [
     const { name } = (await request.json()) as { name?: string };
     if (name === undefined) return error(400, 'missing_name', 'Send the name as "name"; an empty one clears it.');
     const trimmed = name.trim();
-    if ([...trimmed].length > 60) return error(400, 'name_too_long', 'Workout names can be at most 60 characters.');
+    if ([...trimmed].length > 60) return error(400, 'name_too_long', 'Names can be at most 60 characters.');
     const session = sessions.find((s) => s.id === params.id && s.ownerId === account.id);
     if (!session) return error(404, 'session_not_found', 'Workout not found.');
     session.name = trimmed === '' ? null : trimmed;

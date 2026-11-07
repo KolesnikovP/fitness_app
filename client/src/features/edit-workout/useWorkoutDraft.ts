@@ -32,6 +32,8 @@ export type WorkoutDraft = {
   captionLength: number;
   captionTooLong: boolean;
   changed: boolean;
+  /** Whether there's something to save and it can be saved. */
+  canSave: boolean;
   saving: boolean;
   error: string | null;
   /** Saves what changed, and returns the Post as it is then; null if it failed, with error set. */
@@ -86,6 +88,7 @@ export function useWorkoutDraft(post: Post): WorkoutDraft {
     captionLength,
     captionTooLong,
     changed,
+    canSave: changed && !captionTooLong && !saving,
     saving,
     error,
     save,

@@ -25,8 +25,6 @@ import { carouselImages } from './model';
 
 type PostCarouselProps = {
   post: Post;
-  /** How wide it is on screen: the screen's width, as an Instagram post is. */
-  width?: number;
   /** Opens Edit workout. */
   onEdit: () => void;
   /** Copies the Session summary. */
@@ -40,11 +38,11 @@ type PostCarouselProps = {
  * Photos in order at 1080 × 1350, copies the caption, then offers to open
  * Instagram. Images already saved don't change when the Post does.
  */
-export function PostCarousel({ post, width: givenWidth, onEdit, onCopy }: PostCarouselProps) {
+export function PostCarousel({ post, onEdit, onCopy }: PostCarouselProps) {
   const styles = useStyles();
   const { state } = useAuth();
-  const window = useWindowDimensions();
-  const width = givenWidth ?? window.width;
+  // Full width, as an Instagram post is.
+  const { width } = useWindowDimensions();
   const views = useRef<(View | null)[]>([]);
   const [index, setIndex] = useState(0);
   // The photo URL whose cover has loaded; a new photo has a new URL, so it's waited for again.
@@ -55,7 +53,7 @@ export function PostCarousel({ post, width: givenWidth, onEdit, onCopy }: PostCa
 
   if (state.status !== 'signedIn') return null;
   const images = carouselImages(post);
-  const shown = Math.min(index, images.length - 1);
+  const shownIndex = Math.min(index, images.length - 1);
   const coverReady = post.photoUrl === null || settledPhoto === post.photoUrl;
 
   function onScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
@@ -145,11 +143,11 @@ export function PostCarousel({ post, width: givenWidth, onEdit, onCopy }: PostCa
         <View
           accessible
           accessibilityRole="image"
-          accessibilityLabel={`Image ${shown + 1} of ${images.length}`}
+          accessibilityLabel={`Image ${shownIndex + 1} of ${images.length}`}
           style={styles.dots}
         >
           {images.map((_, i) => (
-            <View key={i} style={[styles.dot, i === shown && styles.dotOn]} />
+            <View key={i} style={[styles.dot, i === shownIndex && styles.dotOn]} />
           ))}
         </View>
         <View style={[styles.side, styles.end]}>

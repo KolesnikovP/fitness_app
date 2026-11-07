@@ -39,10 +39,11 @@ export function WorkoutFields({ draft }: { draft: WorkoutDraft }) {
   return (
     <View style={styles.fields}>
       <TextField
-        label="Workout name"
+        label="Name"
         value={draft.name}
-        onChangeText={draft.setName}
-        maxLength={MAX_SESSION_NAME_CHARS}
+        // Kept to the limit in characters, as the API counts, so an emoji is
+        // one; maxLength would count UTF-16 units and allow half as many.
+        onChangeText={(name) => draft.setName([...name].slice(0, MAX_SESSION_NAME_CHARS).join(''))}
         returnKeyType="done"
       />
       {photo.kind === 'replace' ? (

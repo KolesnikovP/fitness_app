@@ -74,7 +74,7 @@ describe('the workout screen', () => {
     const [, today] = fakeApi.sessions(account.id);
 
     // The finished screen sets the name, photo and caption, with one Save.
-    await fireEvent.changeText(screen.getByLabelText('Workout name'), 'Bench day');
+    await fireEvent.changeText(screen.getByLabelText('Name'), 'Bench day');
     await fireEvent.changeText(screen.getByLabelText('Caption'), 'New bench PR 💪');
     imagePicker.nextPick = { uri: 'file:///photos/mirror.jpg', mimeType: 'image/jpeg', fileName: 'mirror.jpg' };
     await pressAndSave(screen.getByRole('button', { name: 'Add progress photo' }));
@@ -108,8 +108,8 @@ describe('the workout screen', () => {
     // Edit workout changes the name; the workout shows it once saved.
     await fireEvent.press(screen.getByRole('button', { name: 'Edit workout' }));
     await screen.findByRole('header', { name: 'Edit workout' });
-    expect(screen.getByLabelText('Workout name')).toHaveDisplayValue('Bench day');
-    await fireEvent.changeText(screen.getByLabelText('Workout name'), 'Bench PR day');
+    expect(screen.getByLabelText('Name')).toHaveDisplayValue('Bench day');
+    await fireEvent.changeText(screen.getByLabelText('Name'), 'Bench PR day');
     await pressAndSave(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByRole('header', { name: 'Bench PR day' })).toBeVisible();
     expect(fakeApi.sessionName(today.id)).toBe('Bench PR day');
@@ -232,7 +232,7 @@ describe('the workout screen', () => {
     await screen.findByRole('header', { name: 'Heavy pulls' });
 
     await fireEvent.press(screen.getByRole('button', { name: 'Edit workout' }));
-    await fireEvent.changeText(await screen.findByLabelText('Workout name'), 'Something else');
+    await fireEvent.changeText(await screen.findByLabelText('Name'), 'Something else');
     await fireEvent.changeText(screen.getByLabelText('Caption'), 'Never saved');
     await fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
     expect(await screen.findByRole('header', { name: 'Heavy pulls' })).toBeVisible();
@@ -240,9 +240,10 @@ describe('the workout screen', () => {
     expect(fakeApi.post(session.id).caption).toBe('');
 
     await fireEvent.press(screen.getByRole('button', { name: 'Edit workout' }));
-    // A name is at most 60 characters.
-    expect(await screen.findByLabelText('Workout name')).toHaveProp('maxLength', 60);
-    await fireEvent.changeText(screen.getByLabelText('Workout name'), '');
+    // A name is at most 60 characters, counted as people count them: an emoji is one.
+    await fireEvent.changeText(await screen.findByLabelText('Name'), '💪'.repeat(61));
+    expect(screen.getByLabelText('Name')).toHaveDisplayValue('💪'.repeat(60));
+    await fireEvent.changeText(screen.getByLabelText('Name'), '');
     await pressAndSave(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByRole('header', { name: 'Pull day' })).toBeVisible();
   });
