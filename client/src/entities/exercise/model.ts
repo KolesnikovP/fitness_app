@@ -32,13 +32,17 @@ export type EquipmentType = (typeof EQUIPMENT_TYPES)[number]['value'];
 
 /**
  * An exercise in the library: canonical, or one of the user's own custom
- * ones. imageUrl and animatedDemoUrl are API paths, null when there's no media.
+ * ones. secondaryMuscles never includes muscleGroup, and instructions are its
+ * numbered steps, in order; either may be empty. imageUrl and animatedDemoUrl
+ * are API paths, null when there's no media.
  */
 export type Exercise = {
   id: string;
   name: string;
   muscleGroup: MuscleGroup;
+  secondaryMuscles: MuscleGroup[];
   equipmentType: EquipmentType;
+  instructions: string[];
   isCustom: boolean;
   imageUrl: string | null;
   animatedDemoUrl: string | null;

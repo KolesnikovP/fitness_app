@@ -63,30 +63,44 @@ func (s *Service) visible(ctx context.Context, callerID uuid.UUID, ids []uuid.UU
 	return out, nil
 }
 
-// Exercise is one entry in the library as the API returns it. ImageURL and
-// AnimatedDemoURL are API paths, null when the exercise has no such media.
+// Exercise is one entry in the library as the API returns it.
+// SecondaryMuscles and Instructions are empty arrays, never null, when the
+// exercise has none. ImageURL and AnimatedDemoURL are API paths, null when the
+// exercise has no such media.
 type Exercise struct {
-	ID              uuid.UUID `json:"id"`
-	Name            string    `json:"name"`
-	MuscleGroup     string    `json:"muscleGroup"`
-	EquipmentType   string    `json:"equipmentType"`
-	IsCustom        bool      `json:"isCustom"`
-	ImageURL        *string   `json:"imageUrl"`
-	AnimatedDemoURL *string   `json:"animatedDemoUrl"`
+	ID               uuid.UUID `json:"id"`
+	Name             string    `json:"name"`
+	MuscleGroup      string    `json:"muscleGroup"`
+	SecondaryMuscles []string  `json:"secondaryMuscles"`
+	EquipmentType    string    `json:"equipmentType"`
+	Instructions     []string  `json:"instructions"`
+	IsCustom         bool      `json:"isCustom"`
+	ImageURL         *string   `json:"imageUrl"`
+	AnimatedDemoURL  *string   `json:"animatedDemoUrl"`
 }
 
 // newExercise builds the API shape from a query row. ListExercisesRow has
 // the same fields, so list rows convert to this type.
 func newExercise(row store.GetVisibleExerciseRow) Exercise {
 	return Exercise{
-		ID:              row.ID,
-		Name:            row.Name,
-		MuscleGroup:     row.MuscleGroup,
-		EquipmentType:   row.EquipmentType,
-		IsCustom:        row.IsCustom,
-		ImageURL:        mediaURL(row.ID, kindImage, row.ImageUpdatedAt),
-		AnimatedDemoURL: mediaURL(row.ID, kindAnimatedDemo, row.AnimatedDemoUpdatedAt),
+		ID:               row.ID,
+		Name:             row.Name,
+		MuscleGroup:      row.MuscleGroup,
+		SecondaryMuscles: nonNil(row.SecondaryMuscles),
+		EquipmentType:    row.EquipmentType,
+		Instructions:     nonNil(row.Instructions),
+		IsCustom:         row.IsCustom,
+		ImageURL:         mediaURL(row.ID, kindImage, row.ImageUpdatedAt),
+		AnimatedDemoURL:  mediaURL(row.ID, kindAnimatedDemo, row.AnimatedDemoUpdatedAt),
 	}
+}
+
+// nonNil makes an empty list encode as [] rather than null.
+func nonNil(list []string) []string {
+	if list == nil {
+		return []string{}
+	}
+	return list
 }
 
 // The values the API accepts. They match the CHECK constraints on the
@@ -110,6 +124,12 @@ func writeInvalidMuscleGroup(w http.ResponseWriter) {
 func writeInvalidEquipmentType(w http.ResponseWriter) {
 	httpx.WriteError(w, http.StatusBadRequest, "invalid_equipment_type",
 		"equipment type must be one of: "+strings.Join(equipmentTypes, ", ")+".")
+}
+
+func writeInvalidSecondaryMuscles(w http.ResponseWriter) {
+	httpx.WriteError(w, http.StatusBadRequest, "invalid_secondary_muscles",
+		"secondaryMuscles must be distinct values from: "+strings.Join(muscleGroups, ", ")+
+			", not including muscleGroup.")
 }
 
 const (
@@ -217,12 +237,48 @@ func writeNotFound(w http.ResponseWriter) {
 }
 
 type createBody struct {
-	Name          string `json:"name"`
-	MuscleGroup   string `json:"muscleGroup"`
-	EquipmentType string `json:"equipmentType"`
+	Name             string   `json:"name"`
+	MuscleGroup      string   `json:"muscleGroup"`
+	SecondaryMuscles []string `json:"secondaryMuscles"`
+	EquipmentType    string   `json:"equipmentType"`
+	Instructions     []string `json:"instructions"`
 }
 
-const maxNameLength = 100
+const (
+	maxNameLength = 100
+	// The instructions column allows at most maxSteps.
+	maxSteps      = 20
+	maxStepLength = 500
+)
+
+// validSecondaryMuscles reports whether list holds distinct Muscle groups,
+// none of them primary.
+func validSecondaryMuscles(list []string, primary string) bool {
+	seen := make(map[string]bool, len(list))
+	for _, m := range list {
+		if m == primary || seen[m] || !slices.Contains(muscleGroups, m) {
+			return false
+		}
+		seen[m] = true
+	}
+	return true
+}
+
+// cleanInstructions trims each step, and reports false if there are too
+// many, or any is blank or too long.
+func cleanInstructions(steps []string) ([]string, bool) {
+	if len(steps) > maxSteps {
+		return nil, false
+	}
+	out := make([]string, len(steps))
+	for i, step := range steps {
+		out[i] = strings.TrimSpace(step)
+		if out[i] == "" || utf8.RuneCountInString(out[i]) > maxStepLength {
+			return nil, false
+		}
+	}
+	return out, true
+}
 
 func (h handlers) create(w http.ResponseWriter, r *http.Request) {
 	var body createBody
@@ -239,17 +295,29 @@ func (h handlers) create(w http.ResponseWriter, r *http.Request) {
 		writeInvalidMuscleGroup(w)
 		return
 	}
+	if !validSecondaryMuscles(body.SecondaryMuscles, body.MuscleGroup) {
+		writeInvalidSecondaryMuscles(w)
+		return
+	}
 	if !slices.Contains(equipmentTypes, body.EquipmentType) {
 		writeInvalidEquipmentType(w)
+		return
+	}
+	instructions, ok := cleanInstructions(body.Instructions)
+	if !ok {
+		httpx.WriteError(w, http.StatusBadRequest, "invalid_instructions",
+			fmt.Sprintf("instructions must be at most %d steps, each 1 to %d characters.", maxSteps, maxStepLength))
 		return
 	}
 
 	caller, _ := auth.AccountID(r.Context())
 	row, err := h.queries.CreateCustomExercise(r.Context(), store.CreateCustomExerciseParams{
-		Name:          name,
-		MuscleGroup:   body.MuscleGroup,
-		EquipmentType: body.EquipmentType,
-		OwnerID:       caller,
+		Name:             name,
+		MuscleGroup:      body.MuscleGroup,
+		EquipmentType:    body.EquipmentType,
+		SecondaryMuscles: nonNil(body.SecondaryMuscles),
+		Instructions:     instructions,
+		OwnerID:          caller,
 	})
 	if isForeignKeyViolation(err) {
 		// The token is valid but its account is gone.
@@ -262,11 +330,13 @@ func (h handlers) create(w http.ResponseWriter, r *http.Request) {
 	}
 	// A new exercise has no media yet.
 	httpx.WriteJSON(w, http.StatusCreated, newExercise(store.GetVisibleExerciseRow{
-		ID:            row.ID,
-		Name:          row.Name,
-		MuscleGroup:   row.MuscleGroup,
-		EquipmentType: row.EquipmentType,
-		IsCustom:      row.IsCustom,
+		ID:               row.ID,
+		Name:             row.Name,
+		MuscleGroup:      row.MuscleGroup,
+		SecondaryMuscles: row.SecondaryMuscles,
+		EquipmentType:    row.EquipmentType,
+		Instructions:     row.Instructions,
+		IsCustom:         row.IsCustom,
 	}))
 }
 

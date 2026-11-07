@@ -22,7 +22,9 @@ type FakeExercise = {
   id: string;
   name: string;
   muscleGroup: string;
+  secondaryMuscles: string[];
   equipmentType: string;
+  instructions: string[];
   isCustom: boolean;
   imageUrl: string | null;
   animatedDemoUrl: string | null;
@@ -132,7 +134,9 @@ function seedExercises() {
     id: `canonical-${i + 1}`,
     name,
     muscleGroup,
+    secondaryMuscles: [],
     equipmentType,
+    instructions: [],
     isCustom: false,
     imageUrl: null,
     animatedDemoUrl: null,
@@ -188,12 +192,20 @@ export const fakeApi = {
     return accounts.find((a) => a.email.toLowerCase() === email.toLowerCase());
   },
 
-  addCustomExercise(ownerId: string, name: string, muscleGroup: string, equipmentType: string) {
+  addCustomExercise(
+    ownerId: string,
+    name: string,
+    muscleGroup: string,
+    equipmentType: string,
+    { secondaryMuscles = [], instructions = [] }: { secondaryMuscles?: string[]; instructions?: string[] } = {},
+  ) {
     const exercise: FakeExercise = {
       id: `exercise-${nextId++}`,
       name,
       muscleGroup,
+      secondaryMuscles,
       equipmentType,
+      instructions,
       isCustom: true,
       imageUrl: null,
       animatedDemoUrl: null,
@@ -1282,9 +1294,31 @@ const handlers = [
   http.post('*/exercises', async ({ request }) => {
     const account = caller(request);
     if (!account) return unauthorized();
-    const { name, muscleGroup, equipmentType } = (await request.json()) as Record<string, string>;
+    const {
+      name,
+      muscleGroup,
+      equipmentType,
+      secondaryMuscles = [],
+      instructions = [],
+    } = (await request.json()) as {
+      name?: string;
+      muscleGroup: string;
+      equipmentType: string;
+      secondaryMuscles?: string[];
+      instructions?: string[];
+    };
     if (!name?.trim()) return error(400, 'invalid_name', 'Name must be 1 to 100 characters.');
-    const exercise = fakeApi.addCustomExercise(account.id, name.trim(), muscleGroup, equipmentType);
+    if (secondaryMuscles.includes(muscleGroup) || new Set(secondaryMuscles).size !== secondaryMuscles.length) {
+      return error(400, 'invalid_secondary_muscles', 'secondaryMuscles must be distinct, not including muscleGroup.');
+    }
+    const steps = instructions.map((step) => step.trim());
+    if (steps.length > 20 || steps.some((step) => step === '' || step.length > 500)) {
+      return error(400, 'invalid_instructions', 'instructions must be at most 20 steps, each 1 to 500 characters.');
+    }
+    const exercise = fakeApi.addCustomExercise(account.id, name.trim(), muscleGroup, equipmentType, {
+      secondaryMuscles,
+      instructions: steps,
+    });
     return HttpResponse.json(exerciseJson(exercise), { status: 201 });
   }),
 

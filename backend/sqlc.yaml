@@ -38,6 +38,7 @@ sql:
       - migrations/00001_accounts.sql
       - migrations/00002_exercises.sql
       - migrations/00003_exercise_glossary_names.sql
+      - migrations/00011_secondary_muscles_and_instructions.sql
     queries: internal/exercise/queries.sql
     gen:
       go:

@@ -142,12 +142,66 @@ describe('exercise library', () => {
     // Saving opens the new exercise.
     expect(await screen.findByRole('header', { name: 'Belt Squat' })).toBeVisible();
     expect(screen.getByText('Custom')).toBeVisible();
-    expect(fakeApi.customExercises(account.id).map((e) => e.name)).toEqual(['Belt Squat']);
+    expect(fakeApi.customExercises(account.id)).toEqual([
+      expect.objectContaining({ name: 'Belt Squat', secondaryMuscles: [], instructions: [] }),
+    ]);
 
     await act(async () => router.back());
     await screen.findByRole('header', { name: 'Exercises' });
     await fireEvent.changeText(screen.getByLabelText('Search exercises'), 'squat');
     expect(await screen.findByRole('button', { name: 'Belt Squat' })).toBeVisible();
+  });
+
+  it('creates a custom exercise with Secondary muscles and Instructions', async () => {
+    const account = await openExercisesTab();
+    await fireEvent.press(await screen.findByRole('button', { name: 'New exercise' }));
+    await screen.findByRole('header', { name: 'New exercise' });
+
+    await fireEvent.changeText(screen.getByLabelText('Name'), 'Spoto Press');
+    await fireEvent.press(chip('Muscle group', 'Chest'));
+    const secondary = (label: string) =>
+      within(screen.getByLabelText('Secondary muscles (optional)')).queryByRole('checkbox', { name: label });
+    // The primary can't also be secondary.
+    expect(secondary('Chest')).toBeNull();
+    await fireEvent.press(secondary('Triceps')!);
+    await fireEvent.press(secondary('Shoulders')!);
+    await fireEvent.press(secondary('Biceps')!);
+    await fireEvent.press(secondary('Biceps')!);
+    expect(secondary('Triceps')).toBeChecked();
+    expect(secondary('Biceps')).not.toBeChecked();
+    await fireEvent.press(chip('Equipment', 'Barbell'));
+    await fireEvent.changeText(
+      screen.getByLabelText('Instructions (optional)'),
+      'Lower the bar.\n\n  Pause above the chest.  \nPress.',
+    );
+    await fireEvent.press(screen.getByRole('button', { name: 'Save exercise' }));
+
+    expect(await screen.findByRole('header', { name: 'Spoto Press' })).toBeVisible();
+    expect(fakeApi.customExercises(account.id)).toEqual([
+      expect.objectContaining({
+        secondaryMuscles: ['triceps', 'shoulders'],
+        instructions: ['Lower the bar.', 'Pause above the chest.', 'Press.'],
+      }),
+    ]);
+  });
+
+  it('does not send a muscle chosen as secondary and then as primary as secondary', async () => {
+    const account = await openExercisesTab();
+    await fireEvent.press(await screen.findByRole('button', { name: 'New exercise' }));
+    await screen.findByRole('header', { name: 'New exercise' });
+
+    await fireEvent.changeText(screen.getByLabelText('Name'), 'Close-grip Press');
+    await fireEvent.press(
+      within(screen.getByLabelText('Secondary muscles (optional)')).getByRole('checkbox', { name: 'Triceps' }),
+    );
+    await fireEvent.press(chip('Muscle group', 'Triceps'));
+    await fireEvent.press(chip('Equipment', 'Barbell'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save exercise' }));
+
+    expect(await screen.findByRole('header', { name: 'Close-grip Press' })).toBeVisible();
+    expect(fakeApi.customExercises(account.id)).toEqual([
+      expect.objectContaining({ muscleGroup: 'triceps', secondaryMuscles: [] }),
+    ]);
   });
 
   it('adds an image to a custom exercise', async () => {

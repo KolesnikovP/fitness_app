@@ -13,24 +13,28 @@ import (
 )
 
 const createCustomExercise = `-- name: CreateCustomExercise :one
-INSERT INTO exercises (name, muscle_group, equipment_type, is_custom, owner_id)
-VALUES ($1, $2, $3, true, $4::uuid)
-RETURNING id, name, muscle_group, equipment_type, is_custom
+INSERT INTO exercises (name, muscle_group, equipment_type, secondary_muscles, instructions, is_custom, owner_id)
+VALUES ($1, $2, $3, $4, $5, true, $6::uuid)
+RETURNING id, name, muscle_group, equipment_type, secondary_muscles, instructions, is_custom
 `
 
 type CreateCustomExerciseParams struct {
-	Name          string
-	MuscleGroup   string
-	EquipmentType string
-	OwnerID       uuid.UUID
+	Name             string
+	MuscleGroup      string
+	EquipmentType    string
+	SecondaryMuscles []string
+	Instructions     []string
+	OwnerID          uuid.UUID
 }
 
 type CreateCustomExerciseRow struct {
-	ID            uuid.UUID
-	Name          string
-	MuscleGroup   string
-	EquipmentType string
-	IsCustom      bool
+	ID               uuid.UUID
+	Name             string
+	MuscleGroup      string
+	EquipmentType    string
+	SecondaryMuscles []string
+	Instructions     []string
+	IsCustom         bool
 }
 
 func (q *Queries) CreateCustomExercise(ctx context.Context, arg CreateCustomExerciseParams) (CreateCustomExerciseRow, error) {
@@ -38,6 +42,8 @@ func (q *Queries) CreateCustomExercise(ctx context.Context, arg CreateCustomExer
 		arg.Name,
 		arg.MuscleGroup,
 		arg.EquipmentType,
+		arg.SecondaryMuscles,
+		arg.Instructions,
 		arg.OwnerID,
 	)
 	var i CreateCustomExerciseRow
@@ -46,6 +52,8 @@ func (q *Queries) CreateCustomExercise(ctx context.Context, arg CreateCustomExer
 		&i.Name,
 		&i.MuscleGroup,
 		&i.EquipmentType,
+		&i.SecondaryMuscles,
+		&i.Instructions,
 		&i.IsCustom,
 	)
 	return i, err
@@ -76,6 +84,7 @@ func (q *Queries) GetMedia(ctx context.Context, arg GetMediaParams) (GetMediaRow
 
 const getVisibleExercise = `-- name: GetVisibleExercise :one
 SELECT e.id, e.name, e.muscle_group, e.equipment_type, e.is_custom,
+       e.secondary_muscles, e.instructions,
        img.updated_at AS image_updated_at,
        anim.updated_at AS animated_demo_updated_at
 FROM exercises e
@@ -96,6 +105,8 @@ type GetVisibleExerciseRow struct {
 	MuscleGroup           string
 	EquipmentType         string
 	IsCustom              bool
+	SecondaryMuscles      []string
+	Instructions          []string
 	ImageUpdatedAt        pgtype.Timestamptz
 	AnimatedDemoUpdatedAt pgtype.Timestamptz
 }
@@ -110,6 +121,8 @@ func (q *Queries) GetVisibleExercise(ctx context.Context, arg GetVisibleExercise
 		&i.MuscleGroup,
 		&i.EquipmentType,
 		&i.IsCustom,
+		&i.SecondaryMuscles,
+		&i.Instructions,
 		&i.ImageUpdatedAt,
 		&i.AnimatedDemoUpdatedAt,
 	)
@@ -118,6 +131,7 @@ func (q *Queries) GetVisibleExercise(ctx context.Context, arg GetVisibleExercise
 
 const listExercises = `-- name: ListExercises :many
 SELECT e.id, e.name, e.muscle_group, e.equipment_type, e.is_custom,
+       e.secondary_muscles, e.instructions,
        img.updated_at AS image_updated_at,
        anim.updated_at AS animated_demo_updated_at
 FROM exercises e
@@ -143,6 +157,8 @@ type ListExercisesRow struct {
 	MuscleGroup           string
 	EquipmentType         string
 	IsCustom              bool
+	SecondaryMuscles      []string
+	Instructions          []string
 	ImageUpdatedAt        pgtype.Timestamptz
 	AnimatedDemoUpdatedAt pgtype.Timestamptz
 }
@@ -170,6 +186,8 @@ func (q *Queries) ListExercises(ctx context.Context, arg ListExercisesParams) ([
 			&i.MuscleGroup,
 			&i.EquipmentType,
 			&i.IsCustom,
+			&i.SecondaryMuscles,
+			&i.Instructions,
 			&i.ImageUpdatedAt,
 			&i.AnimatedDemoUpdatedAt,
 		); err != nil {
