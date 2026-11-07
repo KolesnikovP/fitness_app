@@ -9,10 +9,20 @@ const path = (sessionId: string, ...rest: string[]) =>
 
 /**
  * Starts a Session: a Freeform session, or one pre-populated from routineId.
+ * A Freeform session is named for when it starts in the device's time zone.
  * Fails with session_in_progress if one already is.
  */
 export function startSession(token: string, routineId?: string): Promise<Session> {
-  return apiRequest<Session>(base, { method: 'POST', token, body: routineId ? { routineId } : undefined });
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return apiRequest<Session>(base, { method: 'POST', token, body: routineId ? { routineId, timeZone } : { timeZone } });
+}
+
+/**
+ * Renames one of the user's Sessions. A blank name clears it, so it's called
+ * the name it was given again. Its Routine keeps its own name.
+ */
+export function renameSession(token: string, sessionId: string, name: string): Promise<Session> {
+  return apiRequest<Session>(path(sessionId), { method: 'PATCH', token, body: { name } });
 }
 
 /** The Session in progress, or null. */

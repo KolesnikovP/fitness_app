@@ -129,4 +129,6 @@ type WorkoutSession struct {
 	RoutineID  pgtype.UUID
 	StartedAt  time.Time
 	FinishedAt *time.Time
+	GivenName  string
+	Name       *string
 }

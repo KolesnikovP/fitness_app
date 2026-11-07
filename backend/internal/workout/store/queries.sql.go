@@ -140,7 +140,7 @@ func (q *Queries) FinishSession(ctx context.Context, id uuid.UUID) error {
 }
 
 const getSession = `-- name: GetSession :one
-SELECT id, routine_id, started_at, finished_at
+SELECT id, routine_id, coalesce(name, given_name)::text AS name, started_at, finished_at
 FROM workout_sessions
 WHERE id = $1 AND account_id = $2
 `
@@ -153,6 +153,7 @@ type GetSessionParams struct {
 type GetSessionRow struct {
 	ID         uuid.UUID
 	RoutineID  *uuid.UUID
+	Name       string
 	StartedAt  time.Time
 	FinishedAt *time.Time
 }
@@ -163,6 +164,7 @@ func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (GetSess
 	err := row.Scan(
 		&i.ID,
 		&i.RoutineID,
+		&i.Name,
 		&i.StartedAt,
 		&i.FinishedAt,
 	)
@@ -243,7 +245,7 @@ func (q *Queries) ListExercisesOfSessions(ctx context.Context, sessionIds []uuid
 }
 
 const listFinishedSessions = `-- name: ListFinishedSessions :many
-SELECT id, routine_id, started_at, finished_at
+SELECT id, routine_id, coalesce(name, given_name)::text AS name, started_at, finished_at
 FROM workout_sessions
 WHERE account_id = $1 AND finished_at IS NOT NULL
 ORDER BY finished_at DESC, id
@@ -252,6 +254,7 @@ ORDER BY finished_at DESC, id
 type ListFinishedSessionsRow struct {
 	ID         uuid.UUID
 	RoutineID  *uuid.UUID
+	Name       string
 	StartedAt  time.Time
 	FinishedAt *time.Time
 }
@@ -268,6 +271,7 @@ func (q *Queries) ListFinishedSessions(ctx context.Context, accountID uuid.UUID)
 		if err := rows.Scan(
 			&i.ID,
 			&i.RoutineID,
+			&i.Name,
 			&i.StartedAt,
 			&i.FinishedAt,
 		); err != nil {
@@ -623,6 +627,28 @@ func (q *Queries) LogSet(ctx context.Context, arg LogSetParams) (int64, error) {
 	return result.RowsAffected(), nil
 }
 
+const renameSession = `-- name: RenameSession :execrows
+UPDATE workout_sessions
+SET name = $1
+WHERE id = $2 AND account_id = $3
+`
+
+type RenameSessionParams struct {
+	Name      *string
+	ID        uuid.UUID
+	AccountID uuid.UUID
+}
+
+// Renames the caller's session; a null name clears it, so the session is
+// called the name it was given.
+func (q *Queries) RenameSession(ctx context.Context, arg RenameSessionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, renameSession, arg.Name, arg.ID, arg.AccountID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const setSessionExerciseNote = `-- name: SetSessionExerciseNote :execrows
 UPDATE session_exercises
 SET note = $3
@@ -644,19 +670,21 @@ func (q *Queries) SetSessionExerciseNote(ctx context.Context, arg SetSessionExer
 }
 
 const startSession = `-- name: StartSession :one
-INSERT INTO workout_sessions (account_id, routine_id)
-VALUES ($1, $2)
+INSERT INTO workout_sessions (account_id, routine_id, given_name)
+VALUES ($1, $2, $3)
 RETURNING id
 `
 
 type StartSessionParams struct {
 	AccountID uuid.UUID
 	RoutineID *uuid.UUID
+	GivenName string
 }
 
-// Starts a session, from a routine unless routine_id is null.
+// Starts a session called given_name, from a routine unless routine_id is
+// null. It starts at the transaction's time, now().
 func (q *Queries) StartSession(ctx context.Context, arg StartSessionParams) (uuid.UUID, error) {
-	row := q.db.QueryRow(ctx, startSession, arg.AccountID, arg.RoutineID)
+	row := q.db.QueryRow(ctx, startSession, arg.AccountID, arg.RoutineID, arg.GivenName)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
@@ -677,6 +705,18 @@ type SwapExerciseParams struct {
 func (q *Queries) SwapExercise(ctx context.Context, arg SwapExerciseParams) error {
 	_, err := q.db.Exec(ctx, swapExercise, arg.ID, arg.SessionID, arg.ExerciseID)
 	return err
+}
+
+const transactionTime = `-- name: TransactionTime :one
+SELECT now()::timestamptz AS now
+`
+
+// The time the transaction started: a session started in it starts then.
+func (q *Queries) TransactionTime(ctx context.Context) (time.Time, error) {
+	row := q.db.QueryRow(ctx, transactionTime)
+	var now time.Time
+	err := row.Scan(&now)
+	return now, err
 }
 
 const ungroupSuperset = `-- name: UngroupSuperset :execrows

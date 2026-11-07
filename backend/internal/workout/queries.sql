@@ -1,13 +1,25 @@
+-- name: TransactionTime :one
+-- The time the transaction started: a session started in it starts then.
+SELECT now()::timestamptz AS now;
+
 -- name: StartSession :one
--- Starts a session, from a routine unless routine_id is null.
-INSERT INTO workout_sessions (account_id, routine_id)
-VALUES (sqlc.arg(account_id), sqlc.narg(routine_id))
+-- Starts a session called given_name, from a routine unless routine_id is
+-- null. It starts at the transaction's time, now().
+INSERT INTO workout_sessions (account_id, routine_id, given_name)
+VALUES (sqlc.arg(account_id), sqlc.narg(routine_id), sqlc.arg(given_name))
 RETURNING id;
 
 -- name: GetSession :one
-SELECT id, routine_id, started_at, finished_at
+SELECT id, routine_id, coalesce(name, given_name)::text AS name, started_at, finished_at
 FROM workout_sessions
 WHERE id = $1 AND account_id = $2;
+
+-- name: RenameSession :execrows
+-- Renames the caller's session; a null name clears it, so the session is
+-- called the name it was given.
+UPDATE workout_sessions
+SET name = sqlc.narg(name)
+WHERE id = sqlc.arg(id) AND account_id = sqlc.arg(account_id);
 
 -- name: ListSessionExercises :many
 SELECT id, exercise_id, note, superset_id, target_sets, target_reps, target_weight, target_weight_unit,
@@ -81,7 +93,7 @@ DELETE FROM workout_sessions
 WHERE id = $1;
 
 -- name: ListFinishedSessions :many
-SELECT id, routine_id, started_at, finished_at
+SELECT id, routine_id, coalesce(name, given_name)::text AS name, started_at, finished_at
 FROM workout_sessions
 WHERE account_id = $1 AND finished_at IS NOT NULL
 ORDER BY finished_at DESC, id;

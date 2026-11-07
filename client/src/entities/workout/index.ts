@@ -15,6 +15,7 @@ export {
   formatVolume,
   formatTarget,
   hasSets,
+  MAX_SESSION_NAME_CHARS,
   newRecords,
   nextSetDraft,
   parseReps,
@@ -49,7 +50,6 @@ export {
   type Totals,
   weekAround,
   weightInput,
-  workoutName,
   withoutSet,
 } from './model';
 export {
@@ -66,6 +66,7 @@ export {
   getTotals,
   listSessionHistory,
   logSet,
+  renameSession,
   saveSessionAsRoutine,
   setExerciseNote,
   startSession,
@@ -73,11 +74,13 @@ export {
   ungroupSuperset,
   type NewSet,
 } from './api';
+export { sessionSummary } from './sessionSummary';
 export { ExerciseRecordsCard } from './ExerciseRecordsCard';
 export { NewRecordBanner } from './NewRecordBanner';
 export { PersonalRecordList } from './PersonalRecordList';
 export { RecordTierMedal, useRecordTierColours } from './RecordTier';
 export { SessionStatsLine } from './SessionStatsLine';
+export { SessionExerciseList } from './SessionExerciseList';
 export { SessionSummaryItem } from './SessionSummaryItem';
 export { TotalsCard } from './TotalsCard';
 export { SetFields } from './SetFields';
