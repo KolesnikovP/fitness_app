@@ -9,6 +9,7 @@ import (
 
 	"github.com/KolesnikovP/fitness_app/backend/internal/auth"
 	"github.com/KolesnikovP/fitness_app/backend/internal/exercise"
+	"github.com/KolesnikovP/fitness_app/backend/internal/feed"
 	"github.com/KolesnikovP/fitness_app/backend/internal/platform/httpx"
 	"github.com/KolesnikovP/fitness_app/backend/internal/program"
 	"github.com/KolesnikovP/fitness_app/backend/internal/user"
@@ -21,6 +22,7 @@ func NewHandler(pool *pgxpool.Pool, tokens *auth.Tokens) http.Handler {
 	exercises := exercise.NewService(pool)
 	programs := program.NewService(pool, exercises)
 	workouts := workout.NewService(pool, exercises, programs, users)
+	posts := feed.NewService(pool, workouts)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -31,5 +33,6 @@ func NewHandler(pool *pgxpool.Pool, tokens *auth.Tokens) http.Handler {
 	exercises.Routes(mux, accounts)
 	programs.Routes(mux, accounts)
 	workouts.Routes(mux, accounts)
+	posts.Routes(mux, accounts)
 	return mux
 }

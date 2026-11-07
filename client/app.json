@@ -22,6 +22,17 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-router", "expo-secure-store", "expo-splash-screen"]
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-splash-screen",
+      [
+        "expo-media-library",
+        {
+          "savePhotosPermission": "Save your workout's Instagram carousel to Photos.",
+          "granularPermissions": ["photo"]
+        }
+      ]
+    ]
   }
 }

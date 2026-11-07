@@ -3,19 +3,12 @@ package exercise
 import (
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
 
 	"github.com/KolesnikovP/fitness_app/backend/internal/exercise/store"
 	"github.com/KolesnikovP/fitness_app/backend/internal/platform/httpx"
-)
-
-const (
-	maxMediaBytes = 10 << 20
-	// Room for the multipart boundaries and headers around the file.
-	maxUploadBodyBytes = maxMediaBytes + 64<<10
 )
 
 // mediaKinds maps each accepted content type, as sniffed from the file's
@@ -42,7 +35,7 @@ func (h handlers) uploadMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, ok := readUploadedFile(w, r)
+	data, ok := httpx.ReadUploadedFile(w, r)
 	if !ok {
 		return
 	}
@@ -64,54 +57,6 @@ func (h handlers) uploadMedia(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.get(w, r)
-}
-
-// readUploadedFile returns the bytes of the form's "file" field. On failure
-// it writes the error response and returns false.
-func readUploadedFile(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxUploadBodyBytes)
-	form, err := r.MultipartReader()
-	if err != nil {
-		writeMissingFile(w)
-		return nil, false
-	}
-	for {
-		part, err := form.NextPart()
-		if err != nil {
-			if isTooLarge(err) {
-				writeTooLarge(w)
-			} else {
-				writeMissingFile(w)
-			}
-			return nil, false
-		}
-		if part.FormName() != "file" {
-			continue
-		}
-		data, err := io.ReadAll(io.LimitReader(part, maxMediaBytes+1))
-		switch {
-		case isTooLarge(err) || len(data) > maxMediaBytes:
-			writeTooLarge(w)
-			return nil, false
-		case err != nil || len(data) == 0:
-			writeMissingFile(w)
-			return nil, false
-		}
-		return data, true
-	}
-}
-
-func isTooLarge(err error) bool {
-	var tooLarge *http.MaxBytesError
-	return errors.As(err, &tooLarge)
-}
-
-func writeMissingFile(w http.ResponseWriter) {
-	httpx.WriteError(w, http.StatusBadRequest, "missing_file", `Send the file as the "file" field of a multipart form.`)
-}
-
-func writeTooLarge(w http.ResponseWriter) {
-	httpx.WriteError(w, http.StatusRequestEntityTooLarge, "media_too_large", "Files must be 10 MB or smaller.")
 }
 
 // serveMedia returns an exercise's static image or animated demo. The URLs

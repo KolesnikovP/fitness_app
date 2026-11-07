@@ -3,6 +3,7 @@
 export { LogInScreen } from './auth/LogInScreen';
 export { SignUpScreen } from './auth/SignUpScreen';
 export { HistoryScreen } from './history/HistoryScreen';
+export { PostScreen } from './history/PostScreen';
 export { SessionDetailScreen } from './history/SessionDetailScreen';
 export { OnboardingScreen } from './onboarding/OnboardingScreen';
 export { ServerUnavailableScreen } from './server-unavailable/ServerUnavailableScreen';
