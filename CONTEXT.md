@@ -36,6 +36,10 @@ _Avoid_: Setup, first run, welcome flow
 One workout a User logs, from start to finish. The word is reserved for this; being logged in is never called a session.
 _Avoid_: Training session, workout log, login session
 
+**Session name**:
+What a Session is called, at most 60 characters. It's set when the Session starts, to its Routine's name, or for a freeform Session to the weekday and part of the day it started ("Thursday's Morning Workout"). After that it changes only when the User renames it; renaming a Session never renames its Routine, and a Routine renamed later doesn't rename its Sessions. Cleared, it goes back to the name it would have been given.
+_Avoid_: Title, workout name
+
 **In progress** / **Finished**:
 A Session is in progress from when the User starts it until they finish it, and finished after. A User has at most one Session in progress. Only a Session with at least one Set can be finished; one in progress can instead be discarded, which deletes it.
 _Avoid_: Active, open, completed, saved
@@ -63,10 +67,6 @@ _Avoid_: Giant set, circuit, group (as system terms)
 **Round**:
 One Set of each Session exercise in a Superset. The User rests after a round, not between its Sets.
 _Avoid_: Cycle, lap
-
-**History**:
-A User's finished Sessions, newest first, with the stats of each. It is only the User's own; a feed of other Users' workouts is postponed past v1.
-_Avoid_: Log, journal, feed (until there is one)
 
 **Volume**:
 The total weight a User moved: the sum of weight × reps over Sets, in the User's Unit preference. A Set logged in the other unit is converted by the one fixed factor, and a Set at weight 0 adds nothing. A Session's Volume is over its Sets; a week's, over the Sets of the Sessions finished in it.
@@ -143,12 +143,16 @@ _Avoid_: Equipment (as a count noun), gear, implement
 ### Progress and sharing
 
 **Post**:
-A finished Session as the User shows it: the Session with its stats and Personal records as they are now, an optional Progress photo, and an optional caption of up to 2,200 characters. Every finished Session has exactly one, from the moment it's finished, and it shares the Session's id. It can't be deleted. Only its User sees it until there is a feed.
-_Avoid_: Share, story, workout post (as the term)
+A finished Session as the User shows it: the Session with its stats and Personal records as they are now, an optional Progress photo, and an optional caption of up to 2,200 characters. Every finished Session has exactly one, from the moment it's finished, and it shares the Session's id. It can't be deleted. A User's Posts, newest first on their Profile, are their record of every workout they've finished; nothing has to be done to publish one. Only its User sees it until there is a feed.
+_Avoid_: Share, story, workout post (as the term); History, log, journal (for a User's Posts)
 
 **Carousel**:
 A Post exported as 4:5 images to save to Photos and post on Instagram, in order: a cover (the Progress photo with the date and title over it, or the stats without one), the stats, the Personal records if there are any, then the Exercises with their Sets, about four to an image. Once saved it doesn't change when its Post does.
 _Avoid_: Slides, gallery, export (as the term)
+
+**Session summary**:
+A finished Session written out as text, to paste anywhere, such as into a chat with an AI: its title, date, duration and Volume, every Exercise with every Set (weight × reps, and the RPE and note when there are any), then its Personal records. Weights are in the User's Unit preference. It leaves out the caption and Progress photo, which are the Post's, and never shortens anything.
+_Avoid_: Export, report, log (as the term)
 
 **Progress photo**:
 A Post's photo: one picture of the User, to see their body change over time. The User's Posts, in date order, are the timeline of these.
