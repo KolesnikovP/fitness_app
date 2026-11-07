@@ -32,6 +32,7 @@ export {
   swapChoices,
   swappedFrom,
   type BestSet,
+  type ExerciseBest,
   type ExerciseProgress,
   type ExerciseRecords,
   type PersonalRecord,
@@ -47,8 +48,6 @@ export {
   type SetRun,
   type SetDraft,
   type SupersetProgress,
-  type Totals,
-  weekAround,
   weightInput,
   withoutSet,
 } from './model';
@@ -61,10 +60,9 @@ export {
   finishSession,
   getCurrentSession,
   getExerciseProgress,
+  getExerciseBests,
   getExerciseRecords,
   getSession,
-  getTotals,
-  listSessionHistory,
   logSet,
   renameSession,
   saveSessionAsRoutine,
@@ -81,7 +79,5 @@ export { PersonalRecordList } from './PersonalRecordList';
 export { RecordTierMedal, useRecordTierColours } from './RecordTier';
 export { SessionStatsLine } from './SessionStatsLine';
 export { SessionExerciseList } from './SessionExerciseList';
-export { SessionSummaryItem } from './SessionSummaryItem';
-export { TotalsCard } from './TotalsCard';
 export { SetFields } from './SetFields';
 export { setColumns } from './setColumns';

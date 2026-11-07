@@ -74,6 +74,41 @@ func (q *Queries) GetPost(ctx context.Context, sessionID uuid.UUID) (GetPostRow,
 	return i, err
 }
 
+const listPostsOfAccount = `-- name: ListPostsOfAccount :many
+SELECT p.session_id, p.caption, ph.updated_at AS photo_updated_at
+FROM posts p
+LEFT JOIN post_photos ph ON ph.session_id = p.session_id
+WHERE p.account_id = $1
+`
+
+type ListPostsOfAccountRow struct {
+	SessionID      uuid.UUID
+	Caption        string
+	PhotoUpdatedAt *time.Time
+}
+
+// The captions of the account's Posts that have a row, and when each one's
+// Progress photo was last set, if it has one.
+func (q *Queries) ListPostsOfAccount(ctx context.Context, accountID uuid.UUID) ([]ListPostsOfAccountRow, error) {
+	rows, err := q.db.Query(ctx, listPostsOfAccount, accountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPostsOfAccountRow
+	for rows.Next() {
+		var i ListPostsOfAccountRow
+		if err := rows.Scan(&i.SessionID, &i.Caption, &i.PhotoUpdatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertCaption = `-- name: UpsertCaption :exec
 INSERT INTO posts (session_id, account_id, caption)
 VALUES ($1, $2, $3)

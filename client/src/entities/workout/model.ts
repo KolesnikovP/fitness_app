@@ -1,4 +1,3 @@
-import type { MuscleGroup } from '@/entities/exercise/@x/workout';
 import type { ExerciseRef, UnitPreference } from '@/shared/model';
 
 /**
@@ -200,7 +199,7 @@ export type Session = {
   personalRecords: PersonalRecord[];
 };
 
-/** A finished Session as the History lists it. */
+/** A finished Session as a list of them shows it: its stats and the names of its Exercises, not every Set. */
 export type SessionSummary = {
   id: string;
   name: string;
@@ -212,25 +211,11 @@ export type SessionSummary = {
   personalRecords: PersonalRecord[];
 };
 
-/** The stats of the Sessions finished in a range, such as this week. */
-export type Totals = {
-  sessionCount: number;
-  volume: number;
-  volumeUnit: UnitPreference;
-  /** Most sets first. */
-  setsPerMuscleGroup: { muscleGroup: MuscleGroup; sets: number }[];
-};
+/** An Exercise's best Estimated 1RM ever: its all-time Personal record, as Progress on the Profile shows it. */
+export type ExerciseBest = { exerciseId: string; name: string; best: BestSet };
 
 /** The most characters a Session name may have. */
 export const MAX_SESSION_NAME_CHARS = 60;
-
-/** The week around now, from Monday 00:00 to the next, in the device's time zone. */
-export function weekAround(now: Date): { from: Date; to: Date } {
-  const daysSinceMonday = (now.getDay() + 6) % 7;
-  const from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysSinceMonday);
-  const to = new Date(from.getFullYear(), from.getMonth(), from.getDate() + 7);
-  return { from, to };
-}
 
 /** "1 workout", "3 sets": count with a noun, plural unless it's 1. */
 export function countOf(n: number, noun: string): string {

@@ -11,9 +11,6 @@ async function openWorkoutTab(accountId?: string) {
   const id = accountId ?? fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg').id;
   secureStore.set('auth-token', fakeApi.issueToken(id));
   await renderRouter('./src/app', { initialUrl: '/' });
-  await screen.findByRole('header', { name: 'History' });
-  // The native tab bar isn't rendered in Jest; switch tabs by navigating.
-  await act(async () => router.navigate('/workout'));
   await screen.findByRole('header', { name: 'Workout' });
   return id;
 }
@@ -122,9 +119,9 @@ describe('routines', () => {
     // A workout from a routine is already one: no offer to save it as one.
     await screen.findByRole('header', { name: 'Workout' });
     expect(screen.queryByRole('header', { name: 'Workout finished' })).toBeNull();
-    await act(async () => router.navigate('/'));
+    await act(async () => router.navigate('/profile'));
     expect(
-      await within(await screen.findByLabelText('Past workouts')).findByText('Bench Press, Overhead Press'),
+      await within(await screen.findByLabelText('Workouts')).findByText('Bench Press, Overhead Press'),
     ).toBeVisible();
     const [session] = fakeApi.sessions(accountId);
     expect(session.routineId).toBe(saved.id);
@@ -244,9 +241,9 @@ describe('routines', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Finish workout' }));
     await screen.findByRole('header', { name: 'Workout' });
-    await act(async () => router.navigate('/'));
+    await act(async () => router.navigate('/profile'));
     expect(
-      await within(await screen.findByLabelText('Past workouts')).findByText('Bench Press, Dumbbell Bench Press'),
+      await within(await screen.findByLabelText('Workouts')).findByText('Bench Press, Dumbbell Bench Press'),
     ).toBeVisible();
     const [session] = fakeApi.sessions(accountId);
     expect(session.exercises[0].sets.map((set) => fakeApi.exerciseName(set.exerciseId))).toEqual([

@@ -11,9 +11,6 @@ async function openWorkoutTab() {
   const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
   secureStore.set('auth-token', fakeApi.issueToken(account.id));
   await renderRouter('./src/app', { initialUrl: '/' });
-  await screen.findByRole('header', { name: 'History' });
-  // The native tab bar isn't rendered in Jest; switch tabs by navigating.
-  await act(async () => router.navigate('/workout'));
   await screen.findByRole('header', { name: 'Workout' });
   return account;
 }
@@ -22,8 +19,7 @@ async function openWorkoutTab() {
 async function resumeWorkout(accountId: string) {
   secureStore.set('auth-token', fakeApi.issueToken(accountId));
   await renderRouter('./src/app', { initialUrl: '/' });
-  await screen.findByRole('header', { name: 'History' });
-  await act(async () => router.navigate('/workout'));
+  await screen.findByRole('header', { name: 'Workout' });
   await fireEvent.press(await screen.findByRole('button', { name: 'Resume workout' }));
   await screen.findByRole('header', { name: 'Current workout' });
 }
@@ -90,8 +86,8 @@ describe('freeform workout', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
     await screen.findByRole('header', { name: 'Workout' });
     expect(screen.getByRole('button', { name: 'Start Workout' })).toBeVisible();
-    await act(async () => router.navigate('/'));
-    const history = within(await screen.findByLabelText('Past workouts'));
+    await act(async () => router.navigate('/profile'));
+    const history = within(await screen.findByLabelText('Workouts'));
     expect(await history.findByText('Dumbbell Bench Press')).toBeVisible();
     expect(history.getByText(/< 1 min/)).toBeVisible();
 
@@ -111,8 +107,7 @@ describe('freeform workout', () => {
     fakeApi.addSet(deadlift, 140, 'kg', 3);
     secureStore.set('auth-token', fakeApi.issueToken(account.id));
     await renderRouter('./src/app', { initialUrl: '/' });
-    await screen.findByRole('header', { name: 'History' });
-    await act(async () => router.navigate('/workout'));
+    await screen.findByRole('header', { name: 'Workout' });
 
     await fireEvent.press(await screen.findByRole('button', { name: 'Resume workout' }));
 

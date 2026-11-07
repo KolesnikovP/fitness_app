@@ -1,7 +1,7 @@
 import { apiRequest } from '@/shared/api';
 import type { UnitPreference } from '@/shared/model';
 
-import type { ExerciseProgress, ExerciseRecords, Session, SessionSummary, Totals } from './model';
+import type { ExerciseBest, ExerciseProgress, ExerciseRecords, Session } from './model';
 
 const base = '/workouts/sessions';
 const path = (sessionId: string, ...rest: string[]) =>
@@ -31,12 +31,6 @@ export async function getCurrentSession(token: string): Promise<Session | null> 
   return session;
 }
 
-/** The user's finished Sessions, newest first. */
-export async function listSessionHistory(token: string): Promise<SessionSummary[]> {
-  const { sessions } = await apiRequest<{ sessions: SessionSummary[] }>(base, { token });
-  return sessions;
-}
-
 /** One of the user's Sessions, with its stats once finished. */
 export function getSession(token: string, sessionId: string): Promise<Session> {
   return apiRequest<Session>(path(sessionId), { token });
@@ -52,10 +46,10 @@ export function getExerciseProgress(token: string, exerciseId: string): Promise<
   return apiRequest<ExerciseProgress>(`/workouts/exercises/${encodeURIComponent(exerciseId)}/progress`, { token });
 }
 
-/** The totals of the user's Sessions finished from `from` up to, not including, `to`. */
-export function getTotals(token: string, from: Date, to: Date): Promise<Totals> {
-  const query = `from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`;
-  return apiRequest<Totals>(`/workouts/totals?${query}`, { token });
+/** The best Estimated 1RM of every Exercise the User has done with weight, by name: their bests on Progress. */
+export async function getExerciseBests(token: string): Promise<ExerciseBest[]> {
+  const { exercises } = await apiRequest<{ exercises: ExerciseBest[] }>('/workouts/records', { token });
+  return exercises;
 }
 
 export function addExerciseToSession(token: string, sessionId: string, exerciseId: string): Promise<Session> {

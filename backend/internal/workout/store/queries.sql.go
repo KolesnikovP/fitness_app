@@ -244,6 +244,35 @@ func (q *Queries) ListExercisesOfSessions(ctx context.Context, sessionIds []uuid
 	return items, nil
 }
 
+const listFinishedExerciseIDs = `-- name: ListFinishedExerciseIDs :many
+SELECT DISTINCT s.exercise_id
+FROM session_sets s
+JOIN session_exercises e ON e.id = s.session_exercise_id
+JOIN workout_sessions w ON w.id = e.session_id
+WHERE w.account_id = $1 AND w.finished_at IS NOT NULL
+`
+
+// Every exercise the account has logged a set of in a finished session.
+func (q *Queries) ListFinishedExerciseIDs(ctx context.Context, accountID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listFinishedExerciseIDs, accountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var exercise_id uuid.UUID
+		if err := rows.Scan(&exercise_id); err != nil {
+			return nil, err
+		}
+		items = append(items, exercise_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFinishedSessions = `-- name: ListFinishedSessions :many
 SELECT id, routine_id, coalesce(name, given_name)::text AS name, started_at, finished_at
 FROM workout_sessions
@@ -376,6 +405,33 @@ func (q *Queries) ListFinishedSetsOfExercises(ctx context.Context, arg ListFinis
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFinishedTimes = `-- name: ListFinishedTimes :many
+SELECT finished_at::timestamptz AS finished_at
+FROM workout_sessions
+WHERE account_id = $1 AND finished_at IS NOT NULL
+`
+
+// When each of the account's finished sessions finished.
+func (q *Queries) ListFinishedTimes(ctx context.Context, accountID uuid.UUID) ([]time.Time, error) {
+	rows, err := q.db.Query(ctx, listFinishedTimes, accountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []time.Time
+	for rows.Next() {
+		var finished_at time.Time
+		if err := rows.Scan(&finished_at); err != nil {
+			return nil, err
+		}
+		items = append(items, finished_at)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

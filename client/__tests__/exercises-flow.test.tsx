@@ -10,7 +10,7 @@ async function openExercisesTab() {
   const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
   secureStore.set('auth-token', fakeApi.issueToken(account.id));
   await renderRouter('./src/app', { initialUrl: '/' });
-  await screen.findByRole('header', { name: 'History' });
+  await screen.findByRole('header', { name: 'Workout' });
   // The native tab bar isn't rendered in Jest; switch tabs by navigating.
   await act(async () => router.navigate('/exercises'));
   await screen.findByRole('header', { name: 'Exercises' });

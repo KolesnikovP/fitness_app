@@ -62,3 +62,18 @@ func writeMissingFile(w http.ResponseWriter) {
 func writeTooLarge(w http.ResponseWriter) {
 	WriteError(w, http.StatusRequestEntityTooLarge, "media_too_large", "Files must be 10 MB or smaller.")
 }
+
+// imageTypes are the content types an uploaded image may be, as sniffed from
+// its bytes.
+var imageTypes = map[string]bool{"image/png": true, "image/jpeg": true, "image/webp": true}
+
+// ImageType sniffs data's content type and returns it if it's a PNG, JPEG or
+// WebP image. Otherwise it writes the 415 response and returns false.
+func ImageType(w http.ResponseWriter, data []byte) (string, bool) {
+	contentType := http.DetectContentType(data)
+	if !imageTypes[contentType] {
+		WriteError(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "Upload a PNG, JPEG or WebP image.")
+		return "", false
+	}
+	return contentType, true
+}

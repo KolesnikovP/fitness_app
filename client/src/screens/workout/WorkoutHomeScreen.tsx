@@ -12,7 +12,7 @@ type Loaded = { current: Session | null; routines: RoutineSummary[] };
 
 /**
  * The Workout tab: start or resume a workout, and the Routines to start one
- * from. Finished ones are on the History tab.
+ * from. Finished ones are on the Profile tab.
  */
 export function WorkoutHomeScreen() {
   const styles = useStyles();

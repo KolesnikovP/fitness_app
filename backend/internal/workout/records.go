@@ -309,36 +309,109 @@ func (h handlers) exerciseRecords(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bestOf := func(s store.ListFinishedSetsOfExercisesRow) BestSet {
-		return BestSet{
-			SessionID: s.SessionID, SetID: s.ID, AchievedAt: s.FinishedAt,
-			Weight: s.Weight, WeightUnit: s.WeightUnit, Reps: s.Reps,
-			Estimated1RM:     inUnit(estimated1RM(kgOf(s.Weight, s.WeightUnit), s.Reps), unit),
-			Estimated1RMUnit: unit,
-		}
-	}
-	var topE1RM *best
 	byReps := make(map[int32]best)
 	for _, s := range sets {
 		if s.Weight <= 0 {
 			continue
 		}
 		kg := kgOf(s.Weight, s.WeightUnit)
-		if topE1RM == nil || estimated1RM(kg, s.Reps) > topE1RM.kg+beatsBy {
-			topE1RM = &best{s, estimated1RM(kg, s.Reps)}
-		}
 		if b, ok := byReps[s.Reps]; !ok || kg > b.kg+beatsBy {
 			byReps[s.Reps] = best{s, kg}
 		}
 	}
-	out := ExerciseRecords{RepRecords: make([]BestSet, 0, len(byReps))}
-	if topE1RM != nil {
-		b := bestOf(topE1RM.set)
-		out.Estimated1RM = &b
-	}
+	out := ExerciseRecords{Estimated1RM: bestEstimated1RM(sets, unit), RepRecords: make([]BestSet, 0, len(byReps))}
 	for _, b := range byReps {
-		out.RepRecords = append(out.RepRecords, bestOf(b.set))
+		out.RepRecords = append(out.RepRecords, bestSetOf(b.set, unit))
 	}
 	slices.SortFunc(out.RepRecords, func(a, b BestSet) int { return cmp.Compare(a.Reps, b.Reps) })
+	httpx.WriteJSON(w, http.StatusOK, out)
+}
+
+// bestSetOf is s as a BestSet, its Estimated 1RM in unit.
+func bestSetOf(s store.ListFinishedSetsOfExercisesRow, unit string) BestSet {
+	return BestSet{
+		SessionID: s.SessionID, SetID: s.ID, AchievedAt: s.FinishedAt,
+		Weight: s.Weight, WeightUnit: s.WeightUnit, Reps: s.Reps,
+		Estimated1RM:     inUnit(estimated1RM(kgOf(s.Weight, s.WeightUnit), s.Reps), unit),
+		Estimated1RMUnit: unit,
+	}
+}
+
+// bestEstimated1RM is the Set of sets with the best Estimated 1RM, the first
+// done of equals, or nil if none has weight.
+func bestEstimated1RM(sets []store.ListFinishedSetsOfExercisesRow, unit string) *BestSet {
+	var top *best
+	for _, s := range sets {
+		if s.Weight <= 0 {
+			continue
+		}
+		if e1RM := estimated1RM(kgOf(s.Weight, s.WeightUnit), s.Reps); top == nil || e1RM > top.kg+beatsBy {
+			top = &best{s, e1RM}
+		}
+	}
+	if top == nil {
+		return nil
+	}
+	b := bestSetOf(top.set, unit)
+	return &b
+}
+
+// ExerciseBest is an Exercise's best Estimated 1RM ever, as Progress on the
+// Profile shows it. It isn't a Personal record: a first Session sets none,
+// but its best still shows here.
+type ExerciseBest struct {
+	ExerciseID uuid.UUID `json:"exerciseId"`
+	Name       string    `json:"name"`
+	Best       BestSet   `json:"best"`
+}
+
+type exerciseBestsResponse struct {
+	Exercises []ExerciseBest `json:"exercises"`
+}
+
+// exerciseBests serves the best Estimated 1RM of every Exercise the caller
+// has done with weight in a finished Session, by Exercise name.
+func (h handlers) exerciseBests(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	caller, _ := auth.AccountID(ctx)
+	ids, err := h.queries.ListFinishedExerciseIDs(ctx, caller)
+	if err != nil {
+		httpx.WriteInternalError(w, r, fmt.Errorf("list finished exercises: %w", err))
+		return
+	}
+	sets, err := h.queries.ListFinishedSetsOfExercises(ctx, store.ListFinishedSetsOfExercisesParams{
+		AccountID: caller, ExerciseIds: ids,
+	})
+	if err != nil {
+		httpx.WriteInternalError(w, r, fmt.Errorf("list sets of exercises: %w", err))
+		return
+	}
+	names, err := h.exercises.ExerciseNames(ctx, caller, ids)
+	if err != nil {
+		httpx.WriteInternalError(w, r, err)
+		return
+	}
+	unit, err := h.profiles.UnitPreference(ctx, caller)
+	if err != nil {
+		httpx.WriteInternalError(w, r, err)
+		return
+	}
+
+	byExercise := make(map[uuid.UUID][]store.ListFinishedSetsOfExercisesRow)
+	for _, s := range sets {
+		byExercise[s.ExerciseID] = append(byExercise[s.ExerciseID], s)
+	}
+	out := exerciseBestsResponse{Exercises: []ExerciseBest{}}
+	for id, sets := range byExercise {
+		name, visible := names[id]
+		top := bestEstimated1RM(sets, unit)
+		if !visible || top == nil {
+			continue
+		}
+		out.Exercises = append(out.Exercises, ExerciseBest{ExerciseID: id, Name: name, Best: *top})
+	}
+	slices.SortFunc(out.Exercises, func(a, b ExerciseBest) int {
+		return cmp.Or(cmp.Compare(a.Name, b.Name), cmp.Compare(a.ExerciseID.String(), b.ExerciseID.String()))
+	})
 	httpx.WriteJSON(w, http.StatusOK, out)
 }

@@ -1,11 +1,17 @@
 import { apiRequest } from '@/shared/api';
 
-import type { Post } from './model';
+import type { Post, PostSummary } from './model';
 
 const path = (postId: string, ...rest: string[]) => ['/posts', encodeURIComponent(postId), ...rest].join('/');
 
 /** A picked photo, as React Native uploads it. */
 export type PhotoFile = { uri: string; name: string; type: string };
+
+/** The User's Posts, newest first: one for each finished Session. */
+export async function listPosts(token: string): Promise<PostSummary[]> {
+  const { posts } = await apiRequest<{ posts: PostSummary[] }>('/posts', { token });
+  return posts;
+}
 
 /** The Post of one of the user's finished Sessions. */
 export function getPost(token: string, postId: string): Promise<Post> {
