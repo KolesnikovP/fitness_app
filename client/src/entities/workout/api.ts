@@ -46,7 +46,7 @@ export function getExerciseProgress(token: string, exerciseId: string): Promise<
   return apiRequest<ExerciseProgress>(`/workouts/exercises/${encodeURIComponent(exerciseId)}/progress`, { token });
 }
 
-/** The best Estimated 1RM of every Exercise the User has done with weight, by name: their all-time Personal records. */
+/** The best Estimated 1RM of every Exercise the User has done with weight, by name: their bests on Progress. */
 export async function getExerciseBests(token: string): Promise<ExerciseBest[]> {
   const { exercises } = await apiRequest<{ exercises: ExerciseBest[] }>('/workouts/records', { token });
   return exercises;

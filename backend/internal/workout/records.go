@@ -356,8 +356,9 @@ func bestEstimated1RM(sets []store.ListFinishedSetsOfExercisesRow, unit string) 
 	return &b
 }
 
-// ExerciseBest is an Exercise's best Estimated 1RM ever: its all-time
-// Personal record, as Progress on the Profile shows it.
+// ExerciseBest is an Exercise's best Estimated 1RM ever, as Progress on the
+// Profile shows it. It isn't a Personal record: a first Session sets none,
+// but its best still shows here.
 type ExerciseBest struct {
 	ExerciseID uuid.UUID `json:"exerciseId"`
 	Name       string    `json:"name"`

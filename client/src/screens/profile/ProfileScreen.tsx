@@ -14,7 +14,7 @@ type Section = 'workouts' | 'progress';
 
 /**
  * The Profile tab: the User's avatar, name and counts, then their Posts
- * (Workouts) or their all-time Personal records (Progress).
+ * (Workouts) or their best Estimated 1RM by Exercise (Progress).
  */
 export function ProfileScreen() {
   const styles = useStyles();
@@ -98,12 +98,12 @@ export function ProfileScreen() {
           {loaded.posts.length === 0 ? <Text style={styles.muted}>No finished workouts yet.</Text> : null}
         </View>
       ) : (
-        <View accessibilityLabel="Records by exercise">
+        <View accessibilityLabel="Bests by exercise">
           {loaded.bests.map((exercise) => (
             <ExerciseBestRow key={exercise.exerciseId} exercise={exercise} />
           ))}
           {loaded.bests.length === 0 ? (
-            <Text style={styles.muted}>Log a set with weight to see your records here.</Text>
+            <Text style={styles.muted}>Log a set with weight to see your bests here.</Text>
           ) : null}
         </View>
       )}

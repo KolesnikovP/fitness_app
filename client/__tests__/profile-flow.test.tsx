@@ -91,10 +91,10 @@ describe('profile', () => {
     expect(await within(screen.getByLabelText('Workouts')).findByText('< 1 min · 717 lb')).toBeVisible();
 
     await fireEvent.press(screen.getByRole('tab', { name: 'Progress' }));
-    const records = within(screen.getByLabelText('Records by exercise'));
+    const bests = within(screen.getByLabelText('Bests by exercise'));
     // 32.5 kg × 10 is an Estimated 1RM of 43.3 kg, or 95.5 lb.
-    expect(records.getByText('95.5 lb')).toBeVisible();
-    await fireEvent.press(records.getByRole('button', { name: /^Dumbbell Bench Press: Estimated 1RM 95.5 lb/ }));
+    expect(bests.getByText('95.5 lb')).toBeVisible();
+    await fireEvent.press(bests.getByRole('button', { name: /^Dumbbell Bench Press: Estimated 1RM 95.5 lb/ }));
     const progress = within(await screen.findByLabelText('Progress'));
     expect(await progress.findByRole('image')).toHaveAccessibleName(/^Estimated 1RM, .*95\.5 lb$/);
     expect(app.getPathname()).toMatch(/^\/profile\/exercises\//);
@@ -236,7 +236,7 @@ describe('profile', () => {
     expect(screen.getByLabelText('0 workouts')).toBeVisible();
     expect(screen.getByLabelText('0 weeks streak')).toBeVisible();
     await fireEvent.press(screen.getByRole('tab', { name: 'Progress' }));
-    expect(screen.getByText('Log a set with weight to see your records here.')).toBeVisible();
+    expect(screen.getByText('Log a set with weight to see your bests here.')).toBeVisible();
   });
 
   it('names a new User after their email with their initials as avatar, until they edit their name and avatar', async () => {

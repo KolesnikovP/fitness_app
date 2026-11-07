@@ -158,6 +158,10 @@ _Avoid_: Export, report, log (as the term)
 A Post's photo: one picture of the User, to see their body change over time. The User's Posts, in date order, are the timeline of these.
 _Avoid_: Post image, selfie, picture (as the term)
 
+**Progress**:
+The part of a User's Profile that shows their best Estimated 1RM, and its date, for every Exercise they've done with weight, each opening that Exercise's chart. A best isn't a Personal record: after a first Session of an Exercise, Progress shows its best though no Personal record was set.
+_Avoid_: Records, PRs (for the list)
+
 **Streak**:
 How many weeks in a row, up to this one, the User has finished at least one Session, with weeks starting on Monday where the User is. Rest days never break it, and nor does this week before it's over: until the User finishes a Session this week, the Streak runs up to last week.
 _Avoid_: Day streak, run, chain
