@@ -143,23 +143,49 @@ export type BestSet = {
 };
 
 /**
- * The User's current records for an Exercise: the Set with the best
- * Estimated 1RM (null before any with weight), and the heaviest at each rep
- * count, fewest reps first.
+ * The User's highest value so far of one measure of an Exercise, first reached
+ * in sessionId. value is in unit, the User's Unit preference, or a number of
+ * reps with no unit; set is the Set behind a measure of one Set.
  */
-export type ExerciseRecords = { estimated1RM: BestSet | null; repRecords: BestSet[] };
+export type Best = {
+  value: number;
+  unit?: UnitPreference;
+  sessionId: string;
+  achievedAt: string;
+  set?: { setId: string; weight: number; weightUnit: UnitPreference; reps: number };
+};
+
+/**
+ * The User's Bests for an Exercise, each null until there is one; those by
+ * weight come only from Sets with weight.
+ */
+export type Bests = {
+  estimated1RM: Best | null;
+  heaviestWeight: Best | null;
+  setVolume: Best | null;
+  exerciseVolume: Best | null;
+  mostReps: Best | null;
+};
+
+/**
+ * The User's Bests for an Exercise, and its current Rep records: the heaviest
+ * Set at each rep count, fewest reps first.
+ */
+export type ExerciseRecords = { bests: Bests; repRecords: BestSet[] };
 
 /**
  * One finished Session's Sets of an Exercise: their best Estimated 1RM,
- * heaviest weight and Volume, and whether the Session set a Personal record
- * of any kind for the Exercise.
+ * heaviest weight, best Set volume, Exercise volume and total reps, and whether the Session set a Personal record of any kind for the
+ * Exercise.
  */
 export type ProgressPoint = {
   sessionId: string;
   finishedAt: string;
   estimated1RM: number;
   heaviestWeight: number;
-  volume: number;
+  setVolume: number;
+  exerciseVolume: number;
+  totalReps: number;
   personalRecord: boolean;
 };
 

@@ -15,7 +15,7 @@ import { errorMessage } from '@/shared/api';
 import type { UnitPreference } from '@/shared/model';
 import { ChipGroup, makeStyles, spacing, Spinner, useTheme, type ChipOption } from '@/shared/ui';
 
-type MetricKey = 'estimated1RM' | 'heaviestWeight' | 'volume';
+type MetricKey = 'estimated1RM' | 'heaviestWeight' | 'exerciseVolume';
 type RangeKey = '3m' | '1y' | 'all';
 
 type Metric = ChipOption<MetricKey> & {
@@ -31,7 +31,7 @@ const asWeight = (value: number, unit: UnitPreference) => `${value} ${unit}`;
 const METRICS: readonly Metric[] = [
   { value: 'estimated1RM', label: 'Estimated 1RM', caption: 'Best Estimated 1RM per workout', format: asWeight },
   { value: 'heaviestWeight', label: 'Heaviest weight', caption: 'Heaviest weight per workout', format: asWeight },
-  { value: 'volume', label: 'Volume', caption: 'Volume per workout', format: formatVolume },
+  { value: 'exerciseVolume', label: 'Volume', caption: 'Volume per workout', format: formatVolume },
 ];
 
 const RANGES: readonly Range[] = [

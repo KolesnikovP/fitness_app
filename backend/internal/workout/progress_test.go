@@ -12,7 +12,7 @@ import (
 func TestExerciseProgress(t *testing.T) {
 	srv := testutil.NewServer(t)
 
-	t.Run("each finished session of the exercise has its best Estimated 1RM, heaviest weight and Volume, oldest first", func(t *testing.T) {
+	t.Run("each finished session of the exercise has its best Estimated 1RM, heaviest weight, best Set volume, Exercise volume and total reps, oldest first", func(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
 		setUnitPreference(t, srv, token, "kg")
 		first := logWorkout(t, srv, token, "Bench Press", set{100, "kg", 5}, set{0, "kg", 10})
@@ -33,9 +33,9 @@ func TestExerciseProgress(t *testing.T) {
 		}
 		got := describeProgress(objects(t, res.Body, "sessions"))
 		want := fmt.Sprint([]string{
-			first + " estimated1RM 116.7 heaviest 100 vol 500 record false",
-			mixed + " estimated1RM 114 heaviest 102.1 vol 1026.2 record false",
-			beats + " estimated1RM 122.5 heaviest 105 vol 525 record true",
+			first + " estimated1RM 116.7 heaviest 100 setVol 500 vol 500 reps 15 record false",
+			mixed + " estimated1RM 114 heaviest 102.1 setVol 720 vol 1026.2 reps 11 record false",
+			beats + " estimated1RM 122.5 heaviest 105 setVol 525 vol 525 reps 5 record true",
 		})
 		if got != want {
 			t.Errorf("sessions =\n%s\nwant\n%s", got, want)
@@ -58,7 +58,7 @@ func TestExerciseProgress(t *testing.T) {
 			t.Errorf("unit = %v, want lb", res.Body["unit"])
 		}
 		if got, want := describeProgress(objects(t, res.Body, "sessions")),
-			fmt.Sprint([]string{id + " estimated1RM 257.2 heaviest 220.5 vol 1102.3 record false"}); got != want {
+			fmt.Sprint([]string{id + " estimated1RM 257.2 heaviest 220.5 setVol 1102.3 vol 1102.3 reps 5 record false"}); got != want {
 			t.Errorf("sessions = %s, want %s", got, want)
 		}
 	})
@@ -88,7 +88,7 @@ func TestExerciseProgress(t *testing.T) {
 		barbell := progress(t, srv, token, exerciseID(t, srv, token, "Bench Press"))
 
 		if got, want := describeProgress(objects(t, dumbbell.Body, "sessions")),
-			fmt.Sprint([]string{id + " estimated1RM 40 heaviest 30 vol 300 record false"}); got != want {
+			fmt.Sprint([]string{id + " estimated1RM 40 heaviest 30 setVol 300 vol 300 reps 10 record false"}); got != want {
 			t.Errorf("Dumbbell Bench Press sessions = %s, want %s", got, want)
 		}
 		if list := objects(t, barbell.Body, "sessions"); len(list) != 0 {
@@ -119,12 +119,12 @@ func progress(t *testing.T, srv *httptest.Server, token, exerciseID string) test
 }
 
 // describeProgress renders each session's point as "<id> estimated1RM <n> heaviest <n>
-// vol <n> record <bool>".
+// setVol <n> vol <n> reps <n> record <bool>".
 func describeProgress(sessions []map[string]any) string {
 	out := make([]string, 0, len(sessions))
 	for _, s := range sessions {
-		out = append(out, fmt.Sprintf("%v estimated1RM %v heaviest %v vol %v record %v",
-			s["sessionId"], s["estimated1RM"], s["heaviestWeight"], s["volume"], s["personalRecord"]))
+		out = append(out, fmt.Sprintf("%v estimated1RM %v heaviest %v setVol %v vol %v reps %v record %v",
+			s["sessionId"], s["estimated1RM"], s["heaviestWeight"], s["setVolume"], s["exerciseVolume"], s["totalReps"], s["personalRecord"]))
 	}
 	return fmt.Sprint(out)
 }

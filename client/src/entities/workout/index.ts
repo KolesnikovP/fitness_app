@@ -31,6 +31,8 @@ export {
   supersetProgress,
   swapChoices,
   swappedFrom,
+  type Best,
+  type Bests,
   type BestSet,
   type ExerciseBest,
   type ExerciseProgress,

@@ -26,6 +26,7 @@ export function ExerciseRecordsCard({ token, exerciseId }: { token: string; exer
     };
   }, [token, exerciseId]);
 
+  const top = records?.bests.estimated1RM;
   let body;
   if (error) {
     body = (
@@ -35,14 +36,14 @@ export function ExerciseRecordsCard({ token, exerciseId }: { token: string; exer
     );
   } else if (!records) {
     body = <Spinner />;
-  } else if (!records.estimated1RM) {
+  } else if (!top?.set) {
     body = <Text style={styles.muted}>No records yet.</Text>;
   } else {
-    const top = records.estimated1RM;
+    const { value, unit, set } = top;
     body = (
       <>
         <Text style={styles.record}>
-          Estimated 1RM: {top.estimated1RM} {top.estimated1RMUnit}, from {top.weight} {top.weightUnit} × {top.reps}
+          Estimated 1RM: {value} {unit}, from {set.weight} {set.weightUnit} × {set.reps}
         </Text>
         {records.repRecords.map((r) => (
           <Text key={r.reps} style={styles.record}>

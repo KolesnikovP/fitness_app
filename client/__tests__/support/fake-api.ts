@@ -409,6 +409,56 @@ const estimated1RM = (kg: number, reps: number) => (reps === 1 ? kg : kg * (1 + 
 const toUnit = (kg: number, unit: 'kg' | 'lb') => Math.round((unit === 'lb' ? kg / KG_PER_LB : kg) * 10) / 10;
 const BEATS_BY = 1e-6;
 
+/**
+ * The Bests of an Exercise over finished, oldest first, as the real API works
+ * them out: the first to reach a value keeps it, and those by weight come
+ * only from Sets with weight.
+ */
+function bestsOf(finished: FakeSession[], exerciseId: string, unit: 'kg' | 'lb') {
+  type Top = { session: FakeSession; set?: FakeSet; value: number };
+  const tops: Record<'estimated1RM' | 'heaviestWeight' | 'setVolume' | 'exerciseVolume' | 'mostReps', Top | null> = {
+    estimated1RM: null,
+    heaviestWeight: null,
+    setVolume: null,
+    exerciseVolume: null,
+    mostReps: null,
+  };
+  const offer = (key: keyof typeof tops, top: Top) => {
+    if (!tops[key] || top.value > tops[key]!.value + BEATS_BY) tops[key] = top;
+  };
+  for (const session of finished) {
+    const sets = setsOf(session).filter((set) => set.exerciseId === exerciseId);
+    if (sets.length === 0) continue;
+    let volumeKg = 0;
+    for (const set of sets.filter((s) => s.weight > 0)) {
+      const kg = kgOf(set);
+      offer('estimated1RM', { session, set, value: estimated1RM(kg, set.reps) });
+      offer('heaviestWeight', { session, set, value: kg });
+      offer('setVolume', { session, set, value: kg * set.reps });
+      volumeKg += kg * set.reps;
+    }
+    if (volumeKg > 0) offer('exerciseVolume', { session, value: volumeKg });
+    offer('mostReps', { session, value: sets.reduce((n, s) => n + s.reps, 0) });
+  }
+  const json = (top: Top | null, inUnit: boolean) =>
+    top && {
+      value: inUnit ? toUnit(top.value, unit) : top.value,
+      ...(inUnit ? { unit } : {}),
+      sessionId: top.session.id,
+      achievedAt: top.session.finishedAt,
+      ...(top.set
+        ? { set: { setId: top.set.id, weight: top.set.weight, weightUnit: top.set.weightUnit, reps: top.set.reps } }
+        : {}),
+    };
+  return {
+    estimated1RM: json(tops.estimated1RM, true),
+    heaviestWeight: json(tops.heaviestWeight, true),
+    setVolume: json(tops.setVolume, true),
+    exerciseVolume: json(tops.exerciseVolume, true),
+    mostReps: json(tops.mostReps, false),
+  };
+}
+
 function setsOf(session: FakeSession) {
   return session.exercises.flatMap((e) => e.sets);
 }
@@ -875,14 +925,14 @@ const handlers = [
     if (!account) return unauthorized();
     if (!visibleExercise(account, params.id)) return error(404, 'exercise_not_found', 'Exercise not found.');
     const unit = unitOf(account.id);
-    const done = sessions
+    const finished = sessions
       .filter((s) => s.ownerId === account.id && s.finishedAt)
-      .sort((a, b) => a.finishedAt!.localeCompare(b.finishedAt!))
-      .flatMap((session) =>
-        setsOf(session)
-          .filter((set) => set.exerciseId === params.id && set.weight > 0)
-          .map((set) => ({ session, set })),
-      );
+      .sort((a, b) => a.finishedAt!.localeCompare(b.finishedAt!));
+    const done = finished.flatMap((session) =>
+      setsOf(session)
+        .filter((set) => set.exerciseId === params.id && set.weight > 0)
+        .map((set) => ({ session, set })),
+    );
     const bestSet = ({ session, set }: (typeof done)[number]) => ({
       sessionId: session.id,
       setId: set.id,
@@ -893,16 +943,13 @@ const handlers = [
       estimated1RM: toUnit(estimated1RM(kgOf(set), set.reps), unit),
       estimated1RMUnit: unit,
     });
-    let top: (typeof done)[number] | null = null;
     const byReps = new Map<number, (typeof done)[number]>();
     for (const entry of done) {
-      const e1rm = estimated1RM(kgOf(entry.set), entry.set.reps);
-      if (!top || e1rm > estimated1RM(kgOf(top.set), top.set.reps) + BEATS_BY) top = entry;
       const heaviest = byReps.get(entry.set.reps);
       if (!heaviest || kgOf(entry.set) > kgOf(heaviest.set) + BEATS_BY) byReps.set(entry.set.reps, entry);
     }
     return HttpResponse.json({
-      estimated1RM: top ? bestSet(top) : null,
+      bests: bestsOf(finished, String(params.id), unit),
       repRecords: [...byReps.values()].sort((a, b) => a.set.reps - b.set.reps).map(bestSet),
     });
   }),
@@ -924,7 +971,9 @@ const handlers = [
             finishedAt: session.finishedAt,
             estimated1RM: toUnit(Math.max(...sets.map((s) => estimated1RM(kgOf(s), s.reps))), unit),
             heaviestWeight: toUnit(Math.max(...sets.map(kgOf)), unit),
-            volume: volumeOf(sets, unit),
+            setVolume: toUnit(Math.max(...sets.map((s) => kgOf(s) * s.reps)), unit),
+            exerciseVolume: volumeOf(sets, unit),
+            totalReps: sets.reduce((n, s) => n + s.reps, 0),
             personalRecord: recordHitsOf(session).some((hit) => hit.set.exerciseId === params.id),
           },
         ];
