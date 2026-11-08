@@ -1,3 +1,3 @@
-# Expo HAS CHANGED
+# Expo SDK 57
 
-Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before writing any code.
+This SDK may postdate your training. Before using an Expo or React Native API not already used in `src/`, read its page in the versioned docs: https://docs.expo.dev/versions/v57.0.0/
