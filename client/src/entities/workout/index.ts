@@ -76,7 +76,7 @@ export {
   type NewSet,
 } from './api';
 export { sessionSummary } from './sessionSummary';
-export { ExerciseRecordsCard } from './ExerciseRecordsCard';
+export { ExerciseBestsCard } from './ExerciseBestsCard';
 export { NewRecordBanner } from './NewRecordBanner';
 export { PersonalRecordList } from './PersonalRecordList';
 export { RecordTierMedal, useRecordTierColours } from './RecordTier';

@@ -29,7 +29,7 @@ function formatBestSet(best: Best) {
  * reached, such as one by weight for an Exercise logged without, is left
  * out), then its Rep records: the heaviest Set at each rep count.
  */
-export function ExerciseRecordsCard({ token, exerciseId }: { token: string; exerciseId: string }) {
+export function ExerciseBestsCard({ token, exerciseId }: { token: string; exerciseId: string }) {
   const styles = useStyles();
   const [records, setRecords] = useState<ExerciseRecords | null>(null);
   const [error, setError] = useState<string | null>(null);

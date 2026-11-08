@@ -124,12 +124,12 @@ describe('exercise library', () => {
     expect(screen.getByRole('tab', { name: 'Performance' })).toBeSelected();
     expect(screen.getByRole('tab', { name: 'How to' })).not.toBeSelected();
     expect(screen.getByLabelText('Progress')).toBeVisible();
-    expect(screen.queryByLabelText('Instructions')).toBeNull();
+    expect(screen.queryByLabelText('Instructions')).not.toBeVisible();
 
     await fireEvent.press(screen.getByRole('tab', { name: 'How to' }));
 
     expect(screen.getByRole('tab', { name: 'How to' })).toBeSelected();
-    expect(screen.queryByLabelText('Progress')).toBeNull();
+    expect(screen.queryByLabelText('Progress')).not.toBeVisible();
     const steps = within(screen.getByLabelText('Instructions'));
     expect(steps.getByText('1.')).toBeVisible();
     expect(steps.getByText('Lower the bar.')).toBeVisible();
@@ -308,6 +308,18 @@ describe('exercise library', () => {
     expect(imagePicker.lastOptions).toMatchObject({ preferredAssetRepresentationMode: 'current' });
   });
 
+  it('shows an image in the media slot of an exercise without an animated demo', async () => {
+    const account = await openExercisesTab();
+    const exercise = fakeApi.addCustomExercise(account.id, 'Sled Push', 'full_body', 'other');
+    imagePicker.nextPick = { uri: 'file:///photos/sled.png', mimeType: 'image/png', fileName: 'sled.png' };
+
+    await act(async () => router.navigate(`/exercises/${exercise.id}`));
+    await fireEvent.press(await screen.findByRole('tab', { name: 'How to' }));
+    await upload(screen.getByRole('button', { name: 'Add image or GIF' }));
+
+    expect(await within(screen.getByLabelText('Media')).findByLabelText('Sled Push image')).toBeVisible();
+  });
+
   it('shows the API error when an upload is rejected', async () => {
     const account = await openExercisesTab();
     const exercise = fakeApi.addCustomExercise(account.id, 'Sled Push', 'full_body', 'other');
@@ -378,6 +390,11 @@ describe('exercise progress chart', () => {
     expect(progress.getByRole('image')).toHaveAccessibleName(
       /^Total reps, all time, 4 workouts: .*5 reps; .*5 reps, Personal record; .*8 reps, Personal record; .*13 reps$/,
     );
+
+    // Going to How to and back keeps the chosen metric.
+    await fireEvent.press(screen.getByRole('tab', { name: 'How to' }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Performance' }));
+    expect(progress.getByRole('radio', { name: 'Total reps' })).toBeChecked();
 
     await fireEvent.press(progress.getByRole('radio', { name: '1 year' }));
     expect(progress.getByRole('image')).toHaveAccessibleName(

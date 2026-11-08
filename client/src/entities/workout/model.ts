@@ -433,9 +433,9 @@ export function formatSessionDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-/** "Oct 12" in the device's locale. */
-export function formatShortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+/** "Oct 12" in the device's locale, from an ISO date or a timestamp. */
+export function formatShortDate(date: string | number): string {
+  return new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 /** "10:42" in the device's locale. */

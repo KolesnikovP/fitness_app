@@ -4,7 +4,7 @@ import { Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { equipmentLabel, ExerciseMedia, getExercise, muscleGroupLabel, type Exercise } from '@/entities/exercise';
-import { ExerciseRecordsCard } from '@/entities/workout';
+import { ExerciseBestsCard } from '@/entities/workout';
 import { UploadMediaButton } from '@/features/upload-exercise-media';
 import { ExerciseProgressChart } from '@/widgets/exercise-progress-chart';
 import { errorMessage } from '@/shared/api';
@@ -63,14 +63,14 @@ export function ExerciseDetailScreen() {
         {exercise.isCustom ? <Text style={styles.badge}>Custom</Text> : null}
       </View>
       <SegmentedControl label="Exercise sections" options={TABS} value={tab} onChange={setTab} />
-      {tab === 'performance' ? (
-        <>
-          <ExerciseProgressChart token={token} exerciseId={exercise.id} />
-          <ExerciseRecordsCard token={token} exerciseId={exercise.id} />
-        </>
-      ) : (
+      {/* Both tabs stay mounted, so switching keeps the chart's metric and range and doesn't refetch. */}
+      <View style={[styles.tab, tab !== 'performance' && styles.hidden]}>
+        <ExerciseProgressChart token={token} exerciseId={exercise.id} />
+        <ExerciseBestsCard token={token} exerciseId={exercise.id} />
+      </View>
+      <View style={[styles.tab, tab !== 'howTo' && styles.hidden]}>
         <HowTo exercise={exercise} token={token} onUploaded={setExercise} />
-      )}
+      </View>
     </Screen>
   );
 }
@@ -92,9 +92,7 @@ function HowTo({ exercise, token, onUploaded }: HowToProps) {
   return (
     <>
       <View accessibilityLabel="Media" style={styles.mediaSlot}>
-        {media ? (
-          <ExerciseMedia path={media.path} token={token} accessibilityLabel={media.label} style={styles.media} />
-        ) : null}
+        {media ? <ExerciseMedia path={media.path} token={token} accessibilityLabel={media.label} fill /> : null}
       </View>
       <View accessibilityLabel="Instructions" style={styles.steps}>
         {exercise.instructions.length === 0 ? (
@@ -117,9 +115,10 @@ const useStyles = makeStyles((colors) => ({
   error: { color: colors.danger, fontSize: 15 },
   badge: { fontSize: 15, color: colors.primary, fontWeight: '600' },
   about: { gap: spacing.xs, marginTop: -spacing.md },
+  tab: { gap: spacing.md },
+  hidden: { display: 'none' },
   detail: { fontSize: 15, color: colors.muted },
   mediaSlot: { width: '100%', aspectRatio: 16 / 9, borderRadius: 12, overflow: 'hidden', backgroundColor: colors.card },
-  media: { width: '100%', height: '100%', aspectRatio: undefined, borderRadius: 0 },
   steps: { gap: spacing.sm },
   step: { flexDirection: 'row', gap: spacing.sm },
   stepNumber: { fontSize: 17, fontWeight: '600', color: colors.text, minWidth: 24 },

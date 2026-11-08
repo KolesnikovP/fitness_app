@@ -6,6 +6,7 @@ import { CartesianChart, Line, Scatter } from 'victory-native';
 import {
   countOf,
   formatSessionDate,
+  formatShortDate,
   formatVolume,
   getExerciseProgress,
   type ExerciseProgress,
@@ -152,7 +153,7 @@ export function ExerciseProgressChart({ token, exerciseId }: { token: string; ex
                 tickCount: Math.min(points.length, 4),
                 labelColor: colors.muted,
                 lineColor: colors.border,
-                formatXLabel: (x) => new Date(x).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+                formatXLabel: formatShortDate,
               }}
               yAxis={[
                 {
