@@ -7,13 +7,26 @@ Repo: `KolesnikovP/fitness_app`.
 ## Conventions
 
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
-- **Read an issue**: `gh issue view <number> --comments`, filtering comments by `jq` and also fetching labels.
+- **Read an issue**: `gh issue view <number> --json title,body,labels,comments --jq '.title, .body, (.labels | map(.name)), (.comments[].body)'`. Outside a terminal, `gh issue view --comments` prints only the comments, so a ticket with none prints nothing.
 - **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
 - **Comment on an issue**: `gh issue comment <number> --body "..."`
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: `gh issue close <number> --comment "..."`
 
 Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
+
+## The next ticket
+
+The next ticket is the lowest-numbered open `ready-for-agent` issue that has no open blockers and no open PR. #1 is the v1 PRD, not a ticket, so skip it. This lists the candidates in order:
+
+```sh
+for n in $(gh issue list --state open --label ready-for-agent --json number --jq 'sort_by(.number) | .[].number'); do
+  gh api repos/KolesnikovP/fitness_app/issues/$n --jq 'select(.number != 1 and .issue_dependencies_summary.blocked_by == 0) | "\(.number) \(.title)"'
+done
+gh pr list --state open --json number,title,headRefName
+```
+
+Take the first candidate that no open PR's branch (`feat/<n>-...`) claims.
 
 ## Pull requests as a triage surface
 
@@ -33,7 +46,7 @@ Create a GitHub issue.
 
 ## When a skill says "fetch the relevant ticket"
 
-Run `gh issue view <number> --comments`.
+Read it as in **Read an issue** above.
 
 ## Wayfinding operations
 
