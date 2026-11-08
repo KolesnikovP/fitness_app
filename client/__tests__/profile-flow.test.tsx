@@ -96,7 +96,7 @@ describe('profile', () => {
     expect(bests.getByText('95.5 lb')).toBeVisible();
     await fireEvent.press(bests.getByRole('button', { name: /^Dumbbell Bench Press: Estimated 1RM 95.5 lb/ }));
     const progress = within(await screen.findByLabelText('Progress'));
-    expect(await progress.findByRole('image')).toHaveAccessibleName(/^Estimated 1RM, .*95\.5 lb$/);
+    expect(await progress.findByRole('image')).toHaveAccessibleName(/^Best 1RM, .*95\.5 lb$/);
     expect(app.getPathname()).toMatch(/^\/profile\/exercises\//);
 
     // And on the Workout tab, a new Set is logged in pounds.

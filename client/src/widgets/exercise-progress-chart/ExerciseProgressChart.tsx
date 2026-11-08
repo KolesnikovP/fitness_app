@@ -6,6 +6,7 @@ import { CartesianChart, Line, Scatter } from 'victory-native';
 import {
   countOf,
   formatSessionDate,
+  formatShortDate,
   formatVolume,
   getExerciseProgress,
   type ExerciseProgress,
@@ -15,24 +16,37 @@ import { errorMessage } from '@/shared/api';
 import type { UnitPreference } from '@/shared/model';
 import { ChipGroup, makeStyles, spacing, Spinner, useTheme, type ChipOption } from '@/shared/ui';
 
-type MetricKey = 'estimated1RM' | 'heaviestWeight' | 'exerciseVolume';
+type MetricKey = 'estimated1RM' | 'heaviestWeight' | 'setVolume' | 'exerciseVolume' | 'totalReps';
 type RangeKey = '3m' | '1y' | 'all';
 
 type Metric = ChipOption<MetricKey> & {
   /** What each point is, under the chart. */
-  caption: string;
+  caption: (unit: UnitPreference) => string;
   format: (value: number, unit: UnitPreference) => string;
 };
 
 type Range = ChipOption<RangeKey> & { months: number | null; phrase: string };
 
 const asWeight = (value: number, unit: UnitPreference) => `${value} ${unit}`;
+const inUnit = (what: string) => (unit: UnitPreference) => `${what} per workout, in ${unit}`;
 
+// On screen these are Best 1RM and Session volume; the glossary's terms are
+// Estimated 1RM and Exercise volume.
 const METRICS: readonly Metric[] = [
-  { value: 'estimated1RM', label: 'Estimated 1RM', caption: 'Best Estimated 1RM per workout', format: asWeight },
-  { value: 'heaviestWeight', label: 'Heaviest weight', caption: 'Heaviest weight per workout', format: asWeight },
-  { value: 'exerciseVolume', label: 'Volume', caption: 'Volume per workout', format: formatVolume },
+  { value: 'estimated1RM', label: 'Best 1RM', caption: inUnit('Best Estimated 1RM'), format: asWeight },
+  { value: 'heaviestWeight', label: 'Heaviest weight', caption: inUnit('Heaviest weight'), format: asWeight },
+  { value: 'setVolume', label: 'Best set volume', caption: inUnit('Best Set volume'), format: formatVolume },
+  {
+    value: 'exerciseVolume',
+    label: 'Session volume',
+    caption: inUnit('Volume of this exercise'),
+    format: formatVolume,
+  },
+  { value: 'totalReps', label: 'Total reps', caption: () => 'Reps per workout', format: (n) => countOf(n, 'rep') },
 ];
+
+/** An Exercise only ever logged at weight 0 has only reps to chart. */
+const REPS_ONLY = METRICS.filter((m) => m.value === 'totalReps');
 
 const RANGES: readonly Range[] = [
   { value: '3m', label: '3 months', months: 3, phrase: 'last 3 months' },
@@ -71,9 +85,10 @@ function chartDescription(metric: Metric, range: Range, points: ProgressPoint[],
 
 /**
  * The User's progress at an Exercise: a point per finished Session, by the
- * metric chosen (best Estimated 1RM, heaviest weight or Volume) over a range,
- * marking the Sessions that set a Personal record. In the User's Unit
- * preference. An Exercise only ever logged at weight 0 has nothing to chart.
+ * metric chosen (best Estimated 1RM, heaviest weight, best Set volume,
+ * Exercise volume or total reps) over a range, marking the Sessions that set a
+ * Personal record. In the User's Unit preference. An Exercise only ever logged
+ * at weight 0 charts only its reps.
  */
 export function ExerciseProgressChart({ token, exerciseId }: { token: string; exerciseId: string }) {
   const styles = useStyles();
@@ -82,7 +97,8 @@ export function ExerciseProgressChart({ token, exerciseId }: { token: string; ex
   const [error, setError] = useState<string | null>(null);
   const [metricKey, setMetricKey] = useState<MetricKey>('estimated1RM');
   const [rangeKey, setRangeKey] = useState<RangeKey>('3m');
-  const metric = METRICS.find((m) => m.value === metricKey)!;
+  const metrics = progress?.sessions.every((s) => s.heaviestWeight === 0) ? REPS_ONLY : METRICS;
+  const metric = metrics.find((m) => m.value === metricKey) ?? metrics[0];
   const range = RANGES.find((r) => r.value === rangeKey)!;
 
   useEffect(() => {
@@ -112,12 +128,10 @@ export function ExerciseProgressChart({ token, exerciseId }: { token: string; ex
     body = <Spinner />;
   } else if (progress.sessions.length === 0) {
     body = <Text style={styles.muted}>No sets of this exercise yet.</Text>;
-  } else if (progress.sessions.every((s) => s.heaviestWeight === 0)) {
-    body = <Text style={styles.muted}>Only sets without weight so far, so there's nothing to chart.</Text>;
   } else {
     body = (
       <>
-        <ChipGroup label="Metric" options={METRICS} value={metricKey} onChange={(m) => m && setMetricKey(m)} />
+        <ChipGroup label="Metric" options={metrics} value={metric.value} onChange={(m) => m && setMetricKey(m)} />
         <ChipGroup label="Range" options={RANGES} value={rangeKey} onChange={(r) => r && setRangeKey(r)} />
         {points.length === 0 ? (
           <Text style={styles.muted}>No workouts in the {range.phrase}.</Text>
@@ -139,7 +153,7 @@ export function ExerciseProgressChart({ token, exerciseId }: { token: string; ex
                 tickCount: Math.min(points.length, 4),
                 labelColor: colors.muted,
                 lineColor: colors.border,
-                formatXLabel: (x) => new Date(x).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+                formatXLabel: formatShortDate,
               }}
               yAxis={[
                 {
@@ -166,7 +180,7 @@ export function ExerciseProgressChart({ token, exerciseId }: { token: string; ex
           </View>
         )}
         <Text style={styles.muted}>
-          {metric.caption}, in {progress.unit}. Larger points mark a workout that set a Personal record.
+          {metric.caption(progress.unit)}. Larger points mark a workout that set a Personal record.
         </Text>
       </>
     );

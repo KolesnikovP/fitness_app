@@ -1,7 +1,8 @@
-// UI Components: Button, ChipGroup, MultiChipGroup, Select, TextField, Screen, plus theme tokens
+// UI Components: Button, ChipGroup, MultiChipGroup, SegmentedControl, Select, TextField, Screen, plus theme tokens
 export { Button } from './Button';
 export { ChipGroup, MultiChipGroup, type ChipOption } from './ChipGroup';
 export { Screen } from './Screen';
+export { SegmentedControl } from './SegmentedControl';
 export { Select, type SelectOption } from './Select';
 export { Spinner } from './Spinner';
 export { TextField } from './TextField';
