@@ -1,4 +1,4 @@
-import { Image } from 'react-native';
+import { Image, type StyleProp, type ImageStyle } from 'react-native';
 
 import { apiUrl } from '@/shared/api';
 import { makeStyles } from '@/shared/ui';
@@ -8,10 +8,11 @@ type ExerciseMediaProps = {
   path: string;
   token: string;
   accessibilityLabel: string;
+  style?: StyleProp<ImageStyle>;
 };
 
 /** An exercise image or GIF. Media is only served to signed-in users. */
-export function ExerciseMedia({ path, token, accessibilityLabel }: ExerciseMediaProps) {
+export function ExerciseMedia({ path, token, accessibilityLabel, style }: ExerciseMediaProps) {
   const styles = useStyles();
   return (
     <Image
@@ -19,7 +20,7 @@ export function ExerciseMedia({ path, token, accessibilityLabel }: ExerciseMedia
       accessibilityRole="image"
       accessibilityLabel={accessibilityLabel}
       source={{ uri: apiUrl(path), headers: { Authorization: `Bearer ${token}` } }}
-      style={styles.media}
+      style={[styles.media, style]}
       resizeMode="contain"
     />
   );

@@ -175,8 +175,8 @@ export type ExerciseRecords = { bests: Bests; repRecords: BestSet[] };
 
 /**
  * One finished Session's Sets of an Exercise: their best Estimated 1RM,
- * heaviest weight, best Set volume, Exercise volume and total reps, and whether the Session set a Personal record of any kind for the
- * Exercise.
+ * heaviest weight, best Set volume, Exercise volume and total reps, and
+ * whether the Session set a Personal record of any kind for the Exercise.
  */
 export type ProgressPoint = {
   sessionId: string;
@@ -431,6 +431,11 @@ export function formatDuration(seconds: number): string {
 /** "Sat, Oct 31" in the device's locale. */
 export function formatSessionDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+/** "Oct 12" in the device's locale. */
+export function formatShortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 /** "10:42" in the device's locale. */

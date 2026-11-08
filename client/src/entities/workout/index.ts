@@ -7,6 +7,7 @@ export {
   formatClockTime,
   formatDuration,
   formatSessionDate,
+  formatShortDate,
   formatRest,
   formatPersonalRecord,
   formatSet,

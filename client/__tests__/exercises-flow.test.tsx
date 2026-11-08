@@ -84,19 +84,78 @@ describe('exercise library', () => {
     await waitFor(() => expect(listedExercises()).toContain('Bench Press'));
   });
 
-  it('shows an exercise in detail', async () => {
+  it('heads an exercise with its equipment and muscles, leaving out Secondary muscles when there are none', async () => {
     await openExercisesTab();
 
     await fireEvent.press(await screen.findByRole('button', { name: 'Deadlift' }));
 
     expect(await screen.findByRole('header', { name: 'Deadlift' })).toBeVisible();
-    expect(screen.getByLabelText('Muscle group')).toHaveTextContent(/Back$/);
-    expect(screen.getByLabelText('Equipment')).toHaveTextContent(/Barbell$/);
+    const header = within(screen.getByLabelText('About this exercise'));
+    expect(header.getByText('Barbell')).toBeVisible();
+    expect(header.getByText('Primary: Back')).toBeVisible();
+    expect(header.queryByText(/^Secondary:/)).toBeNull();
+    expect(screen.queryByText('Custom')).toBeNull();
+  });
+
+  it('heads an exercise with its Secondary muscles', async () => {
+    const account = await openExercisesTab();
+    const exercise = fakeApi.addCustomExercise(account.id, 'Spoto Press', 'chest', 'barbell', {
+      secondaryMuscles: ['triceps', 'shoulders'],
+    });
+
+    await act(async () => router.navigate(`/exercises/${exercise.id}`));
+
+    expect(await screen.findByRole('header', { name: 'Spoto Press' })).toBeVisible();
+    const header = within(screen.getByLabelText('About this exercise'));
+    expect(header.getByText('Primary: Chest')).toBeVisible();
+    expect(header.getByText('Secondary: Triceps, Shoulders')).toBeVisible();
+    expect(screen.getByText('Custom')).toBeVisible();
+  });
+
+  it('opens on Performance and switches to How to, with the Instructions as numbered steps', async () => {
+    const account = await openExercisesTab();
+    const exercise = fakeApi.addCustomExercise(account.id, 'Spoto Press', 'chest', 'barbell', {
+      instructions: ['Lower the bar.', 'Pause above the chest.', 'Press.'],
+    });
+
+    await act(async () => router.navigate(`/exercises/${exercise.id}`));
+    await screen.findByRole('header', { name: 'Spoto Press' });
+
+    expect(screen.getByRole('tab', { name: 'Performance' })).toBeSelected();
+    expect(screen.getByRole('tab', { name: 'How to' })).not.toBeSelected();
+    expect(screen.getByLabelText('Progress')).toBeVisible();
+    expect(screen.queryByLabelText('Instructions')).toBeNull();
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'How to' }));
+
+    expect(screen.getByRole('tab', { name: 'How to' })).toBeSelected();
+    expect(screen.queryByLabelText('Progress')).toBeNull();
+    const steps = within(screen.getByLabelText('Instructions'));
+    expect(steps.getByText('1.')).toBeVisible();
+    expect(steps.getByText('Lower the bar.')).toBeVisible();
+    expect(steps.getByText('3.')).toBeVisible();
+    expect(steps.getByText('Press.')).toBeVisible();
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Performance' }));
+    expect(screen.getByLabelText('Progress')).toBeVisible();
+  });
+
+  it('says so on How to when an exercise has no Instructions or media', async () => {
+    await openExercisesTab();
+    await fireEvent.press(await screen.findByRole('button', { name: 'Deadlift' }));
+    await screen.findByRole('header', { name: 'Deadlift' });
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'How to' }));
+
+    expect(within(screen.getByLabelText('Instructions')).getByText('No instructions yet.')).toBeVisible();
+    // The media slot is there, empty, for media to come.
+    const slot = screen.getByLabelText('Media');
+    expect(within(slot).queryByRole('image')).toBeNull();
     // Canonical exercises can't be changed.
     expect(screen.queryByRole('button', { name: 'Add image or GIF' })).toBeNull();
   });
 
-  it("lists the user's current records for an exercise", async () => {
+  it("lists the user's Bests for an exercise, then its Rep records", async () => {
     const account = await openExercisesTab();
     const day = (n: number) => new Date(Date.now() - n * 86_400_000);
     const first = fakeApi.addSession(account.id, day(3));
@@ -107,23 +166,49 @@ describe('exercise library', () => {
     const second = fakeApi.addSession(account.id, day(1));
     fakeApi.addSet(fakeApi.addSessionExercise(second, 'Deadlift'), 160, 'kg', 1);
     fakeApi.finishSession(second, day(1));
+    const date = (n: number) => day(n).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
     await fireEvent.press(await screen.findByRole('button', { name: 'Deadlift' }));
 
-    const records = within(await screen.findByLabelText('Records'));
+    const bests = within(await screen.findByLabelText('Bests'));
     // 330 lb × 3 is 149.7 kg, so 164.7 kg estimated; 140 × 5 is 163.3.
-    expect(await records.findByText('Estimated 1RM: 164.7 kg, from 330 lb × 3')).toBeVisible();
-    expect(records.getByText('1 rep: 160 kg')).toBeVisible();
-    expect(records.getByText('3 reps: 330 lb')).toBeVisible();
-    expect(records.getByText('5 reps: 140 kg')).toBeVisible();
+    expect(within(await bests.findByLabelText('Best 1RM')).getByText(`330 lb × 3 · ${date(3)}`)).toBeVisible();
+    expect(within(bests.getByLabelText('Heaviest weight')).getByText(`160 kg × 1 · ${date(1)}`)).toBeVisible();
+    expect(within(bests.getByLabelText('Best set volume')).getByText(`140 kg × 5 · ${date(3)}`)).toBeVisible();
+    // 700 kg and 449.1 kg in one Session.
+    expect(within(bests.getByLabelText('Session volume')).getByText(`1,149 kg · ${date(3)}`)).toBeVisible();
+    expect(within(bests.getByLabelText('Most reps')).getByText(`8 reps · ${date(3)}`)).toBeVisible();
+    const repRecords = within(screen.getByLabelText('Rep records'));
+    expect(repRecords.getByText('1 rep: 160 kg')).toBeVisible();
+    expect(repRecords.getByText('3 reps: 330 lb')).toBeVisible();
+    expect(repRecords.getByText('5 reps: 140 kg')).toBeVisible();
   });
 
-  it('shows no records for an exercise never logged', async () => {
+  it('shows only Most reps in Bests for an exercise logged without weight', async () => {
+    const account = await openExercisesTab();
+    const session = fakeApi.addSession(account.id, new Date(Date.now() - 86_400_000));
+    const pushUp = fakeApi.addSessionExercise(session, 'Push-up');
+    fakeApi.addSet(pushUp, 0, 'kg', 20);
+    fakeApi.addSet(pushUp, 0, 'kg', 15);
+    fakeApi.finishSession(session, new Date(Date.now() - 86_400_000));
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Push-up' }));
+
+    const bests = within(await screen.findByLabelText('Bests'));
+    expect(within(await bests.findByLabelText('Most reps')).getByText(/^35 reps · /)).toBeVisible();
+    for (const measure of ['Best 1RM', 'Heaviest weight', 'Best set volume', 'Session volume']) {
+      expect(bests.queryByLabelText(measure)).toBeNull();
+    }
+    expect(screen.queryByLabelText('Rep records')).toBeNull();
+  });
+
+  it('shows no Bests for an exercise never logged', async () => {
     await openExercisesTab();
 
     await fireEvent.press(await screen.findByRole('button', { name: 'Plank' }));
 
-    expect(await within(await screen.findByLabelText('Records')).findByText('No records yet.')).toBeVisible();
+    expect(await within(await screen.findByLabelText('Bests')).findByText('No bests yet.')).toBeVisible();
+    expect(screen.queryByLabelText('Rep records')).toBeNull();
   });
 
   it('creates a custom exercise that then turns up in search', async () => {
@@ -211,11 +296,13 @@ describe('exercise library', () => {
 
     await act(async () => router.navigate(`/exercises/${exercise.id}`));
     await screen.findByRole('header', { name: 'Sled Push' });
+    await fireEvent.press(screen.getByRole('tab', { name: 'How to' }));
     expect(screen.queryByLabelText('Sled Push animated demo')).toBeNull();
 
     await upload(screen.getByRole('button', { name: 'Add image or GIF' }));
 
-    expect(await screen.findByLabelText('Sled Push animated demo')).toBeVisible();
+    // The demo fills the media slot at the top of How to.
+    expect(await within(screen.getByLabelText('Media')).findByLabelText('Sled Push animated demo')).toBeVisible();
     expect(fakeApi.uploads).toEqual([{ exerciseId: exercise.id, fileName: 'sled.gif', type: 'image/gif' }]);
     // iOS must hand back the original file, or a GIF arrives as a still JPEG.
     expect(imagePicker.lastOptions).toMatchObject({ preferredAssetRepresentationMode: 'current' });
@@ -227,7 +314,8 @@ describe('exercise library', () => {
     imagePicker.nextPick = { uri: 'file:///docs/notes.txt', mimeType: 'text/plain', fileName: 'notes.txt' };
 
     await act(async () => router.navigate(`/exercises/${exercise.id}`));
-    await upload(await screen.findByRole('button', { name: 'Add image or GIF' }));
+    await fireEvent.press(await screen.findByRole('tab', { name: 'How to' }));
+    await upload(screen.getByRole('button', { name: 'Add image or GIF' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Upload a PNG, JPEG, WebP or GIF image.');
   });
@@ -249,23 +337,26 @@ describe('exercise progress chart', () => {
     return within(await screen.findByLabelText('Progress'));
   }
 
-  it("charts an exercise's best Estimated 1RM per workout, and switches metric and range", async () => {
+  it('charts an exercise by each measure per workout, starting on Best 1RM, and switches range', async () => {
     const account = await openExercisesTab();
     logWorkout(account.id, 'Bench Press', 400, [80, 'kg', 5]); // 93.3 kg estimated
     logWorkout(account.id, 'Bench Press', 200, [100, 'kg', 5]); // 116.7 kg: a Personal record
     logWorkout(account.id, 'Bench Press', 30, [100, 'kg', 8]); // 126.7 kg: a Personal record
-    logWorkout(account.id, 'Bench Press', 1, [110, 'kg', 3]); // 121 kg
+    logWorkout(account.id, 'Bench Press', 1, [110, 'kg', 3], [60, 'kg', 10]); // 121 kg
 
     const progress = await openProgress('Bench Press');
 
+    const metrics = within(progress.getByLabelText('Metric'))
+      .getAllByRole('radio')
+      .map((chip) => chip.props.accessibilityLabel as string);
+    expect(metrics).toEqual(['Best 1RM', 'Heaviest weight', 'Best set volume', 'Session volume', 'Total reps']);
+    expect(progress.getByRole('radio', { name: 'Best 1RM' })).toBeChecked();
     const chart = await progress.findByRole('image');
-    expect(chart).toHaveAccessibleName(
-      /^Estimated 1RM, last 3 months, 2 workouts: .*126\.7 kg, Personal record; .*121 kg$/,
-    );
+    expect(chart).toHaveAccessibleName(/^Best 1RM, last 3 months, 2 workouts: .*126\.7 kg, Personal record; .*121 kg$/);
 
     await fireEvent.press(progress.getByRole('radio', { name: 'All time' }));
     expect(progress.getByRole('image')).toHaveAccessibleName(
-      /^Estimated 1RM, all time, 4 workouts: .*93\.3 kg; .*116\.7 kg, Personal record; .*126\.7 kg, Personal record; .*121 kg$/,
+      /^Best 1RM, all time, 4 workouts: .*93\.3 kg; .*116\.7 kg, Personal record; .*126\.7 kg, Personal record; .*121 kg$/,
     );
 
     await fireEvent.press(progress.getByRole('radio', { name: 'Heaviest weight' }));
@@ -273,14 +364,24 @@ describe('exercise progress chart', () => {
       /^Heaviest weight, all time, 4 workouts: .*80 kg; .*100 kg, Personal record; .*100 kg, Personal record; .*110 kg$/,
     );
 
-    await fireEvent.press(progress.getByRole('radio', { name: 'Volume' }));
+    await fireEvent.press(progress.getByRole('radio', { name: 'Best set volume' }));
     expect(progress.getByRole('image')).toHaveAccessibleName(
-      /^Volume, all time, 4 workouts: .*400 kg; .*500 kg, Personal record; .*800 kg, Personal record; .*330 kg$/,
+      /^Best set volume, all time, 4 workouts: .*400 kg; .*500 kg, Personal record; .*800 kg, Personal record; .*600 kg$/,
+    );
+
+    await fireEvent.press(progress.getByRole('radio', { name: 'Session volume' }));
+    expect(progress.getByRole('image')).toHaveAccessibleName(
+      /^Session volume, all time, 4 workouts: .*400 kg; .*500 kg, Personal record; .*800 kg, Personal record; .*930 kg$/,
+    );
+
+    await fireEvent.press(progress.getByRole('radio', { name: 'Total reps' }));
+    expect(progress.getByRole('image')).toHaveAccessibleName(
+      /^Total reps, all time, 4 workouts: .*5 reps; .*5 reps, Personal record; .*8 reps, Personal record; .*13 reps$/,
     );
 
     await fireEvent.press(progress.getByRole('radio', { name: '1 year' }));
     expect(progress.getByRole('image')).toHaveAccessibleName(
-      /^Volume, last year, 3 workouts: .*500 kg, Personal record; .*800 kg, Personal record; .*330 kg$/,
+      /^Total reps, last year, 3 workouts: .*5 reps, Personal record; .*8 reps, Personal record; .*13 reps$/,
     );
   });
 
@@ -290,15 +391,25 @@ describe('exercise progress chart', () => {
 
     const progress = await openProgress('Bench Press');
 
+    expect(await progress.findByRole('image')).toHaveAccessibleName(/^Best 1RM, last 3 months, 1 workout: .*80 kg$/);
+  });
+
+  it('charts only Total reps for an exercise only ever logged without weight', async () => {
+    const account = await openExercisesTab();
+    logWorkout(account.id, 'Push-up', 3, [0, 'kg', 20], [0, 'kg', 15]);
+
+    const progress = await openProgress('Push-up');
+
+    const metrics = within(progress.getByLabelText('Metric')).getAllByRole('radio');
+    expect(metrics.map((chip) => chip.props.accessibilityLabel)).toEqual(['Total reps']);
     expect(await progress.findByRole('image')).toHaveAccessibleName(
-      /^Estimated 1RM, last 3 months, 1 workout: .*80 kg$/,
+      /^Total reps, last 3 months, 1 workout: .*35 reps$/,
     );
   });
 
-  it('says so instead of charting an exercise never logged, only without weight, or not in the range', async () => {
+  it('says so instead of charting an exercise never logged, or not in the range', async () => {
     const account = await openExercisesTab();
     logWorkout(account.id, 'Bench Press', 200, [100, 'kg', 5]);
-    logWorkout(account.id, 'Push-up', 3, [0, 'kg', 20]);
 
     const bench = await openProgress('Bench Press');
     expect(await bench.findByText('No workouts in the last 3 months.')).toBeVisible();
@@ -308,10 +419,5 @@ describe('exercise progress chart', () => {
     const plank = await openProgress('Plank');
     expect(await plank.findByText('No sets of this exercise yet.')).toBeVisible();
     expect(plank.queryByRole('image')).toBeNull();
-
-    await act(async () => router.back());
-    const pushUp = await openProgress('Push-up');
-    expect(await pushUp.findByText("Only sets without weight so far, so there's nothing to chart.")).toBeVisible();
-    expect(pushUp.queryByRole('image')).toBeNull();
   });
 });
