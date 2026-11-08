@@ -159,7 +159,7 @@ func TestPersonalRecords(t *testing.T) {
 		}
 	})
 
-	t.Run("an exercise's current records are its best Estimated 1RM and heaviest set at each rep count", func(t *testing.T) {
+	t.Run("an exercise's Rep records are its heaviest set at each rep count, and its Bests hold the best Estimated 1RM", func(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
 		setUnitPreference(t, srv, token, "kg")
 		logWorkout(t, srv, token, "Bench Press", set{100, "kg", 5}, set{0, "kg", 20})
@@ -173,11 +173,13 @@ func TestPersonalRecords(t *testing.T) {
 		if res.Status != http.StatusOK {
 			t.Fatalf("status = %d, want 200; body %v", res.Status, res.Body)
 		}
-		top, _ := res.Body["estimated1RM"].(map[string]any)
+		bests, _ := res.Body["bests"].(map[string]any)
+		top, _ := bests["estimated1RM"].(map[string]any)
+		topSet, _ := top["set"].(map[string]any)
 		// 240 lb × 3 is 108.86 kg, so 119.7 kg estimated; 100 × 5 is 116.7.
-		if top["weight"] != 240.0 || top["weightUnit"] != "lb" || top["reps"] != 3.0 ||
-			top["estimated1RM"] != 119.7 || top["estimated1RMUnit"] != "kg" || top["sessionId"] != best {
-			t.Errorf("estimated1RM = %v, want 240 lb × 3, 119.7 kg, from the second session", top)
+		if topSet["weight"] != 240.0 || topSet["weightUnit"] != "lb" || topSet["reps"] != 3.0 ||
+			top["value"] != 119.7 || top["unit"] != "kg" || top["sessionId"] != best {
+			t.Errorf("bests.estimated1RM = %v, want 240 lb × 3, 119.7 kg, from the second session", top)
 		}
 		if got, want := describeRecords(objects(t, res.Body, "repRecords")),
 			"[<nil> <nil> 110kg×1 <nil> <nil> 240lb×3 <nil> <nil> 100kg×5]"; got != want {
@@ -194,7 +196,8 @@ func TestPersonalRecords(t *testing.T) {
 			"/workouts/exercises/"+exerciseID(t, srv, token, "Bench Press")+"/records", token, nil)
 		hidden := testutil.Do(t, srv, http.MethodGet, "/workouts/exercises/"+custom+"/records", token, nil)
 
-		if none.Status != http.StatusOK || none.Body["estimated1RM"] != nil || len(objects(t, none.Body, "repRecords")) != 0 {
+		if bests, _ := none.Body["bests"].(map[string]any); none.Status != http.StatusOK || bests == nil ||
+			bests["estimated1RM"] != nil || len(objects(t, none.Body, "repRecords")) != 0 {
 			t.Errorf("got %d %v, want 200 with no records", none.Status, none.Body)
 		}
 		if hidden.Status != http.StatusNotFound || hidden.ErrorCode() != "exercise_not_found" {

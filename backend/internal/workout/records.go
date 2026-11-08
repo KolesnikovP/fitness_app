@@ -52,12 +52,43 @@ type PersonalRecord struct {
 	Estimated1RMUnit string    `json:"estimated1RMUnit"`
 }
 
-// ExerciseRecords are the User's current records for one Exercise: the Set
-// with the best Estimated 1RM, null before any Set with weight, and the
-// heaviest Set at each rep count, fewest reps first.
+// ExerciseRecords are the User's Bests for one Exercise, and its current Rep
+// records: the heaviest Set at each rep count, fewest reps first.
 type ExerciseRecords struct {
-	Estimated1RM *BestSet  `json:"estimated1RM"`
-	RepRecords   []BestSet `json:"repRecords"`
+	Bests      Bests     `json:"bests"`
+	RepRecords []BestSet `json:"repRecords"`
+}
+
+// Bests are the User's Bests for one Exercise over their finished Sessions,
+// each null until there is one. Those by weight come only from Sets with
+// weight, so an Exercise only ever done at weight 0 has MostReps alone.
+type Bests struct {
+	Estimated1RM   *Best `json:"estimated1RM"`
+	HeaviestWeight *Best `json:"heaviestWeight"`
+	SetVolume      *Best `json:"setVolume"`
+	ExerciseVolume *Best `json:"exerciseVolume"`
+	MostReps       *Best `json:"mostReps"`
+}
+
+// Best is the highest Value so far of one measure, first reached in SessionID,
+// which finished at AchievedAt; an equal later value doesn't take it over.
+// Value is in Unit, the User's Unit preference, or a number of reps, with no
+// Unit. Set is the Set behind a measure of one Set.
+type Best struct {
+	Value      float64    `json:"value"`
+	Unit       string     `json:"unit,omitempty"`
+	SessionID  uuid.UUID  `json:"sessionId"`
+	AchievedAt time.Time  `json:"achievedAt"`
+	Set        *SetOfBest `json:"set,omitempty"`
+}
+
+// SetOfBest is the Set behind a Best, its weight in WeightUnit, the unit it
+// was logged in.
+type SetOfBest struct {
+	SetID      uuid.UUID `json:"setId"`
+	Weight     float64   `json:"weight"`
+	WeightUnit string    `json:"weightUnit"`
+	Reps       int32     `json:"reps"`
 }
 
 // BestSet is a Set holding a current record, with the Session it was set in
@@ -319,12 +350,72 @@ func (h handlers) exerciseRecords(w http.ResponseWriter, r *http.Request) {
 			byReps[s.Reps] = best{s, kg}
 		}
 	}
-	out := ExerciseRecords{Estimated1RM: bestEstimated1RM(sets, unit), RepRecords: make([]BestSet, 0, len(byReps))}
+	out := ExerciseRecords{Bests: bestsOf(sets, unit), RepRecords: make([]BestSet, 0, len(byReps))}
 	for _, b := range byReps {
 		out.RepRecords = append(out.RepRecords, bestSetOf(b.set, unit))
 	}
 	slices.SortFunc(out.RepRecords, func(a, b BestSet) int { return cmp.Compare(a.Reps, b.Reps) })
 	httpx.WriteJSON(w, http.StatusOK, out)
+}
+
+// bestsOf works out the Bests in sets, every Set of one Exercise in the order
+// they were done, a Session's together, with weights in unit.
+func bestsOf(sets []store.ListFinishedSetsOfExercisesRow, unit string) Bests {
+	// Each top is in kg, but mostReps's, which is in reps. A Session's measures
+	// take its first Set, for the Session and when it finished.
+	var e1RM, heaviest, setVolume, exerciseVolume, mostReps *best
+	higher := func(top *best, s store.ListFinishedSetsOfExercisesRow, value float64) *best {
+		if top == nil || value > top.kg+beatsBy {
+			return &best{s, value}
+		}
+		return top
+	}
+	for _, session := range bySession(sets) {
+		var volumeKg float64
+		var reps int32
+		for _, s := range session {
+			reps += s.Reps
+			if s.Weight <= 0 {
+				continue
+			}
+			kg := kgOf(s.Weight, s.WeightUnit)
+			e1RM = higher(e1RM, s, estimated1RM(kg, s.Reps))
+			heaviest = higher(heaviest, s, kg)
+			setVolume = higher(setVolume, s, kg*float64(s.Reps))
+			volumeKg += kg * float64(s.Reps)
+		}
+		if volumeKg > 0 {
+			exerciseVolume = higher(exerciseVolume, session[0], volumeKg)
+		}
+		mostReps = higher(mostReps, session[0], float64(reps))
+	}
+
+	ofSet := func(b *best) *Best {
+		if b == nil {
+			return nil
+		}
+		out := ofSession(b, unit)
+		out.Set = &SetOfBest{SetID: b.set.ID, Weight: b.set.Weight, WeightUnit: b.set.WeightUnit, Reps: b.set.Reps}
+		return out
+	}
+	out := Bests{
+		Estimated1RM:   ofSet(e1RM),
+		HeaviestWeight: ofSet(heaviest),
+		SetVolume:      ofSet(setVolume),
+		ExerciseVolume: ofSession(exerciseVolume, unit),
+	}
+	if mostReps != nil {
+		out.MostReps = &Best{Value: mostReps.kg, SessionID: mostReps.set.SessionID, AchievedAt: mostReps.set.FinishedAt}
+	}
+	return out
+}
+
+// ofSession is b, a top in kg, as a Best in unit with no Set, or nil.
+func ofSession(b *best, unit string) *Best {
+	if b == nil {
+		return nil
+	}
+	return &Best{Value: inUnit(b.kg, unit), Unit: unit, SessionID: b.set.SessionID, AchievedAt: b.set.FinishedAt}
 }
 
 // bestSetOf is s as a BestSet, its Estimated 1RM in unit.

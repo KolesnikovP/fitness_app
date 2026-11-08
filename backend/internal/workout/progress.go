@@ -18,7 +18,8 @@ type ExerciseProgress struct {
 }
 
 // ProgressPoint is one finished Session's Sets of an Exercise: the best
-// Estimated 1RM among them, the heaviest weight, and their Volume.
+// Estimated 1RM among them, the heaviest weight, the best Set volume, their
+// Volume (the Exercise volume) and their total reps, at weight 0 too.
 // PersonalRecord is whether the Session set a Personal record of any kind for
 // the Exercise.
 type ProgressPoint struct {
@@ -26,7 +27,9 @@ type ProgressPoint struct {
 	FinishedAt     time.Time `json:"finishedAt"`
 	Estimated1RM   float64   `json:"estimated1RM"`
 	HeaviestWeight float64   `json:"heaviestWeight"`
+	SetVolume      float64   `json:"setVolume"`
 	Volume         float64   `json:"volume"`
+	TotalReps      int32     `json:"totalReps"`
 	PersonalRecord bool      `json:"personalRecord"`
 }
 
@@ -41,12 +44,15 @@ func (h handlers) exerciseProgress(w http.ResponseWriter, r *http.Request) {
 	records, _ := recordsBySession(sets)
 	out := ExerciseProgress{Unit: unit, Sessions: []ProgressPoint{}}
 	for _, session := range bySession(sets) {
-		var topEstimated1RM, heaviestKg float64
+		var topEstimated1RM, heaviestKg, topSetVolumeKg float64
+		var totalReps int32
 		logged := make([]loggedSet, 0, len(session))
 		for _, s := range session {
 			kg := kgOf(s.Weight, s.WeightUnit)
 			topEstimated1RM = max(topEstimated1RM, estimated1RM(kg, s.Reps))
 			heaviestKg = max(heaviestKg, kg)
+			topSetVolumeKg = max(topSetVolumeKg, kg*float64(s.Reps))
+			totalReps += s.Reps
 			logged = append(logged, loggedSet{exerciseID: s.ExerciseID, weight: s.Weight, weightUnit: s.WeightUnit, reps: s.Reps})
 		}
 		out.Sessions = append(out.Sessions, ProgressPoint{
@@ -54,7 +60,9 @@ func (h handlers) exerciseProgress(w http.ResponseWriter, r *http.Request) {
 			FinishedAt:     session[0].FinishedAt,
 			Estimated1RM:   inUnit(topEstimated1RM, unit),
 			HeaviestWeight: inUnit(heaviestKg, unit),
+			SetVolume:      inUnit(topSetVolumeKg, unit),
 			Volume:         volumeOf(logged, unit),
+			TotalReps:      totalReps,
 			PersonalRecord: len(records[session[0].SessionID]) > 0,
 		})
 	}
