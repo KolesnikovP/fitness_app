@@ -19,7 +19,7 @@ export function TextField({ label, dense, ...inputProps }: TextFieldProps) {
         accessibilityLabel={label}
         placeholderTextColor={colors.muted}
         keyboardAppearance={scheme}
-        style={[styles.input, dense && styles.dense]}
+        style={[styles.input, dense && styles.dense, inputProps.multiline && styles.multiline]}
         textAlign={dense ? 'center' : undefined}
         {...inputProps}
       />
@@ -41,4 +41,5 @@ const useStyles = makeStyles((colors) => ({
     color: colors.text,
   },
   dense: { minHeight: 40, paddingHorizontal: spacing.xs },
+  multiline: { minHeight: 120, paddingTop: spacing.sm, paddingBottom: spacing.sm, textAlignVertical: 'top' },
 }));

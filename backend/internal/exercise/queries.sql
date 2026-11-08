@@ -3,6 +3,7 @@
 -- skipped when null. Sorting by lower(name) under the C collation keeps the
 -- order stable across database locales.
 SELECT e.id, e.name, e.muscle_group, e.equipment_type, e.is_custom,
+       e.secondary_muscles, e.instructions,
        img.updated_at AS image_updated_at,
        anim.updated_at AS animated_demo_updated_at
 FROM exercises e
@@ -15,13 +16,14 @@ WHERE (e.owner_id IS NULL OR e.owner_id = sqlc.arg(caller_id)::uuid)
 ORDER BY lower(e.name) COLLATE "C", e.id;
 
 -- name: CreateCustomExercise :one
-INSERT INTO exercises (name, muscle_group, equipment_type, is_custom, owner_id)
-VALUES ($1, $2, $3, true, sqlc.arg(owner_id)::uuid)
-RETURNING id, name, muscle_group, equipment_type, is_custom;
+INSERT INTO exercises (name, muscle_group, equipment_type, secondary_muscles, instructions, is_custom, owner_id)
+VALUES ($1, $2, $3, $4, $5, true, sqlc.arg(owner_id)::uuid)
+RETURNING id, name, muscle_group, equipment_type, secondary_muscles, instructions, is_custom;
 
 -- name: GetVisibleExercise :one
 -- An exercise the caller may see: canonical, or one of their own.
 SELECT e.id, e.name, e.muscle_group, e.equipment_type, e.is_custom,
+       e.secondary_muscles, e.instructions,
        img.updated_at AS image_updated_at,
        anim.updated_at AS animated_demo_updated_at
 FROM exercises e

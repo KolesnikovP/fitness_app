@@ -33,6 +33,20 @@ func names(list []map[string]any) []string {
 	return out
 }
 
+// strs reads a JSON array of strings, failing on null or anything else.
+func strs(t *testing.T, v any) []string {
+	t.Helper()
+	raw, ok := v.([]any)
+	if !ok {
+		t.Fatalf("%v is not an array", v)
+	}
+	out := make([]string, len(raw))
+	for i, s := range raw {
+		out[i] = s.(string)
+	}
+	return out
+}
+
 func find(list []map[string]any, name string) map[string]any {
 	for _, e := range list {
 		if e["name"] == name {
@@ -67,6 +81,21 @@ func TestListExercises(t *testing.T) {
 		for i := 1; i < len(list); i++ {
 			if names(list)[i-1] > names(list)[i] {
 				t.Fatalf("not sorted by name: %q before %q", names(list)[i-1], names(list)[i])
+			}
+		}
+	})
+
+	t.Run("gives every canonical exercise Instructions and valid Secondary muscles", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+
+		list := exercises(t, testutil.Do(t, srv, http.MethodGet, "/exercises", token, nil))
+
+		for _, e := range list {
+			if steps := strs(t, e["instructions"]); len(steps) < 4 || len(steps) > 6 {
+				t.Errorf("%s has %d steps, want 4 to 6", e["name"], len(steps))
+			}
+			if slices.Contains(strs(t, e["secondaryMuscles"]), e["muscleGroup"].(string)) {
+				t.Errorf("%s lists its Muscle group as a Secondary muscle", e["name"])
 			}
 		}
 	})
@@ -170,6 +199,43 @@ func TestCreateCustomExercise(t *testing.T) {
 		}
 	})
 
+	t.Run("has no Secondary muscles or Instructions unless given", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+
+		created := createExercise(t, srv, token, "Landmine Row", "back", "barbell")
+
+		if got := strs(t, created["secondaryMuscles"]); len(got) != 0 {
+			t.Errorf("secondaryMuscles = %v, want []", got)
+		}
+		if got := strs(t, created["instructions"]); len(got) != 0 {
+			t.Errorf("instructions = %v, want []", got)
+		}
+	})
+
+	t.Run("keeps the Secondary muscles and trimmed Instructions given, in order", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		res := testutil.Do(t, srv, http.MethodPost, "/exercises", token, map[string]any{
+			"name": "Spoto Press", "muscleGroup": "chest", "equipmentType": "barbell",
+			"secondaryMuscles": []string{"triceps", "shoulders"},
+			"instructions":     []string{"  Lower the bar.  ", "Pause above the chest.", "Press."},
+		})
+		if res.Status != http.StatusCreated {
+			t.Fatalf("status = %d, want 201; body %v", res.Status, res.Body)
+		}
+
+		got := testutil.Do(t, srv, http.MethodGet, "/exercises/"+res.Body["id"].(string), token, nil)
+
+		for _, body := range []map[string]any{res.Body, got.Body} {
+			if m := strs(t, body["secondaryMuscles"]); !slices.Equal(m, []string{"triceps", "shoulders"}) {
+				t.Errorf("secondaryMuscles = %v", m)
+			}
+			if steps := strs(t, body["instructions"]); !slices.Equal(steps,
+				[]string{"Lower the bar.", "Pause above the chest.", "Press."}) {
+				t.Errorf("instructions = %q", steps)
+			}
+		}
+	})
+
 	t.Run("appears in the creator's library alongside canonical exercises", func(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
 		createExercise(t, srv, token, "Belt Squat", "quads", "machine")
@@ -208,13 +274,25 @@ func TestCreateCustomExercise(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc string
-		body map[string]string
+		body map[string]any
 		code string
 	}{
-		{"blank name", map[string]string{"name": "   ", "muscleGroup": "chest", "equipmentType": "barbell"}, "invalid_name"},
-		{"name over 100 characters", map[string]string{"name": strings.Repeat("a", 101), "muscleGroup": "chest", "equipmentType": "barbell"}, "invalid_name"},
-		{"missing muscle group", map[string]string{"name": "Thing", "equipmentType": "barbell"}, "invalid_muscle_group"},
-		{"unknown equipmentType", map[string]string{"name": "Thing", "muscleGroup": "chest", "equipmentType": "rock"}, "invalid_equipment_type"},
+		{"blank name", map[string]any{"name": "   ", "muscleGroup": "chest", "equipmentType": "barbell"}, "invalid_name"},
+		{"name over 100 characters", map[string]any{"name": strings.Repeat("a", 101), "muscleGroup": "chest", "equipmentType": "barbell"}, "invalid_name"},
+		{"missing muscle group", map[string]any{"name": "Thing", "equipmentType": "barbell"}, "invalid_muscle_group"},
+		{"unknown equipmentType", map[string]any{"name": "Thing", "muscleGroup": "chest", "equipmentType": "rock"}, "invalid_equipment_type"},
+		{"its Muscle group as a Secondary muscle", map[string]any{"name": "Thing", "muscleGroup": "chest", "equipmentType": "barbell",
+			"secondaryMuscles": []string{"triceps", "chest"}}, "invalid_secondary_muscles"},
+		{"a repeated Secondary muscle", map[string]any{"name": "Thing", "muscleGroup": "chest", "equipmentType": "barbell",
+			"secondaryMuscles": []string{"triceps", "triceps"}}, "invalid_secondary_muscles"},
+		{"an unknown Secondary muscle", map[string]any{"name": "Thing", "muscleGroup": "chest", "equipmentType": "barbell",
+			"secondaryMuscles": []string{"upper_chest"}}, "invalid_secondary_muscles"},
+		{"a blank step", map[string]any{"name": "Thing", "muscleGroup": "chest", "equipmentType": "barbell",
+			"instructions": []string{"Lie down.", "   "}}, "invalid_instructions"},
+		{"a step over 500 characters", map[string]any{"name": "Thing", "muscleGroup": "chest", "equipmentType": "barbell",
+			"instructions": []string{strings.Repeat("a", 501)}}, "invalid_instructions"},
+		{"more than 20 steps", map[string]any{"name": "Thing", "muscleGroup": "chest", "equipmentType": "barbell",
+			"instructions": slices.Repeat([]string{"Again."}, 21)}, "invalid_instructions"},
 	} {
 		t.Run("rejects "+tc.desc, func(t *testing.T) {
 			_, _, token := testutil.SignUp(t, srv)
@@ -268,6 +346,20 @@ func TestGetExercise(t *testing.T) {
 		if res.Body["name"] != "Deadlift" || res.Body["muscleGroup"] != "back" ||
 			res.Body["equipmentType"] != "barbell" || res.Body["isCustom"] != false {
 			t.Errorf("got %v, want Deadlift back/barbell canonical", res.Body)
+		}
+	})
+
+	t.Run("returns a canonical exercise's Secondary muscles and Instructions", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		incline := find(exercises(t, testutil.Do(t, srv, http.MethodGet, "/exercises?q=incline", token, nil)), "Incline Bench Press")
+
+		res := testutil.Do(t, srv, http.MethodGet, "/exercises/"+incline["id"].(string), token, nil)
+
+		if m := strs(t, res.Body["secondaryMuscles"]); !slices.Equal(m, []string{"triceps", "shoulders"}) {
+			t.Errorf("secondaryMuscles = %v, want [triceps shoulders]", m)
+		}
+		if steps := strs(t, res.Body["instructions"]); len(steps) == 0 {
+			t.Errorf("no instructions")
 		}
 	})
 

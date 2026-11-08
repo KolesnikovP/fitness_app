@@ -43,6 +43,43 @@ export function ChipGroup<T extends string>({ label, options, value, onChange, a
   );
 }
 
+type MultiChipGroupProps<T extends string> = {
+  label: string;
+  options: readonly ChipOption<T>[];
+  /** The chosen values, in the order they were chosen. */
+  value: readonly T[];
+  onChange: (value: T[]) => void;
+};
+
+/** A labelled, horizontally scrolling row of chips any number of which can be chosen. */
+export function MultiChipGroup<T extends string>({ label, options, value, onChange }: MultiChipGroupProps<T>) {
+  const styles = useStyles();
+  return (
+    <View style={styles.container}>
+      <Text style={styles.label}>{label}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <View accessibilityLabel={label} style={styles.row}>
+          {options.map((option) => {
+            const selected = value.includes(option.value);
+            return (
+              <Pressable
+                key={option.value}
+                accessibilityRole="checkbox"
+                accessibilityLabel={option.label}
+                accessibilityState={{ checked: selected }}
+                onPress={() => onChange(selected ? value.filter((v) => v !== option.value) : [...value, option.value])}
+                style={[styles.chip, selected && styles.chipSelected]}
+              >
+                <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{option.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
 const useStyles = makeStyles((colors) => ({
   container: { gap: spacing.xs },
   label: { fontSize: 15, fontWeight: '500', color: colors.text },

@@ -24,7 +24,13 @@ export function getExercise(token: string, id: string): Promise<Exercise> {
   return apiRequest<Exercise>(`/exercises/${encodeURIComponent(id)}`, { token });
 }
 
-export type NewExercise = { name: string; muscleGroup: MuscleGroup; equipmentType: EquipmentType };
+export type NewExercise = {
+  name: string;
+  muscleGroup: MuscleGroup;
+  secondaryMuscles: MuscleGroup[];
+  equipmentType: EquipmentType;
+  instructions: string[];
+};
 
 export function createExercise(token: string, exercise: NewExercise): Promise<Exercise> {
   return apiRequest<Exercise>('/exercises', { method: 'POST', token, body: exercise });

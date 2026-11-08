@@ -72,13 +72,25 @@ _Avoid_: Cycle, lap
 The total weight a User moved: the sum of weight × reps over Sets, in the User's Unit preference. A Set logged in the other unit is converted by the one fixed factor, and a Set at weight 0 adds nothing. A Session's Volume is over its Sets; a week's, over the Sets of the Sessions finished in it.
 _Avoid_: Tonnage, total load, work
 
+**Set volume**:
+The Volume of one Set: its weight × reps.
+_Avoid_: Set tonnage, set load
+
+**Exercise volume**:
+The Volume of one Exercise's Sets in one Session. Not the Session's Volume, which is over every Exercise in it.
+_Avoid_: Session volume (for this), exercise tonnage
+
+**Best**:
+The User's highest value so far, over their finished Sessions, of one measure of an Exercise, with the date it was reached: Estimated 1RM, heaviest weight, Set volume, Exercise volume, or reps in one Session. A Best is not a Personal record: only Estimated 1RM and Rep records make those, and a first Session of an Exercise already has its Bests. Like Personal records, it is worked out from Sets when shown.
+_Avoid_: Record, PR, personal best (for this)
+
 **Estimated 1RM**:
 The weight a Set suggests the User could lift for one rep, by the Epley formula: weight × (1 + reps / 30), or the weight itself for a 1-rep Set. Weights in lb are converted to kg by one fixed factor first.
 _Avoid_: Max, 1RM (as the computed value), e1RM
 
 **Personal record**:
 A Set that beats every earlier Set of its Exercise by the User, by Estimated 1RM. A finished Session sets at most one per Exercise, with its best Set, and only when an earlier Session has a Set of that Exercise to beat: the first Session of an Exercise sets none, and neither do Sets at weight 0. It follows the Exercise actually done, and is worked out from Sets when shown, so correcting a Set can add or remove one. A Session in progress has the records its Sets set so far, so the User hears of one the moment they log it.
-_Avoid_: PR (in the code), best, achievement
+_Avoid_: PR (in the code), achievement
 
 **Rep record**:
 A Personal record by weight at the same reps: the heaviest Set at a rep count, beating an earlier Session's Set at those reps.
@@ -121,8 +133,12 @@ _Avoid_: Plan, block, mesocycle
 ### Exercise library
 
 **Exercise**:
-A movement a User can log, such as Bench Press. Every Exercise has a name, one Muscle group and one Equipment type, and may have an image and an animated demo.
+A movement a User can log, such as Bench Press. Every Exercise has a name, one Muscle group and one Equipment type, and may have Secondary muscles, Instructions, an image and an animated demo.
 _Avoid_: Movement, lift, move
+
+**Instructions**:
+How to do an Exercise, as numbered steps. Every Canonical exercise has them; a Custom exercise has them only if its User wrote some when creating it.
+_Avoid_: Description, how-to, guide (as the term)
 
 **Canonical exercise**:
 An Exercise that ships with the app. Every User sees it, and no User can change it.
@@ -133,8 +149,12 @@ An Exercise a User created. Only that User sees it, and it can be used anywhere 
 _Avoid_: User exercise, personal exercise
 
 **Muscle group**:
-The main muscles an Exercise trains, from a fixed list (chest, back, quads, ...). An Exercise has exactly one.
-_Avoid_: Body part, target, primary muscle
+The main muscles an Exercise trains, from a fixed list (chest, back, quads, ...). An Exercise has exactly one, shown as its primary muscles; the library is filtered by it.
+_Avoid_: Body part, target
+
+**Secondary muscles**:
+Other muscles an Exercise also trains, from the same fixed list as Muscle group, never including its own: Incline Bench Press trains chest, with triceps and shoulders as Secondary muscles. An Exercise may have none.
+_Avoid_: Synergists, accessory muscles, other muscle groups
 
 **Equipment type**:
 What an Exercise is done with, from a fixed list (barbell, dumbbell, machine, ...). Used to suggest substitutes, so an Exercise has exactly one.
