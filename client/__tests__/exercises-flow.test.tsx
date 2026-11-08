@@ -124,12 +124,13 @@ describe('exercise library', () => {
     expect(screen.getByRole('tab', { name: 'Performance' })).toBeSelected();
     expect(screen.getByRole('tab', { name: 'How to' })).not.toBeSelected();
     expect(screen.getByLabelText('Progress')).toBeVisible();
-    expect(screen.queryByLabelText('Instructions')).not.toBeVisible();
+    expect(screen.getByLabelText('Instructions', { includeHiddenElements: true })).not.toBeVisible();
 
     await fireEvent.press(screen.getByRole('tab', { name: 'How to' }));
 
     expect(screen.getByRole('tab', { name: 'How to' })).toBeSelected();
-    expect(screen.queryByLabelText('Progress')).not.toBeVisible();
+    // Still mounted, so the chart keeps its metric and range.
+    expect(screen.getByLabelText('Progress', { includeHiddenElements: true })).not.toBeVisible();
     const steps = within(screen.getByLabelText('Instructions'));
     expect(steps.getByText('1.')).toBeVisible();
     expect(steps.getByText('Lower the bar.')).toBeVisible();
