@@ -124,7 +124,7 @@ func describeProgress(sessions []map[string]any) string {
 	out := make([]string, 0, len(sessions))
 	for _, s := range sessions {
 		out = append(out, fmt.Sprintf("%v estimated1RM %v heaviest %v setVol %v vol %v reps %v record %v",
-			s["sessionId"], s["estimated1RM"], s["heaviestWeight"], s["setVolume"], s["volume"], s["totalReps"], s["personalRecord"]))
+			s["sessionId"], s["estimated1RM"], s["heaviestWeight"], s["setVolume"], s["exerciseVolume"], s["totalReps"], s["personalRecord"]))
 	}
 	return fmt.Sprint(out)
 }

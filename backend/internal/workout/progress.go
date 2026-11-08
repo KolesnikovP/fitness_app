@@ -18,8 +18,8 @@ type ExerciseProgress struct {
 }
 
 // ProgressPoint is one finished Session's Sets of an Exercise: the best
-// Estimated 1RM among them, the heaviest weight, the best Set volume, their
-// Volume (the Exercise volume) and their total reps, at weight 0 too.
+// Estimated 1RM among them, the heaviest weight, the best Set volume, the
+// Exercise volume and their total reps, at weight 0 too.
 // PersonalRecord is whether the Session set a Personal record of any kind for
 // the Exercise.
 type ProgressPoint struct {
@@ -28,7 +28,7 @@ type ProgressPoint struct {
 	Estimated1RM   float64   `json:"estimated1RM"`
 	HeaviestWeight float64   `json:"heaviestWeight"`
 	SetVolume      float64   `json:"setVolume"`
-	Volume         float64   `json:"volume"`
+	ExerciseVolume float64   `json:"exerciseVolume"`
 	TotalReps      int32     `json:"totalReps"`
 	PersonalRecord bool      `json:"personalRecord"`
 }
@@ -61,7 +61,7 @@ func (h handlers) exerciseProgress(w http.ResponseWriter, r *http.Request) {
 			Estimated1RM:   inUnit(topEstimated1RM, unit),
 			HeaviestWeight: inUnit(heaviestKg, unit),
 			SetVolume:      inUnit(topSetVolumeKg, unit),
-			Volume:         volumeOf(logged, unit),
+			ExerciseVolume: volumeOf(logged, unit),
 			TotalReps:      totalReps,
 			PersonalRecord: len(records[session[0].SessionID]) > 0,
 		})

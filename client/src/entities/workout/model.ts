@@ -175,8 +175,7 @@ export type ExerciseRecords = { bests: Bests; repRecords: BestSet[] };
 
 /**
  * One finished Session's Sets of an Exercise: their best Estimated 1RM,
- * heaviest weight, best Set volume, Volume (the Exercise volume) and total
- * reps, and whether the Session set a Personal record of any kind for the
+ * heaviest weight, best Set volume, Exercise volume and total reps, and whether the Session set a Personal record of any kind for the
  * Exercise.
  */
 export type ProgressPoint = {
@@ -185,7 +184,7 @@ export type ProgressPoint = {
   estimated1RM: number;
   heaviestWeight: number;
   setVolume: number;
-  volume: number;
+  exerciseVolume: number;
   totalReps: number;
   personalRecord: boolean;
 };

@@ -163,10 +163,11 @@ type recordHit struct {
 	kind string
 }
 
-// best is the heaviest Set seen of something, in kg by some measure.
+// best is the Set with the highest value seen of some measure: in kg, or a
+// number of reps.
 type best struct {
-	set store.ListFinishedSetsOfExercisesRow
-	kg  float64
+	set   store.ListFinishedSetsOfExercisesRow
+	value float64
 }
 
 // recordsBySession finds the records each Session set, given every Set of the
@@ -187,23 +188,23 @@ func recordsBySession(sets []store.ListFinishedSetsOfExercisesRow) (map[uuid.UUI
 				continue
 			}
 			kg := kgOf(s.Weight, s.WeightUnit)
-			if b, ok := bestE1RM[s.ExerciseID]; !ok || estimated1RM(kg, s.Reps) > b.kg+beatsBy {
+			if b, ok := bestE1RM[s.ExerciseID]; !ok || estimated1RM(kg, s.Reps) > b.value+beatsBy {
 				bestE1RM[s.ExerciseID] = best{s, estimated1RM(kg, s.Reps)}
 			}
 			key := exerciseReps{s.ExerciseID, s.Reps}
-			if b, ok := bestReps[key]; !ok || kg > b.kg+beatsBy {
+			if b, ok := bestReps[key]; !ok || kg > b.value+beatsBy {
 				bestReps[key] = best{s, kg}
 			}
 		}
 
 		var hits []recordHit
 		for id, b := range bestE1RM {
-			if prior, ok := priorE1RM[id]; ok && b.kg > prior+beatsBy {
+			if prior, ok := priorE1RM[id]; ok && b.value > prior+beatsBy {
 				hits = append(hits, recordHit{b.set, kindEstimated1RM})
 			}
 		}
 		for key, b := range bestReps {
-			if prior, ok := priorReps[key]; ok && b.kg > prior+beatsBy {
+			if prior, ok := priorReps[key]; ok && b.value > prior+beatsBy {
 				hits = append(hits, recordHit{b.set, kindReps})
 			}
 		}
@@ -346,7 +347,7 @@ func (h handlers) exerciseRecords(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		kg := kgOf(s.Weight, s.WeightUnit)
-		if b, ok := byReps[s.Reps]; !ok || kg > b.kg+beatsBy {
+		if b, ok := byReps[s.Reps]; !ok || kg > b.value+beatsBy {
 			byReps[s.Reps] = best{s, kg}
 		}
 	}
@@ -361,11 +362,11 @@ func (h handlers) exerciseRecords(w http.ResponseWriter, r *http.Request) {
 // bestsOf works out the Bests in sets, every Set of one Exercise in the order
 // they were done, a Session's together, with weights in unit.
 func bestsOf(sets []store.ListFinishedSetsOfExercisesRow, unit string) Bests {
-	// Each top is in kg, but mostReps's, which is in reps. A Session's measures
-	// take its first Set, for the Session and when it finished.
+	// Each top's value is in kg, but mostReps's, which is in reps. A Session's
+	// measures take its first Set, for the Session and when it finished.
 	var e1RM, heaviest, setVolume, exerciseVolume, mostReps *best
 	higher := func(top *best, s store.ListFinishedSetsOfExercisesRow, value float64) *best {
-		if top == nil || value > top.kg+beatsBy {
+		if top == nil || value > top.value+beatsBy {
 			return &best{s, value}
 		}
 		return top
@@ -405,7 +406,7 @@ func bestsOf(sets []store.ListFinishedSetsOfExercisesRow, unit string) Bests {
 		ExerciseVolume: ofSession(exerciseVolume, unit),
 	}
 	if mostReps != nil {
-		out.MostReps = &Best{Value: mostReps.kg, SessionID: mostReps.set.SessionID, AchievedAt: mostReps.set.FinishedAt}
+		out.MostReps = &Best{Value: mostReps.value, SessionID: mostReps.set.SessionID, AchievedAt: mostReps.set.FinishedAt}
 	}
 	return out
 }
@@ -415,7 +416,7 @@ func ofSession(b *best, unit string) *Best {
 	if b == nil {
 		return nil
 	}
-	return &Best{Value: inUnit(b.kg, unit), Unit: unit, SessionID: b.set.SessionID, AchievedAt: b.set.FinishedAt}
+	return &Best{Value: inUnit(b.value, unit), Unit: unit, SessionID: b.set.SessionID, AchievedAt: b.set.FinishedAt}
 }
 
 // bestSetOf is s as a BestSet, its Estimated 1RM in unit.
@@ -436,7 +437,7 @@ func bestEstimated1RM(sets []store.ListFinishedSetsOfExercisesRow, unit string) 
 		if s.Weight <= 0 {
 			continue
 		}
-		if e1RM := estimated1RM(kgOf(s.Weight, s.WeightUnit), s.Reps); top == nil || e1RM > top.kg+beatsBy {
+		if e1RM := estimated1RM(kgOf(s.Weight, s.WeightUnit), s.Reps); top == nil || e1RM > top.value+beatsBy {
 			top = &best{s, e1RM}
 		}
 	}

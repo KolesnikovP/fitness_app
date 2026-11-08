@@ -972,7 +972,7 @@ const handlers = [
             estimated1RM: toUnit(Math.max(...sets.map((s) => estimated1RM(kgOf(s), s.reps))), unit),
             heaviestWeight: toUnit(Math.max(...sets.map(kgOf)), unit),
             setVolume: toUnit(Math.max(...sets.map((s) => kgOf(s) * s.reps)), unit),
-            volume: volumeOf(sets, unit),
+            exerciseVolume: volumeOf(sets, unit),
             totalReps: sets.reduce((n, s) => n + s.reps, 0),
             personalRecord: recordHitsOf(session).some((hit) => hit.set.exerciseId === params.id),
           },

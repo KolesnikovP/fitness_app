@@ -16,8 +16,9 @@ func TestExerciseBests(t *testing.T) {
 	t.Run("each Best with its Set or number and date, from Sets in mixed kg and lb, in the user's unit preference", func(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
 		setUnitPreference(t, srv, token, "kg")
-		// 100 × 5 is 116.7 estimated; 60 × 12 is the best Set volume, 720.
-		first := logWorkout(t, srv, token, "Bench Press", set{100, "kg", 5}, set{60, "kg", 12})
+		// 100 × 5 is 116.7 estimated; 135 lb × 12, 734.8 kg, is the best Set
+		// volume, and with 100 × 5 makes the best Exercise volume, 1234.8 kg.
+		first := logWorkout(t, srv, token, "Bench Press", set{100, "kg", 5}, set{135, "lb", 12})
 		// 240 lb is 108.86 kg: the heaviest, and 119.7 estimated.
 		second := logWorkout(t, srv, token, "Bench Press", set{240, "lb", 3}, set{225, "lb", 1})
 		// 40 reps in all, the most in one Session.
@@ -33,8 +34,8 @@ func TestExerciseBests(t *testing.T) {
 		if want := strings.Join([]string{
 			"estimated1RM 119.7kg 240lb×3 " + second,
 			"heaviestWeight 108.9kg 240lb×3 " + second,
-			"setVolume 720kg 60kg×12 " + first,
-			"exerciseVolume 1220kg " + first,
+			"setVolume 734.8kg 135lb×12 " + first,
+			"exerciseVolume 1234.8kg " + first,
 			"mostReps 40 " + third,
 		}, "; "); kg != want {
 			t.Errorf("bests in kg =\n%s\nwant\n%s", kg, want)
@@ -42,8 +43,8 @@ func TestExerciseBests(t *testing.T) {
 		if want := strings.Join([]string{
 			"estimated1RM 264lb 240lb×3 " + second,
 			"heaviestWeight 240lb 240lb×3 " + second,
-			"setVolume 1587.3lb 60kg×12 " + first,
-			"exerciseVolume 2689.6lb " + first,
+			"setVolume 1620lb 135lb×12 " + first,
+			"exerciseVolume 2722.3lb " + first,
 			"mostReps 40 " + third,
 		}, "; "); lb != want {
 			t.Errorf("bests in lb =\n%s\nwant\n%s", lb, want)
