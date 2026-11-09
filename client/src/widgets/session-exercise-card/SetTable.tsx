@@ -164,7 +164,7 @@ type LoggedSetRowProps = {
  * A logged Set as a row of the table: its mark, tapped to change its Set
  * type, then its values in their columns, tapped to correct it, and its note
  * below. A Set with a Record tier is filled in the tier's colour, with its
- * medal by its mark, and says its tier after its values.
+ * medal on its mark's corner, and says its tier after its values.
  */
 function LoggedSetRow({ sessionId, set, number, mark, unit, onPress, onChange }: LoggedSetRowProps) {
   const styles = useStyles();
@@ -175,7 +175,11 @@ function LoggedSetRow({ sessionId, set, number, mark, unit, onPress, onChange }:
       <View style={[setColumns.row, styles.logged, fill]}>
         <View style={[setColumns.number, styles.markCell]}>
           <LoggedSetTypeSelect sessionId={sessionId} set={set} number={number} mark={mark} onSaved={onChange} />
-          {tier ? <RecordTierMedal tier={tier} /> : null}
+          {tier ? (
+            <View style={styles.medal} pointerEvents="none">
+              <RecordTierMedal tier={tier} />
+            </View>
+          ) : null}
         </View>
         <Pressable
           accessibilityRole="button"
@@ -209,7 +213,9 @@ const useStyles = makeStyles((colors) => ({
   logged: { minHeight: 40, borderRadius: 8, backgroundColor: colors.successSubtle },
   runLabel: { fontSize: 13, fontWeight: '600', color: colors.text, paddingTop: spacing.xs },
   pressed: { opacity: 0.5 },
-  markCell: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  markCell: { justifyContent: 'center' },
+  // A badge on the corner of the mark's box.
+  medal: { position: 'absolute', top: -6, right: -8 },
   // The values and tick, tapped to correct the Set; the mark before them is its own button.
   values: { flex: 1, alignSelf: 'stretch' },
   value: { fontSize: 17, color: colors.text, textAlign: 'center' },
@@ -223,5 +229,5 @@ const useStyles = makeStyles((colors) => ({
     backgroundColor: colors.success,
   },
   checkMark: { fontSize: 17, fontWeight: '700', color: colors.successText },
-  note: { fontSize: 15, color: colors.muted, paddingLeft: 34, paddingTop: 2 },
+  note: { fontSize: 15, color: colors.muted, paddingLeft: 46, paddingTop: 2 },
 }));

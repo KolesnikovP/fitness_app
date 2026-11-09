@@ -81,10 +81,20 @@ export function SetTypeSelect({ label, mark, value, onChange, disabled }: SetTyp
 }
 
 const useStyles = makeStyles((colors) => ({
-  mark: { minHeight: 32, alignItems: 'center', justifyContent: 'center' },
+  // Boxed so the mark reads as something to tap.
+  mark: {
+    // As big as the weight and reps fields beside it.
+    minHeight: 40,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.fieldBorder,
+    borderRadius: 10,
+    backgroundColor: colors.background,
+  },
   pressed: { opacity: 0.5 },
-  // Underlined so the number reads as something to tap.
-  markText: { fontSize: 17, color: colors.muted, textAlign: 'center', textDecorationLine: 'underline' },
+  markText: { fontSize: 17, color: colors.muted, textAlign: 'center' },
   letter: { fontWeight: '800' },
   warmup: { color: colors.link },
   failure: { color: colors.danger },
