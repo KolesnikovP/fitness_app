@@ -53,8 +53,12 @@ An Exercise added to one Session, holding the Sets logged for it there and an op
 _Avoid_: Workout exercise, entry, slot (a slot belongs to a routine)
 
 **Set**:
-One round of a Session exercise: the weight and the number of reps, with an optional RPE and note. A Set keeps the Exercise actually done (which a Swap can make differ from the one planned), the unit (kg or lb) it was logged in, and the Superset (if any) its Session exercise was in when it was logged.
+One round of a Session exercise: the weight and the number of reps, with an optional RPE and note. A Set keeps the Exercise actually done (which a Swap can make differ from the one planned), the unit (kg or lb) it was logged in, and the Superset (if any) its Session exercise was in when it was logged, and its Set type.
 _Avoid_: Logged set (as a system term), entry
+
+**Set type**:
+What kind of round a Set was: normal (the default), warm-up, failure or drop. A warm-up is a lighter Set done to get ready. A failure Set was taken until no more reps were possible. A drop Set was done straight after the Set before it, lighter, without rest. Every Set but a warm-up is a **working Set**: warm-ups count toward no Volume, Best, Personal record or Record tier, and failure and drop Sets count like normal ones. Normal and failure Sets are numbered 1, 2, 3 in their Session exercise; warm-ups and drop Sets take no number. Like the rest of a Set, its type can be corrected after logging. A Target plans no Set types.
+_Avoid_: Set kind, set tag, set category
 
 **RPE**:
 Rate of perceived exertion: how hard a Set felt, read as how many more reps the User could have done (10 is none left, 9 is one more, down to 5 for five or more). The app offers 5 to 10; the API takes 1 to 10 in half steps. Optional; a Set logged without one has none.
@@ -69,7 +73,7 @@ One Set of each Session exercise in a Superset. The User rests after a round, no
 _Avoid_: Cycle, lap
 
 **Volume**:
-The total weight a User moved: the sum of weight × reps over Sets, in the User's Unit preference. A Set logged in the other unit is converted by the one fixed factor, and a Set at weight 0 adds nothing. A Session's Volume is over its Sets; a week's, over the Sets of the Sessions finished in it.
+The total weight a User moved: the sum of weight × reps over working Sets, in the User's Unit preference. A Set logged in the other unit is converted by the one fixed factor, and a Set at weight 0 adds nothing. A Session's Volume is over its Sets; a week's, over the Sets of the Sessions finished in it.
 _Avoid_: Tonnage, total load, work
 
 **Set volume**:
@@ -81,7 +85,7 @@ The Volume of one Exercise's Sets in one Session. Not the Session's Volume, whic
 _Avoid_: Session volume (for this), exercise tonnage
 
 **Best**:
-The User's highest value so far, over their finished Sessions, of one measure of an Exercise, with the date it was reached: Estimated 1RM, heaviest weight, Set volume, Exercise volume, or reps in one Session. A Best is not a Personal record: only Estimated 1RM and Rep records make those, and a first Session of an Exercise already has its Bests. Like Personal records, it is worked out from Sets when shown.
+The User's highest value so far, over the working Sets of their finished Sessions, of one measure of an Exercise, with the date it was reached: Estimated 1RM, heaviest weight, Set volume, Exercise volume, or reps in one Session. A Best is not a Personal record: only Estimated 1RM and Rep records make those, and a first Session of an Exercise already has its Bests. Like Personal records, it is worked out from Sets when shown.
 _Avoid_: Record, PR, personal best (for this)
 
 **Estimated 1RM**:
@@ -89,7 +93,7 @@ The weight a Set suggests the User could lift for one rep, by the Epley formula:
 _Avoid_: Max, 1RM (as the computed value), e1RM
 
 **Personal record**:
-A Set that beats every earlier Set of its Exercise by the User, by Estimated 1RM. A finished Session sets at most one per Exercise, with its best Set, and only when an earlier Session has a Set of that Exercise to beat: the first Session of an Exercise sets none, and neither do Sets at weight 0. It follows the Exercise actually done, and is worked out from Sets when shown, so correcting a Set can add or remove one. A Session in progress has the records its Sets set so far, so the User hears of one the moment they log it.
+A working Set that beats every earlier working Set of its Exercise by the User, by Estimated 1RM. A finished Session sets at most one per Exercise, with its best Set, and only when an earlier Session has a Set of that Exercise to beat: the first Session of an Exercise sets none, and neither do Sets at weight 0. It follows the Exercise actually done, and is worked out from Sets when shown, so correcting a Set can add or remove one. A Session in progress has the records its Sets set so far, so the User hears of one the moment they log it.
 _Avoid_: PR (in the code), achievement
 
 **Rep record**:
@@ -97,7 +101,7 @@ A Personal record by weight at the same reps: the heaviest Set at a rep count, b
 _Avoid_: Rep PR, rep max
 
 **Record tier**:
-How close a Set came to the User's best Estimated 1RM for its Exercise before its Session: gold, silver, bronze or none. Gold is a Set holding a Personal record of either kind; any other Set with weight is silver at 97.5% of that best or more (a tie, or beating it without being the Session's record, is silver), and bronze at 95%. The best is the highest among the Exercise's Sets with weight in the User's finished Sessions before this one, so a later record never changes an earlier Session's tiers; with no such Set, only a Personal record has a tier. An Exercise's first Session and Sets at weight 0 have none. Like Personal records, it is worked out from Sets when shown.
+How close a Set came to the User's best Estimated 1RM for its Exercise before its Session: gold, silver, bronze or none. Gold is a Set holding a Personal record of either kind; any other Set with weight is silver at 97.5% of that best or more (a tie, or beating it without being the Session's record, is silver), and bronze at 95%. The best is the highest among the Exercise's working Sets with weight in the User's finished Sessions before this one, so a later record never changes an earlier Session's tiers; with no such Set, only a Personal record has a tier. An Exercise's first Session, warm-ups and Sets at weight 0 have none. Like Personal records, it is worked out from Sets when shown.
 _Avoid_: Medal (as the term), rank, grade
 
 **Rest timer**:
@@ -171,7 +175,7 @@ A Post exported as 4:5 images to save to Photos and post on Instagram, in order:
 _Avoid_: Slides, gallery, export (as the term)
 
 **Session summary**:
-A finished Session written out as text, to paste anywhere, such as into a chat with an AI: its title, date, duration and Volume, every Exercise with every Set (weight × reps, and the RPE and note when there are any), then its Personal records. Weights are in the User's Unit preference. It leaves out the caption and Progress photo, which are the Post's, and never shortens anything.
+A finished Session written out as text, to paste anywhere, such as into a chat with an AI: its title, date, duration and Volume, every Exercise with every Set (weight × reps, and its Set type when not normal, and the RPE and note when there are any), then its Personal records. Weights are in the User's Unit preference. It leaves out the caption and Progress photo, which are the Post's, and never shortens anything.
 _Avoid_: Export, report, log (as the term)
 
 **Progress photo**:
