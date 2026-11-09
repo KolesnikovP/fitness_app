@@ -53,7 +53,7 @@ export function FinishedSessionScreen() {
   }
 
   return (
-    <Screen title="Workout finished">
+    <Screen headerTitle="Workout finished">
       {post ? <FinishedWorkoutForm post={post} onSaved={setPost} /> : null}
       {freeform !== 'false' ? (
         <>

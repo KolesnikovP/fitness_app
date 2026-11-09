@@ -3,6 +3,7 @@ import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-rout
 import { Alert } from 'react-native';
 
 import { fakeApi } from './support/fake-api';
+import { findHeaderTitle, queryHeaderTitle } from './support/native-header';
 import { secureStore } from './support/secure-store';
 import { loggedSets } from './support/set-table';
 
@@ -21,7 +22,7 @@ async function openWorkoutTab(accountId?: string) {
  */
 async function addSlot(search: string, name: string) {
   await fireEvent.press(screen.getByRole('button', { name: 'Add exercises' }));
-  await screen.findByRole('header', { name: 'Add exercises' });
+  await findHeaderTitle('Add exercises');
   // Jest mounts every tab, so the Exercises tab's search is also on screen.
   const picker = within(screen.getByLabelText('Exercise picker'));
   await fireEvent.changeText(picker.getByLabelText('Search exercises'), search);
@@ -36,7 +37,7 @@ describe('routines', () => {
     expect(await screen.findByText('No routines yet.')).toBeVisible();
 
     await fireEvent.press(screen.getByRole('button', { name: 'New routine' }));
-    await screen.findByRole('header', { name: 'New routine' });
+    await findHeaderTitle('New routine');
     await fireEvent.changeText(screen.getByLabelText('Routine name'), 'Push day');
     // Nothing to save until it has an exercise.
     expect(screen.getByRole('button', { name: 'Save routine' })).toBeDisabled();
@@ -76,13 +77,13 @@ describe('routines', () => {
     });
 
     await fireEvent.press(list.getByRole('button', { name: 'Push day' }));
-    await screen.findByRole('header', { name: 'Push day' });
+    await findHeaderTitle('Push day');
     expect(screen.getByText('3 × 5 · 100 kg')).toBeVisible();
     expect(screen.getByText('Rest 3:00 · Pause on the chest')).toBeVisible();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Start workout' }));
 
-    await screen.findByRole('header', { name: 'Current workout' });
+    await findHeaderTitle('Current workout');
     const benchCard = within(screen.getByLabelText('Bench Press card'));
     expect(benchCard.getByText('Target 3 × 5 · 100 kg')).toBeVisible();
     expect(benchCard.getByText('Pause on the chest')).toBeVisible();
@@ -118,7 +119,7 @@ describe('routines', () => {
 
     // A workout from a routine is already one: no offer to save it as one.
     await screen.findByRole('header', { name: 'Workout' });
-    expect(screen.queryByRole('header', { name: 'Workout finished' })).toBeNull();
+    expect(queryHeaderTitle('Workout finished')).toBeNull();
     await act(async () => router.navigate('/profile'));
     expect(
       await within(await screen.findByLabelText('Workouts')).findByText('Bench Press, Overhead Press'),
@@ -145,7 +146,7 @@ describe('routines', () => {
 
     // Picked from the library, starting at exercises for the same muscles.
     await fireEvent.press(bench.getByRole('button', { name: 'Add substitutes' }));
-    await screen.findByRole('header', { name: 'Add substitutes' });
+    await findHeaderTitle('Add substitutes');
     const picker = within(screen.getByLabelText('Exercise picker'));
     expect(picker.getByRole('radio', { name: 'Chest' })).toBeChecked();
     await waitFor(() =>
@@ -194,11 +195,11 @@ describe('routines', () => {
     ]);
 
     await fireEvent.press(within(screen.getByLabelText('Routines')).getByRole('button', { name: 'Push day' }));
-    await screen.findByRole('header', { name: 'Push day' });
+    await findHeaderTitle('Push day');
     expect(screen.getByText('Substitutes: Dumbbell Bench Press, Push-up')).toBeVisible();
     await fireEvent.press(screen.getByRole('button', { name: 'Start workout' }));
 
-    await screen.findByRole('header', { name: 'Current workout' });
+    await findHeaderTitle('Current workout');
     let card = within(screen.getByLabelText('Bench Press card'));
     await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
     await waitFor(() => expect(loggedSets(card)).toEqual(['100 kg × 5']));
@@ -269,7 +270,7 @@ describe('routines', () => {
     expect(screen.queryByLabelText('Exercise picker')).toBeNull();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Add exercises' }));
-    await screen.findByRole('header', { name: 'Add exercises' });
+    await findHeaderTitle('Add exercises');
     const picker = within(screen.getByLabelText('Exercise picker'));
     expect(screen.getByRole('button', { name: 'Add exercises' })).toBeDisabled();
     await fireEvent.changeText(picker.getByLabelText('Search exercises'), 'press');
@@ -281,7 +282,7 @@ describe('routines', () => {
     await fireEvent.press(await picker.findByRole('checkbox', { name: 'Back Squat' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Add 2 exercises' }));
 
-    await screen.findByRole('header', { name: 'New routine' });
+    await findHeaderTitle('New routine');
     // The name typed before picking is still there.
     expect(screen.getByLabelText('Routine name')).toHaveDisplayValue('Full body');
     const slots = screen.getAllByLabelText(/ slot$/).map((slot) => slot.props.accessibilityLabel);
@@ -306,7 +307,7 @@ describe('routines', () => {
     await screen.findByRole('header', { name: 'Workout' });
     expect(fakeApi.routines(accountId)[0].slots.map((s) => s.targetWeight)).toEqual([0, 30]);
     await fireEvent.press(within(await screen.findByLabelText('Routines')).getByRole('button', { name: 'First day' }));
-    await screen.findByRole('header', { name: 'First day' });
+    await findHeaderTitle('First day');
     expect(screen.getByText('3 × 8')).toBeVisible();
     // Only the exercise with no weight is asked about.
     const starting = within(screen.getByLabelText('Starting weights'));
@@ -315,7 +316,7 @@ describe('routines', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'Start workout' }));
 
-    await screen.findByRole('header', { name: 'Current workout' });
+    await findHeaderTitle('Current workout');
     const card = within(screen.getByLabelText('Back Squat card'));
     expect(card.getByText('Target 3 × 8 · 60 kg')).toBeVisible();
     expect(card.getByLabelText('Set 1 weight (kg)')).toHaveDisplayValue('60');
@@ -331,7 +332,7 @@ describe('routines', () => {
 
     await fireEvent.press(await screen.findByRole('button', { name: 'Start workout' }));
 
-    await screen.findByRole('header', { name: 'Current workout' });
+    await findHeaderTitle('Current workout');
     const card = within(screen.getByLabelText('Back Squat card'));
     expect(card.getByText('Target 3 × 10')).toBeVisible();
     expect(card.getByLabelText('Set 1 weight (kg)')).toHaveDisplayValue('');
@@ -365,7 +366,7 @@ describe('routines', () => {
     await fireEvent.press(within(await screen.findByLabelText('Routines')).getByRole('button', { name: 'Pull day' }));
     await fireEvent.press(await screen.findByRole('button', { name: 'Start workout' }));
 
-    await screen.findByRole('header', { name: 'Current workout' });
+    await findHeaderTitle('Current workout');
     const superset = within(screen.getByLabelText('Superset of Lat Pulldown and Overhead Press'));
     expect(superset.getByText('Next: Lat Pulldown')).toBeVisible();
   });
@@ -377,7 +378,7 @@ describe('routines', () => {
     await fireEvent.press(within(await screen.findByLabelText('Routines')).getByRole('button', { name: 'Push day' }));
     await fireEvent.press(await screen.findByRole('button', { name: 'Edit routine' }));
 
-    await screen.findByRole('header', { name: 'Edit routine' });
+    await findHeaderTitle('Edit routine');
     expect(screen.getByLabelText('Routine name')).toHaveDisplayValue('Push day');
     expect(within(screen.getByLabelText('Bench Press slot')).getByLabelText('Weight (kg)')).toHaveDisplayValue('50');
     await fireEvent.changeText(screen.getByLabelText('Routine name'), 'Push day B');
@@ -385,12 +386,12 @@ describe('routines', () => {
     await fireEvent.press(within(screen.getByLabelText('Plank slot')).getByRole('button', { name: 'Move up' }));
     await fireEvent.changeText(within(screen.getByLabelText('Bench Press slot')).getByLabelText('Sets'), '5');
     await addSlot('deadlift', 'Deadlift');
-    await screen.findByRole('header', { name: 'Edit routine' });
+    await findHeaderTitle('Edit routine');
     // Edits made before picking are kept.
     expect(screen.getByLabelText('Routine name')).toHaveDisplayValue('Push day B');
     await fireEvent.press(screen.getByRole('button', { name: 'Save routine' }));
 
-    await screen.findByRole('header', { name: 'Push day B' });
+    await findHeaderTitle('Push day B');
     const plan = within(screen.getByLabelText('Planned exercises'));
     expect(plan.getByText('Bench Press')).toBeVisible();
     expect(plan.queryByText('Overhead Press')).toBeNull();
@@ -406,7 +407,7 @@ describe('routines', () => {
     fakeApi.addRoutine(accountId, 'Push day', ['Bench Press']);
     await openWorkoutTab(accountId);
     await fireEvent.press(within(await screen.findByLabelText('Routines')).getByRole('button', { name: 'Push day' }));
-    await screen.findByRole('header', { name: 'Push day' });
+    await findHeaderTitle('Push day');
     // Confirm the dialog by choosing its destructive button.
     jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
       buttons?.find((b) => b.style === 'destructive')?.onPress?.();
@@ -427,11 +428,11 @@ describe('routines', () => {
     fakeApi.addSet(deadlift, 150, 'kg', 3);
     await openWorkoutTab(accountId);
     await fireEvent.press(await screen.findByRole('button', { name: 'Resume workout' }));
-    await screen.findByRole('header', { name: 'Current workout' });
+    await findHeaderTitle('Current workout');
 
     await fireEvent.press(screen.getByRole('button', { name: 'Finish workout' }));
 
-    await screen.findByRole('header', { name: 'Workout finished' });
+    await findHeaderTitle('Workout finished');
     expect(screen.getByRole('button', { name: 'Save as routine' })).toBeDisabled();
     await fireEvent.changeText(screen.getByLabelText('Routine name'), 'Heavy pulls');
     await fireEvent.press(screen.getByRole('button', { name: 'Save as routine' }));
@@ -451,7 +452,7 @@ describe('routines', () => {
     await openWorkoutTab(accountId);
     await fireEvent.press(await screen.findByRole('button', { name: 'Resume workout' }));
     await fireEvent.press(await screen.findByRole('button', { name: 'Finish workout' }));
-    await screen.findByRole('header', { name: 'Workout finished' });
+    await findHeaderTitle('Workout finished');
 
     await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
 
@@ -472,7 +473,7 @@ describe('routines', () => {
     await fireEvent.press(await screen.findByRole('button', { name: 'Resume workout' }));
     await fireEvent.press(await screen.findByRole('button', { name: 'Finish workout' }));
 
-    await screen.findByRole('header', { name: 'Workout finished' });
+    await findHeaderTitle('Workout finished');
     const records = within(await screen.findByLabelText('Personal records'));
     expect(await records.findByText('Deadlift: Estimated 1RM 168 kg, from 140 kg × 6')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Save as routine' })).toBeNull();

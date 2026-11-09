@@ -3,6 +3,7 @@ import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-rout
 
 import { fakeApi } from './support/fake-api';
 import { imagePicker } from './support/image-picker';
+import { findHeaderTitle } from './support/native-header';
 import { secureStore } from './support/secure-store';
 
 /** Launches the app signed in as an onboarded user, on the Exercises tab. */
@@ -89,7 +90,7 @@ describe('exercise library', () => {
 
     await fireEvent.press(await screen.findByRole('button', { name: 'Deadlift' }));
 
-    expect(await screen.findByRole('header', { name: 'Deadlift' })).toBeVisible();
+    await findHeaderTitle('Deadlift');
     const header = within(screen.getByLabelText('About this exercise'));
     expect(header.getByText('Barbell')).toBeVisible();
     expect(header.getByText('Primary: Back')).toBeVisible();
@@ -105,7 +106,7 @@ describe('exercise library', () => {
 
     await act(async () => router.navigate(`/exercises/${exercise.id}`));
 
-    expect(await screen.findByRole('header', { name: 'Spoto Press' })).toBeVisible();
+    await findHeaderTitle('Spoto Press');
     const header = within(screen.getByLabelText('About this exercise'));
     expect(header.getByText('Primary: Chest')).toBeVisible();
     expect(header.getByText('Secondary: Triceps, Shoulders')).toBeVisible();
@@ -119,7 +120,7 @@ describe('exercise library', () => {
     });
 
     await act(async () => router.navigate(`/exercises/${exercise.id}`));
-    await screen.findByRole('header', { name: 'Spoto Press' });
+    await findHeaderTitle('Spoto Press');
 
     expect(screen.getByRole('tab', { name: 'Performance' })).toBeSelected();
     expect(screen.getByRole('tab', { name: 'How to' })).not.toBeSelected();
@@ -144,7 +145,7 @@ describe('exercise library', () => {
   it('says so on How to when an exercise has no Instructions or media', async () => {
     await openExercisesTab();
     await fireEvent.press(await screen.findByRole('button', { name: 'Deadlift' }));
-    await screen.findByRole('header', { name: 'Deadlift' });
+    await findHeaderTitle('Deadlift');
 
     await fireEvent.press(screen.getByRole('tab', { name: 'How to' }));
 
@@ -216,7 +217,7 @@ describe('exercise library', () => {
     const account = await openExercisesTab();
 
     await fireEvent.press(await screen.findByRole('button', { name: 'New exercise' }));
-    expect(await screen.findByRole('header', { name: 'New exercise' })).toBeVisible();
+    await findHeaderTitle('New exercise');
     const save = screen.getByRole('button', { name: 'Save exercise' });
     expect(save).toBeDisabled();
 
@@ -226,7 +227,7 @@ describe('exercise library', () => {
     await fireEvent.press(save);
 
     // Saving opens the new exercise.
-    expect(await screen.findByRole('header', { name: 'Belt Squat' })).toBeVisible();
+    await findHeaderTitle('Belt Squat');
     expect(screen.getByText('Custom')).toBeVisible();
     expect(fakeApi.customExercises(account.id)).toEqual([
       expect.objectContaining({ name: 'Belt Squat', secondaryMuscles: [], instructions: [] }),
@@ -241,7 +242,7 @@ describe('exercise library', () => {
   it('creates a custom exercise with Secondary muscles and Instructions', async () => {
     const account = await openExercisesTab();
     await fireEvent.press(await screen.findByRole('button', { name: 'New exercise' }));
-    await screen.findByRole('header', { name: 'New exercise' });
+    await findHeaderTitle('New exercise');
 
     await fireEvent.changeText(screen.getByLabelText('Name'), 'Spoto Press');
     await fireEvent.press(chip('Muscle group', 'Chest'));
@@ -262,7 +263,7 @@ describe('exercise library', () => {
     );
     await fireEvent.press(screen.getByRole('button', { name: 'Save exercise' }));
 
-    expect(await screen.findByRole('header', { name: 'Spoto Press' })).toBeVisible();
+    await findHeaderTitle('Spoto Press');
     expect(fakeApi.customExercises(account.id)).toEqual([
       expect.objectContaining({
         secondaryMuscles: ['triceps', 'shoulders'],
@@ -274,7 +275,7 @@ describe('exercise library', () => {
   it('does not send a muscle chosen as secondary and then as primary as secondary', async () => {
     const account = await openExercisesTab();
     await fireEvent.press(await screen.findByRole('button', { name: 'New exercise' }));
-    await screen.findByRole('header', { name: 'New exercise' });
+    await findHeaderTitle('New exercise');
 
     await fireEvent.changeText(screen.getByLabelText('Name'), 'Close-grip Press');
     await fireEvent.press(
@@ -284,7 +285,7 @@ describe('exercise library', () => {
     await fireEvent.press(chip('Equipment', 'Barbell'));
     await fireEvent.press(screen.getByRole('button', { name: 'Save exercise' }));
 
-    expect(await screen.findByRole('header', { name: 'Close-grip Press' })).toBeVisible();
+    await findHeaderTitle('Close-grip Press');
     expect(fakeApi.customExercises(account.id)).toEqual([
       expect.objectContaining({ muscleGroup: 'triceps', secondaryMuscles: [] }),
     ]);
@@ -296,7 +297,7 @@ describe('exercise library', () => {
     imagePicker.nextPick = { uri: 'file:///photos/sled.gif', mimeType: 'image/gif', fileName: 'sled.gif' };
 
     await act(async () => router.navigate(`/exercises/${exercise.id}`));
-    await screen.findByRole('header', { name: 'Sled Push' });
+    await findHeaderTitle('Sled Push');
     await fireEvent.press(screen.getByRole('tab', { name: 'How to' }));
     expect(screen.queryByLabelText('Sled Push animated demo')).toBeNull();
 

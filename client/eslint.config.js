@@ -107,6 +107,19 @@ module.exports = defineConfig([
   { files: ['scripts/**', 'eslint.config.js'], languageOptions: { globals: globals.node } },
   { files: ['src/**'], rules: { 'import/no-restricted-paths': ['error', { zones: layerZones }] } },
   {
+    files: ['src/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'Property[key.name=/^headerLargeTitle(Enabled)?$/]',
+          message:
+            "Large titles freeze iOS with Screen's layout when pushed from a screen without a top bar (a native layout loop Jest can't see). Pass headerTitle to Screen for the regular top-bar title.",
+        },
+      ],
+    },
+  },
+  {
     files: ['__tests__/**'],
     rules: {
       'no-restricted-syntax': ['error', ...['name', 'property.name'].map(vacuousHiddenAssertion)],

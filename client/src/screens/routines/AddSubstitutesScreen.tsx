@@ -63,7 +63,7 @@ export function AddSubstitutesScreen() {
   const label = count === 0 ? 'Add substitutes' : `Add ${count} ${count === 1 ? 'substitute' : 'substitutes'}`;
 
   return (
-    <Screen title="Add substitutes" footer={<Button label={label} onPress={add} disabled={count === 0} />}>
+    <Screen headerTitle="Add substitutes" footer={<Button label={label} onPress={add} disabled={count === 0} />}>
       {error ? (
         <Text accessibilityRole="alert" style={styles.error}>
           {error}

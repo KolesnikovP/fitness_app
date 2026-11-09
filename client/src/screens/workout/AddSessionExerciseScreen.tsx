@@ -32,7 +32,7 @@ export function AddSessionExerciseScreen() {
   }
 
   return (
-    <Screen title="Add exercise">
+    <Screen headerTitle="Add exercise">
       {error ? (
         <Text accessibilityRole="alert" style={styles.error}>
           {error}
