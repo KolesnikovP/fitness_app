@@ -16,12 +16,13 @@ import (
 	"github.com/KolesnikovP/fitness_app/backend/internal/workout/store"
 )
 
-// Stats are worked out from a finished Session's Sets each time they're read,
-// never stored (ADR 0007). Volume is the sum of weight × reps over its Sets,
+// Stats are worked out from a finished Session's working Sets each time
+// they're read, never stored (ADR 0007): warm-ups count toward none. Volume
+// is the sum of weight × reps over its Sets,
 // in VolumeUnit, the User's Unit preference; a Set logged in the other unit
 // is converted, and a Set at weight 0 adds nothing. ExerciseCount is how many
-// different Exercises it lists, and SetCount how many Sets were logged in it,
-// at weight 0 too.
+// different Exercises it lists, and SetCount how many working Sets were
+// logged in it, at weight 0 too.
 type Stats struct {
 	DurationSeconds int64   `json:"durationSeconds"`
 	Volume          float64 `json:"volume"`
@@ -115,8 +116,11 @@ func (h handlers) sessionStats(ctx context.Context, caller uuid.UUID, session Se
 			exerciseIDs = append(exerciseIDs, e.ExerciseID)
 		}
 		for _, s := range e.Sets {
-			sets = append(sets, loggedSet{exerciseID: s.ExerciseID, weight: s.Weight, weightUnit: s.WeightUnit, reps: s.Reps})
 			exerciseIDs = append(exerciseIDs, s.ExerciseID)
+			if s.Type == "warmup" {
+				continue
+			}
+			sets = append(sets, loggedSet{exerciseID: s.ExerciseID, weight: s.Weight, weightUnit: s.WeightUnit, reps: s.Reps})
 		}
 	}
 	slices.SortFunc(exerciseIDs, func(a, b uuid.UUID) int { return cmp.Compare(a.String(), b.String()) })

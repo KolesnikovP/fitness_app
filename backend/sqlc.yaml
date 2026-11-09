@@ -59,6 +59,7 @@ sql:
       - migrations/00006_programs.sql
       - migrations/00007_substitutes.sql
       - migrations/00009_session_names.sql
+      - migrations/00012_set_types.sql
     queries: internal/workout/queries.sql
     gen:
       go:

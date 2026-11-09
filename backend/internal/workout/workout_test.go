@@ -240,11 +240,36 @@ func TestLogSet(t *testing.T) {
 		}
 	})
 
+	t.Run("logs a Set type, normal unless given", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		bench := addExercise(t, srv, token, id, "Bench Press")
+		path := "/workouts/sessions/" + id + "/exercises/" + bench + "/sets"
+
+		testutil.Do(t, srv, http.MethodPost, path, token, map[string]any{"weight": 60, "weightUnit": "kg", "reps": 10})
+		var res testutil.Response
+		for _, setType := range []string{"warmup", "normal", "failure", "drop"} {
+			res = testutil.Do(t, srv, http.MethodPost, path, token,
+				map[string]any{"weight": 60, "weightUnit": "kg", "reps": 10, "type": setType})
+			if res.Status != http.StatusCreated {
+				t.Fatalf("log %s set: status = %d, want 201; body %v", setType, res.Status, res.Body)
+			}
+		}
+
+		sets := objects(t, sessionExercises(t, res)[0], "sets")
+		for i, want := range []string{"normal", "warmup", "normal", "failure", "drop"} {
+			if sets[i]["type"] != want {
+				t.Errorf("set %d type = %v, want %s", i+1, sets[i]["type"], want)
+			}
+		}
+	})
+
 	for _, tc := range []struct {
 		name string
 		body map[string]any
 		code string
 	}{
+		{"unknown Set type", map[string]any{"weight": 100, "weightUnit": "kg", "reps": 5, "type": "cooldown"}, "invalid_set_type"},
 		{"missing weight", map[string]any{"weightUnit": "kg", "reps": 5}, "invalid_weight"},
 		{"negative weight", map[string]any{"weight": -1, "weightUnit": "kg", "reps": 5}, "invalid_weight"},
 		{"weight too large", map[string]any{"weight": 10000, "weightUnit": "kg", "reps": 5}, "invalid_weight"},
@@ -735,6 +760,24 @@ func TestEditSet(t *testing.T) {
 		}
 	})
 
+	t.Run("corrects a Set's type, and a blank type makes it normal", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		setID := logOneSet(t, srv, token, id)
+		path := "/workouts/sessions/" + id + "/sets/" + setID
+
+		res := testutil.Do(t, srv, http.MethodPatch, path, token,
+			map[string]any{"weight": 100, "weightUnit": "kg", "reps": 5, "type": "warmup"})
+		if got := objects(t, sessionExercises(t, res)[0], "sets")[0]["type"]; got != "warmup" {
+			t.Fatalf("type = %v, want warmup", got)
+		}
+
+		res = testutil.Do(t, srv, http.MethodPatch, path, token, map[string]any{"weight": 100, "weightUnit": "kg", "reps": 5})
+		if got := objects(t, sessionExercises(t, res)[0], "sets")[0]["type"]; got != "normal" {
+			t.Fatalf("type = %v, want normal", got)
+		}
+	})
+
 	t.Run("validates the set as logging does", func(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
 		id := startSession(t, srv, token)
@@ -1033,6 +1076,24 @@ func TestSaveSessionAsRoutine(t *testing.T) {
 		list := testutil.Do(t, srv, http.MethodGet, "/routines", token, nil)
 		if routines := objects(t, list.Body, "routines"); len(routines) != 1 || routines[0]["id"] != res.Body["id"] {
 			t.Errorf("routines = %v, want the new one", routines)
+		}
+	})
+
+	t.Run("plans from the normal and failure Sets, leaving out warm-ups and drops", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		bench := addExercise(t, srv, token, id, "Bench Press")
+		logTypedSet(t, srv, token, id, bench, 60, 10, "warmup")
+		logTypedSet(t, srv, token, id, bench, 100, 5, "normal")
+		logTypedSet(t, srv, token, id, bench, 100, 4, "failure")
+		logTypedSet(t, srv, token, id, bench, 80, 8, "drop")
+		finishSession(t, srv, token, id)
+
+		res := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions/"+id+"/routine", token,
+			map[string]any{"name": "Bench day"})
+
+		if b := objects(t, res.Body, "slots")[0]; b["targetSets"] != 2.0 || b["targetReps"] != 4.0 || b["targetWeight"] != 100.0 {
+			t.Errorf("Bench Press slot = %v, want 2 x 4 at 100 kg", b)
 		}
 	})
 

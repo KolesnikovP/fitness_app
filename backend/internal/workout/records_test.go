@@ -36,6 +36,25 @@ func TestPersonalRecords(t *testing.T) {
 		}
 	})
 
+	t.Run("a warm-up neither sets a record nor has to be beaten", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		first := startSession(t, srv, token)
+		bench := addExercise(t, srv, token, first, "Bench Press")
+		logTypedSet(t, srv, token, first, bench, 120, 5, "warmup")
+		logTypedSet(t, srv, token, first, bench, 100, 5, "normal")
+		finishSession(t, srv, token, first)
+		second := startSession(t, srv, token)
+		bench = addExercise(t, srv, token, second, "Bench Press")
+		logTypedSet(t, srv, token, second, bench, 130, 5, "warmup")
+		logTypedSet(t, srv, token, second, bench, 105, 5, "drop")
+		finishSession(t, srv, token, second)
+
+		if got, want := sessionRecords(t, srv, token, second),
+			"[Bench Press estimated1RM 105kg×5 Bench Press reps 105kg×5]"; got != want {
+			t.Errorf("records = %s, want %s: the drop Set beats 100 kg, and no warm-up counts", got, want)
+		}
+	})
+
 	t.Run("sets at weight 0 set none", func(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
 		logWorkout(t, srv, token, "Pull-up", set{0, "kg", 8})

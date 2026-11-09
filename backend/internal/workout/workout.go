@@ -134,7 +134,8 @@ type Target struct {
 // Weight is in WeightUnit, the unit it was logged in. RPE is null when the
 // User left it blank. SupersetID is the Superset its exercise was in when it
 // was logged, if any. RecordTier is its Record tier: "gold", "silver",
-// "bronze", or null for none.
+// "bronze", or null for none; a warm-up never has one. Type is its Set type:
+// "normal", "warmup", "failure" or "drop".
 type Set struct {
 	ID         uuid.UUID   `json:"id"`
 	ExerciseID uuid.UUID   `json:"exerciseId"`
@@ -146,6 +147,7 @@ type Set struct {
 	Note       string      `json:"note"`
 	SupersetID *uuid.UUID  `json:"supersetId"`
 	RecordTier *RecordTier `json:"recordTier"`
+	Type       string      `json:"type"`
 }
 
 // SessionSummary is a finished Session as a list of them shows it. Name,
@@ -567,7 +569,12 @@ type setBody struct {
 	Reps       *int     `json:"reps"`
 	RPE        *float64 `json:"rpe"`
 	Note       string   `json:"note"`
+	// Type is the Set type; blank is a normal Set.
+	Type string `json:"type"`
 }
+
+// setTypes are the Set types the session_sets CHECK constraint allows.
+var setTypes = []string{"normal", "warmup", "failure", "drop"}
 
 // Limits matching the session_sets CHECK constraints.
 const (
@@ -593,6 +600,7 @@ type setValues struct {
 	reps       int32
 	rpe        *float64
 	note       string
+	setType    string
 }
 
 // validSet decodes and validates a Set from the request body. If it's not
@@ -620,12 +628,21 @@ func validSet(w http.ResponseWriter, r *http.Request) (setValues, bool) {
 			fmt.Sprintf("RPE must be from %d to %d in half steps, or left blank.", minRPE, maxRPE))
 		return setValues{}, false
 	}
+	if body.Type == "" {
+		body.Type = "normal"
+	}
+	if !slices.Contains(setTypes, body.Type) {
+		httpx.WriteError(w, http.StatusBadRequest, "invalid_set_type",
+			`type must be "normal", "warmup", "failure" or "drop", or left blank.`)
+		return setValues{}, false
+	}
 	note, ok := validNote(w, body.Note)
 	if !ok {
 		return setValues{}, false
 	}
 	return setValues{
 		weight: *body.Weight, weightUnit: body.WeightUnit, reps: int32(*body.Reps), rpe: body.RPE, note: note,
+		setType: body.Type,
 	}, true
 }
 
@@ -647,6 +664,7 @@ func (h handlers) logSet(w http.ResponseWriter, r *http.Request) {
 			Reps:              set.reps,
 			Note:              set.note,
 			Rpe:               set.rpe,
+			SetType:           set.setType,
 			SessionExerciseID: sessionExerciseID,
 			SessionID:         sessionID,
 		})
@@ -677,7 +695,7 @@ func (h handlers) editSet(w http.ResponseWriter, r *http.Request) {
 	h.changeSession(w, r, http.StatusOK, func(q *store.Queries, sessionID uuid.UUID) error {
 		updated, err := q.UpdateSet(r.Context(), store.UpdateSetParams{
 			Weight: set.weight, WeightUnit: set.weightUnit, Reps: set.reps, Rpe: set.rpe, Note: set.note,
-			ID: setID, SessionID: sessionID,
+			SetType: set.setType, ID: setID, SessionID: sessionID,
 		})
 		if err != nil {
 			return fmt.Errorf("update set: %w", err)
@@ -889,8 +907,8 @@ func (h handlers) saveAsRoutine(w http.ResponseWriter, r *http.Request) {
 
 // routineInputOf describes a routine like session: a slot for each exercise
 // that has Sets, of the Exercise its last Set was done with, targeting as many
-// Sets as were logged at the last one's weight and reps, and the Supersets
-// that still have two or more such exercises.
+// of its planned Sets as were logged at the last one's weight and reps, and
+// the Supersets that still have two or more such exercises.
 func routineInputOf(name string, session Session) program.RoutineInput {
 	var logged []SessionExercise
 	supersetSizes := make(map[uuid.UUID]int)
@@ -907,10 +925,11 @@ func routineInputOf(name string, session Session) program.RoutineInput {
 	input := program.RoutineInput{Name: name, Slots: make([]program.SlotInput, len(logged))}
 	groups := make(map[uuid.UUID]int32)
 	for i, e := range logged {
-		last := e.Sets[len(e.Sets)-1]
+		planned := plannedSets(e.Sets)
+		last := planned[len(planned)-1]
 		slot := program.SlotInput{
-			ExerciseID:   last.ExerciseID,
-			TargetSets:   int32(min(len(e.Sets), program.MaxTargetSets)),
+			ExerciseID:   e.Sets[len(e.Sets)-1].ExerciseID,
+			TargetSets:   int32(min(len(planned), program.MaxTargetSets)),
 			TargetReps:   last.Reps,
 			TargetWeight: last.Weight,
 			WeightUnit:   last.WeightUnit,
@@ -925,6 +944,22 @@ func routineInputOf(name string, session Session) program.RoutineInput {
 		input.Slots[i] = slot
 	}
 	return input
+}
+
+// plannedSets are the Sets of sets a Target would plan: the normal and failure
+// ones, since a Target plans no warm-ups or drops. With none of those, it's
+// all of them.
+func plannedSets(sets []Set) []Set {
+	var planned []Set
+	for _, s := range sets {
+		if s.Type == "normal" || s.Type == "failure" {
+			planned = append(planned, s)
+		}
+	}
+	if len(planned) == 0 {
+		return sets
+	}
+	return planned
 }
 
 // errResponseWritten is returned by a changeSession callback that has
@@ -1052,7 +1087,7 @@ func (h handlers) loadSession(ctx context.Context, caller, id uuid.UUID) (Sessio
 	for _, s := range setRows {
 		sets[s.SessionExerciseID] = append(sets[s.SessionExerciseID], Set{
 			ID: s.ID, ExerciseID: s.ExerciseID, Name: names[s.ExerciseID], Weight: s.Weight, WeightUnit: s.WeightUnit, Reps: s.Reps, RPE: s.Rpe, Note: s.Note,
-			SupersetID: s.SupersetID,
+			SupersetID: s.SupersetID, Type: s.SetType,
 		})
 	}
 	session := Session{
@@ -1092,7 +1127,7 @@ func (h handlers) loadSession(ctx context.Context, caller, id uuid.UUID) (Sessio
 	var inProgress []store.ListFinishedSetsOfExercisesRow
 	for _, s := range setRows {
 		setExerciseIDs = append(setExerciseIDs, s.ExerciseID)
-		if session.FinishedAt == nil {
+		if session.FinishedAt == nil && s.SetType != "warmup" {
 			inProgress = append(inProgress, store.ListFinishedSetsOfExercisesRow{
 				SessionID: session.ID, ID: s.ID, ExerciseID: s.ExerciseID, Weight: s.Weight,
 				WeightUnit: s.WeightUnit, Reps: s.Reps,
