@@ -20,8 +20,8 @@ import { SetDeletedBar, usePendingSetDeletion } from '@/features/delete-set';
 import { RestTimer } from '@/features/rest-timer';
 import { CreateSupersetForm } from '@/features/superset';
 import { errorMessage } from '@/shared/api';
-import { Button, makeStyles, Screen, Spinner } from '@/shared/ui';
-import { SessionExerciseCard, SupersetBlock } from '@/widgets/session-exercise-card';
+import { Button, makeStyles, PrototypeSwitcher, Screen, Spinner } from '@/shared/ui';
+import { SessionExerciseCard, SET_TYPE_VARIANTS, SupersetBlock } from '@/widgets/session-exercise-card';
 
 /**
  * The workout in progress: its exercises and Supersets with their Sets, a
@@ -141,12 +141,11 @@ export function CurrentSessionScreen() {
     <Screen
       title="Current workout"
       footer={
-        justSet.length > 0 || deletion.pendingSetId ? (
-          <>
-            {justSet.length > 0 ? <NewRecordBanner records={justSet} onDismiss={() => setJustSet([])} /> : null}
-            {deletion.pendingSetId ? <SetDeletedBar onUndo={deletion.undo} /> : null}
-          </>
-        ) : null
+        <>
+          {justSet.length > 0 ? <NewRecordBanner records={justSet} onDismiss={() => setJustSet([])} /> : null}
+          {deletion.pendingSetId ? <SetDeletedBar onUndo={deletion.undo} /> : null}
+          <PrototypeSwitcher variants={SET_TYPE_VARIANTS} />
+        </>
       }
     >
       <Text style={styles.muted}>Started at {formatClockTime(session.startedAt)}</Text>

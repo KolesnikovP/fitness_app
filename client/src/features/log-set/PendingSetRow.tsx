@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
@@ -27,6 +27,8 @@ type PendingSetRowProps = {
   onChange: (draft: SetDraft) => void;
   weightUnit: UnitPreference;
   onLogged: (session: Session) => void;
+  /** PROTOTYPE: replaces the Set number cell. */
+  numberSlot?: ReactNode;
 };
 
 /**
@@ -41,6 +43,7 @@ export function PendingSetRow({
   onChange,
   weightUnit,
   onLogged,
+  numberSlot,
 }: PendingSetRowProps) {
   const styles = useStyles();
   const { state } = useAuth();
@@ -68,7 +71,11 @@ export function PendingSetRow({
   return (
     <View>
       <View style={setColumns.row}>
-        <Text style={[setColumns.number, styles.number]}>{number}</Text>
+        {numberSlot ? (
+          <View style={setColumns.number}>{numberSlot}</View>
+        ) : (
+          <Text style={[setColumns.number, styles.number]}>{number}</Text>
+        )}
         <View style={setColumns.weight}>
           <TextField
             dense

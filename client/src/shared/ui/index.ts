@@ -9,3 +9,4 @@ export { TextField } from './TextField';
 export { useThemedStackOptions } from './useThemedStackOptions';
 export { darkColors, lightColors, spacing, type Colors } from './theme';
 export { makeStyles, ThemeProvider, useTheme, type ColorScheme, type ThemePreference } from './ThemeProvider';
+export { PrototypeSwitcher, usePrototypeVariant } from './PrototypeSwitcher'; // PROTOTYPE

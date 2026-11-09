@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
@@ -18,7 +18,21 @@ import {
 } from '@/entities/workout';
 import { EditSetForm } from '@/features/edit-set';
 import { PendingSetRow } from '@/features/log-set';
-import { Button, makeStyles, spacing } from '@/shared/ui';
+import { Button, makeStyles, spacing, usePrototypeVariant } from '@/shared/ui';
+
+import {
+  DropIndent,
+  FailureLine,
+  letterNumber,
+  Rail,
+  SectionHeading,
+  sectionHeading,
+  sectionNumber,
+  SET_TYPE_VARIANTS,
+  TypeChips,
+  TypeNumberButton,
+  type SetType,
+} from './SetTypePrototype';
 
 type SetTableProps = {
   sessionId: string;
@@ -56,6 +70,44 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
   const pending = pendingSetCount(sessionExercise, added);
   const fresh = nextSetDraft(sessionExercise, unit);
 
+  // PROTOTYPE: Set types by position in the table, in memory only.
+  const variant = usePrototypeVariant(SET_TYPE_VARIANTS);
+  const [types, setTypes] = useState<SetType[]>([]);
+  const all: SetType[] = Array.from({ length: logged.length + pending }, (_, i) => types[i] ?? 'normal');
+  const setTypeAt = (i: number, type: SetType) =>
+    setTypes((current) => {
+      const next = [...current];
+      next[i] = type;
+      return next;
+    });
+  function numberSlot(i: number): ReactNode {
+    if (variant === 'C') return undefined;
+    const label = variant === 'A' ? letterNumber(all, i) : sectionNumber(all, i);
+    return <TypeNumberButton label={label} type={all[i]} onChange={(t) => setTypeAt(i, t)} />;
+  }
+  function frame(i: number, key: string, row: ReactNode) {
+    const type = all[i];
+    if (variant === 'B') {
+      const heading = sectionHeading(all, i);
+      return (
+        <View key={key}>
+          {heading ? <SectionHeading label={heading} /> : null}
+          {type === 'drop' ? <DropIndent>{row}</DropIndent> : row}
+          {type === 'failure' ? <FailureLine /> : null}
+        </View>
+      );
+    }
+    if (variant === 'C') {
+      return (
+        <View key={key}>
+          <Rail type={type}>{row}</Rail>
+          {i === logged.length ? <TypeChips type={type} onChange={(t) => setTypeAt(i, t)} /> : null}
+        </View>
+      );
+    }
+    return <View key={key}>{row}</View>;
+  }
+
   function changeDraft(index: number, draft: SetDraft) {
     setDrafts((current) => {
       const next = [...current];
@@ -83,47 +135,57 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
         <View key={`run-${r}`} style={styles.table}>
           {labelled ? <RunLabel name={run.name} /> : null}
           {run.sets.map(({ set, number }) =>
-            set.id === editingSetId ? (
-              <EditSetForm
-                key={set.id}
-                sessionId={sessionId}
-                set={set}
-                number={number}
-                onSaved={(session) => {
-                  setEditingSetId(null);
-                  onChange(session);
-                }}
-                onDelete={() => {
-                  setEditingSetId(null);
-                  onDeleteSet(set.id);
-                }}
-                onCancel={() => setEditingSetId(null)}
-              />
-            ) : (
-              <LoggedSetRow
-                key={set.id}
-                set={set}
-                number={number}
-                unit={unit}
-                onPress={() => setEditingSetId(set.id)}
-              />
+            frame(
+              number - 1,
+              set.id,
+              set.id === editingSetId ? (
+                <EditSetForm
+                  key={set.id}
+                  sessionId={sessionId}
+                  set={set}
+                  number={number}
+                  onSaved={(session) => {
+                    setEditingSetId(null);
+                    onChange(session);
+                  }}
+                  onDelete={() => {
+                    setEditingSetId(null);
+                    onDeleteSet(set.id);
+                  }}
+                  onCancel={() => setEditingSetId(null)}
+                />
+              ) : (
+                <LoggedSetRow
+                  key={set.id}
+                  set={set}
+                  number={number}
+                  unit={unit}
+                  onPress={() => setEditingSetId(set.id)}
+                  numberSlot={numberSlot(number - 1)}
+                />
+              ),
             ),
           )}
         </View>
       ))}
       {pendingLabel && pending > 0 ? <RunLabel name={sessionExercise.name} /> : null}
-      {Array.from({ length: pending }, (_, i) => (
-        <PendingSetRow
-          key={`pending-${i}`}
-          sessionId={sessionId}
-          sessionExerciseId={sessionExercise.id}
-          number={logged.length + i + 1}
-          draft={drafts[i] ?? fresh}
-          onChange={(draft) => changeDraft(i, draft)}
-          weightUnit={unit}
-          onLogged={(session) => onLogged(i, session)}
-        />
-      ))}
+      {Array.from({ length: pending }, (_, i) =>
+        frame(
+          logged.length + i,
+          `pending-${i}`,
+          <PendingSetRow
+            key={`pending-${i}`}
+            sessionId={sessionId}
+            sessionExerciseId={sessionExercise.id}
+            number={logged.length + i + 1}
+            draft={drafts[i] ?? fresh}
+            onChange={(draft) => changeDraft(i, draft)}
+            weightUnit={unit}
+            onLogged={(session) => onLogged(i, session)}
+            numberSlot={numberSlot(logged.length + i)}
+          />,
+        ),
+      )}
       <Button label="+ Add set" variant="link" onPress={() => setAdded((n) => n + 1)} />
     </View>
   );
@@ -145,6 +207,8 @@ type LoggedSetRowProps = {
   /** The table's unit; a Set logged in the other one says so. */
   unit: string;
   onPress: () => void;
+  /** PROTOTYPE: replaces the Set number. */
+  numberSlot?: ReactNode;
 };
 
 /**
@@ -152,7 +216,7 @@ type LoggedSetRowProps = {
  * note below. A Set with a Record tier is filled in the tier's colour, with
  * its medal by the Set number, and says its tier after its values.
  */
-function LoggedSetRow({ set, number, unit, onPress }: LoggedSetRowProps) {
+function LoggedSetRow({ set, number, unit, onPress, numberSlot }: LoggedSetRowProps) {
   const styles = useStyles();
   const tier = set.recordTier;
   const { fill, text } = useRecordTierColours(tier);
@@ -165,15 +229,22 @@ function LoggedSetRow({ set, number, unit, onPress }: LoggedSetRowProps) {
       style={({ pressed }) => pressed && styles.pressed}
     >
       <View style={[setColumns.row, styles.logged, fill]}>
-        <Text style={[setColumns.number, styles.number, text]}>
-          {number}
-          {tier ? (
-            <>
-              {' '}
-              <RecordTierMedal tier={tier} />
-            </>
-          ) : null}
-        </Text>
+        {numberSlot ? (
+          <View style={[setColumns.number, styles.slot]}>
+            {numberSlot}
+            {tier ? <RecordTierMedal tier={tier} /> : null}
+          </View>
+        ) : (
+          <Text style={[setColumns.number, styles.number, text]}>
+            {number}
+            {tier ? (
+              <>
+                {' '}
+                <RecordTierMedal tier={tier} />
+              </>
+            ) : null}
+          </Text>
+        )}
         <Text style={[setColumns.weight, styles.value, text]}>
           {set.weight}
           {set.weightUnit !== unit ? ` ${set.weightUnit}` : ''}
@@ -198,6 +269,7 @@ const useStyles = makeStyles((colors) => ({
   logged: { minHeight: 40, borderRadius: 8, backgroundColor: colors.successSubtle },
   runLabel: { fontSize: 13, fontWeight: '600', color: colors.text, paddingTop: spacing.xs },
   pressed: { opacity: 0.5 },
+  slot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   number: { fontSize: 17, color: colors.muted, textAlign: 'center' },
   value: { fontSize: 17, color: colors.text, textAlign: 'center' },
   // The box a row still to do shows, ticked.
