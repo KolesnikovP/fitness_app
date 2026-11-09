@@ -362,7 +362,7 @@ FROM session_sets s
 JOIN session_exercises e ON e.id = s.session_exercise_id
 JOIN workout_sessions w ON w.id = e.session_id
 WHERE w.account_id = $1 AND w.finished_at IS NOT NULL
-  AND s.exercise_id = ANY($2::uuid[])
+  AND s.exercise_id = ANY($2::uuid[]) AND s.set_type <> 'warmup'
 ORDER BY w.finished_at, w.id, s.created_at, s.id
 `
 
@@ -381,9 +381,10 @@ type ListFinishedSetsOfExercisesRow struct {
 	Reps       int32
 }
 
-// Every set the account logged of the exercises in its finished sessions, in
-// the order they were done: by session finished, then as logged. Personal
-// records are worked out from these.
+// Every working set the account logged of the exercises in its finished
+// sessions, in the order they were done: by session finished, then as logged.
+// Personal records, Record tiers and Bests are worked out from these; warm-ups
+// count toward none.
 func (q *Queries) ListFinishedSetsOfExercises(ctx context.Context, arg ListFinishedSetsOfExercisesParams) ([]ListFinishedSetsOfExercisesRow, error) {
 	rows, err := q.db.Query(ctx, listFinishedSetsOfExercises, arg.AccountID, arg.ExerciseIds)
 	if err != nil {
@@ -497,7 +498,7 @@ func (q *Queries) ListSessionExercises(ctx context.Context, sessionID uuid.UUID)
 
 const listSessionSets = `-- name: ListSessionSets :many
 SELECT s.id, s.session_exercise_id, s.exercise_id, s.weight::float8 AS weight, s.weight_unit, s.reps, s.note,
-       s.rpe, s.superset_id
+       s.rpe, s.superset_id, s.set_type
 FROM session_sets s
 JOIN session_exercises e ON e.id = s.session_exercise_id
 WHERE e.session_id = $1
@@ -514,6 +515,7 @@ type ListSessionSetsRow struct {
 	Note              string
 	Rpe               *float64
 	SupersetID        *uuid.UUID
+	SetType           string
 }
 
 func (q *Queries) ListSessionSets(ctx context.Context, sessionID uuid.UUID) ([]ListSessionSetsRow, error) {
@@ -535,6 +537,7 @@ func (q *Queries) ListSessionSets(ctx context.Context, sessionID uuid.UUID) ([]L
 			&i.Note,
 			&i.Rpe,
 			&i.SupersetID,
+			&i.SetType,
 		); err != nil {
 			return nil, err
 		}
@@ -550,7 +553,7 @@ const listSetsOfSessions = `-- name: ListSetsOfSessions :many
 SELECT e.session_id, s.exercise_id, s.weight::float8 AS weight, s.weight_unit, s.reps
 FROM session_sets s
 JOIN session_exercises e ON e.id = s.session_exercise_id
-WHERE e.session_id = ANY($1::uuid[])
+WHERE e.session_id = ANY($1::uuid[]) AND s.set_type <> 'warmup'
 ORDER BY s.created_at, s.id
 `
 
@@ -562,7 +565,8 @@ type ListSetsOfSessionsRow struct {
 	Reps       int32
 }
 
-// The sets logged in each of the sessions, for working out their stats.
+// The working sets logged in each of the sessions, for working out their
+// stats: warm-ups count toward none.
 func (q *Queries) ListSetsOfSessions(ctx context.Context, sessionIds []uuid.UUID) ([]ListSetsOfSessionsRow, error) {
 	rows, err := q.db.Query(ctx, listSetsOfSessions, sessionIds)
 	if err != nil {
@@ -647,11 +651,12 @@ func (q *Queries) LockSession(ctx context.Context, arg LockSessionParams) (*time
 }
 
 const logSet = `-- name: LogSet :execrows
-INSERT INTO session_sets (session_exercise_id, exercise_id, weight, weight_unit, reps, note, rpe, superset_id)
+INSERT INTO session_sets (session_exercise_id, exercise_id, weight, weight_unit, reps, note, rpe, superset_id,
+                          set_type)
 SELECT e.id, e.exercise_id, $1::float8, $2, $3, $4,
-       $5, e.superset_id
+       $5, e.superset_id, $6
 FROM session_exercises e
-WHERE e.id = $6 AND e.session_id = $7
+WHERE e.id = $7 AND e.session_id = $8
 `
 
 type LogSetParams struct {
@@ -660,6 +665,7 @@ type LogSetParams struct {
 	Reps              int32
 	Note              string
 	Rpe               *float64
+	SetType           string
 	SessionExerciseID uuid.UUID
 	SessionID         uuid.UUID
 }
@@ -674,6 +680,7 @@ func (q *Queries) LogSet(ctx context.Context, arg LogSetParams) (int64, error) {
 		arg.Reps,
 		arg.Note,
 		arg.Rpe,
+		arg.SetType,
 		arg.SessionExerciseID,
 		arg.SessionID,
 	)
@@ -797,9 +804,9 @@ func (q *Queries) UngroupSuperset(ctx context.Context, arg UngroupSupersetParams
 const updateSet = `-- name: UpdateSet :execrows
 UPDATE session_sets s
 SET weight = $1::float8, weight_unit = $2, reps = $3,
-    rpe = $4, note = $5
+    rpe = $4, note = $5, set_type = $6
 FROM session_exercises e
-WHERE s.id = $6 AND e.id = s.session_exercise_id AND e.session_id = $7
+WHERE s.id = $7 AND e.id = s.session_exercise_id AND e.session_id = $8
 `
 
 type UpdateSetParams struct {
@@ -808,6 +815,7 @@ type UpdateSetParams struct {
 	Reps       int32
 	Rpe        *float64
 	Note       string
+	SetType    string
 	ID         uuid.UUID
 	SessionID  uuid.UUID
 }
@@ -821,6 +829,7 @@ func (q *Queries) UpdateSet(ctx context.Context, arg UpdateSetParams) (int64, er
 		arg.Reps,
 		arg.Rpe,
 		arg.Note,
+		arg.SetType,
 		arg.ID,
 		arg.SessionID,
 	)

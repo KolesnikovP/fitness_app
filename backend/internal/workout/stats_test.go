@@ -44,6 +44,29 @@ func TestSessionStats(t *testing.T) {
 		wantStats(t, stats, 90*60, 953.6, "kg", 3, 4) // 500 kg + 1000 lb (453.59 kg)
 	})
 
+	t.Run("leaves warm-ups out of Volume and the set count", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		setUnitPreference(t, srv, token, "kg")
+		id := startSession(t, srv, token)
+		bench := addExercise(t, srv, token, id, "Bench Press")
+		logTypedSet(t, srv, token, id, bench, 60, 10, "warmup")
+		logTypedSet(t, srv, token, id, bench, 100, 5, "normal")
+		logTypedSet(t, srv, token, id, bench, 100, 4, "failure")
+		logTypedSet(t, srv, token, id, bench, 80, 5, "drop")
+		finishSession(t, srv, token, id)
+
+		list := testutil.Do(t, srv, http.MethodGet, "/workouts/sessions", token, nil)
+		detail := testutil.Do(t, srv, http.MethodGet, "/workouts/sessions/"+id, token, nil)
+
+		for name, stats := range map[string]map[string]any{
+			"list": statsOf(t, objects(t, list.Body, "sessions")[0]), "detail": statsOf(t, detail.Body),
+		} {
+			if stats["volume"] != 1300.0 || stats["setCount"] != 3.0 { // 500 + 400 + 400; not the 600 kg warm-up
+				t.Errorf("%s: volume = %v, setCount = %v, want 1300 kg over 3 sets", name, stats["volume"], stats["setCount"])
+			}
+		}
+	})
+
 	t.Run("shows Volume in the user's unit preference", func(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
 		setUnitPreference(t, srv, token, "lb")
@@ -200,6 +223,27 @@ func TestWeeklyTotals(t *testing.T) {
 		}
 	})
 
+	t.Run("leaves warm-ups out of the totals", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		setUnitPreference(t, srv, token, "kg")
+		id := startSession(t, srv, token)
+		bench := addExercise(t, srv, token, id, "Bench Press")
+		logTypedSet(t, srv, token, id, bench, 40, 10, "warmup")
+		logTypedSet(t, srv, token, id, bench, 50, 10, "normal")
+		finishSession(t, srv, token, id)
+		setSessionTimes(t, id, weekStart.Add(time.Hour), weekStart.Add(2*time.Hour))
+
+		res := testutil.Do(t, srv, http.MethodGet, totalsPath(weekStart, weekEnd), token, nil)
+
+		if res.Body["volume"] != 500.0 {
+			t.Errorf("volume = %v, want 500 kg, without the warm-up", res.Body["volume"])
+		}
+		got := fmt.Sprint(objects(t, res.Body, "setsPerMuscleGroup"))
+		if want := "[map[muscleGroup:chest sets:1]]"; got != want {
+			t.Errorf("setsPerMuscleGroup = %s, want %s", got, want)
+		}
+	})
+
 	t.Run("is empty for a week with no sessions", func(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
 
@@ -242,6 +286,17 @@ func logSetIn(t *testing.T, srv *httptest.Server, token, sessionID, sessionExerc
 		token, map[string]any{"weight": weight, "weightUnit": unit, "reps": reps})
 	if res.Status != http.StatusCreated {
 		t.Fatalf("log set: status %d, body %v", res.Status, res.Body)
+	}
+}
+
+// logTypedSet logs a set of weight kg × reps of the Set type setType.
+func logTypedSet(t *testing.T, srv *httptest.Server, token, sessionID, sessionExerciseID string, weight float64,
+	reps int, setType string) {
+	t.Helper()
+	res := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions/"+sessionID+"/exercises/"+sessionExerciseID+"/sets",
+		token, map[string]any{"weight": weight, "weightUnit": "kg", "reps": reps, "type": setType})
+	if res.Status != http.StatusCreated {
+		t.Fatalf("log %s set: status %d, body %v", setType, res.Status, res.Body)
 	}
 }
 

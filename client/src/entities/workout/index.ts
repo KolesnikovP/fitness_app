@@ -28,7 +28,10 @@ export {
   sessionBlocks,
   setDraftFromTarget,
   setDraftOf,
+  setMarks,
   setRuns,
+  SET_TYPES,
+  setTypeLabel,
   supersetProgress,
   swapChoices,
   swappedFrom,
@@ -50,6 +53,7 @@ export {
   type SessionTarget,
   type SetRun,
   type SetDraft,
+  type SetType,
   type SupersetProgress,
   weightInput,
   withoutSet,
@@ -82,5 +86,6 @@ export { PersonalRecordList } from './PersonalRecordList';
 export { RecordTierMedal, useRecordTierColours } from './RecordTier';
 export { SessionStatsLine } from './SessionStatsLine';
 export { SessionExerciseList } from './SessionExerciseList';
+export { SetTypeSelect } from './SetTypeSelect';
 export { SetFields } from './SetFields';
 export { setColumns } from './setColumns';

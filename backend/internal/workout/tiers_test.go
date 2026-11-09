@@ -24,6 +24,27 @@ func TestRecordTiers(t *testing.T) {
 		}
 	})
 
+	t.Run("a warm-up has no tier and doesn't raise the best", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		before := startSession(t, srv, token)
+		bench := addExercise(t, srv, token, before, "Bench Press")
+		logTypedSet(t, srv, token, before, bench, 100, 5, "normal")
+		logTypedSet(t, srv, token, before, bench, 130, 5, "warmup")
+		finishSession(t, srv, token, before)
+		today := startSession(t, srv, token)
+		bench = addExercise(t, srv, token, today, "Bench Press")
+		logTypedSet(t, srv, token, today, bench, 110, 5, "warmup")
+		logTypedSet(t, srv, token, today, bench, 100, 5, "failure")
+
+		if got, want := sessionTiers(t, srv, token, today), "[110kg×5 none 100kg×5 silver]"; got != want {
+			t.Errorf("tiers in progress = %s, want %s", got, want)
+		}
+		finishSession(t, srv, token, today)
+		if got, want := sessionTiers(t, srv, token, today), "[110kg×5 none 100kg×5 silver]"; got != want {
+			t.Errorf("tiers once finished = %s, want %s", got, want)
+		}
+	})
+
 	t.Run("a session in progress has its tiers as its sets are logged", func(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
 		logWorkout(t, srv, token, "Bench Press", set{100, "kg", 5})

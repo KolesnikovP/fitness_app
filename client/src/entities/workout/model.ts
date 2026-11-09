@@ -5,7 +5,7 @@ import type { ExerciseRef, UnitPreference } from '@/shared/model';
  * differs from its Session exercise's once that's swapped. weight is in
  * weightUnit, the unit it was logged in. rpe is null when left blank.
  * supersetId is the Superset it was logged in, if any. recordTier is its
- * Record tier, null for none.
+ * Record tier, null for none; a warm-up never has one. type is its Set type.
  */
 export type SessionSet = {
   id: string;
@@ -18,7 +18,42 @@ export type SessionSet = {
   note: string;
   supersetId: string | null;
   recordTier: RecordTier | null;
+  type: SetType;
 };
+
+/** What kind of round a Set was. Every Set but a warm-up is a working Set. */
+export type SetType = 'normal' | 'warmup' | 'failure' | 'drop';
+
+/**
+ * The Set types a User picks from, in order: what each is called, the letter
+ * that marks it in place of the Set number (none for normal), and what it
+ * means.
+ */
+export const SET_TYPES: readonly { type: SetType; label: string; letter: string | null; meaning: string }[] = [
+  { type: 'normal', label: 'Normal', letter: null, meaning: 'A working set' },
+  {
+    type: 'warmup',
+    label: 'Warm-up',
+    letter: 'W',
+    meaning: 'Lighter, to get ready. Counts toward no stats or records',
+  },
+  { type: 'failure', label: 'Failure', letter: 'F', meaning: 'Taken until no more reps were possible' },
+  { type: 'drop', label: 'Drop', letter: 'D', meaning: 'Straight after the set before, lighter, without rest' },
+];
+
+/**
+ * What marks each of a Session exercise's Sets, given their types in order:
+ * the letter of a warm-up, failure or drop Set, or a normal Set's number.
+ * Only normal and failure Sets are numbered, so warm-ups and drops take none:
+ * W, 1, D, F, 3.
+ */
+export function setMarks(types: SetType[]): string[] {
+  let number = 0;
+  return types.map((type) => {
+    if (type === 'normal' || type === 'failure') number++;
+    return SET_TYPES.find((t) => t.type === type)?.letter ?? String(number);
+  });
+}
 
 /**
  * How close a Set came to the User's best Estimated 1RM for its Exercise
@@ -276,24 +311,31 @@ export function withoutSet(session: Session, setId: string): Session {
 }
 
 /** A Set as the User is typing it, to log or to correct. */
-export type SetDraft = { weight: string; reps: string; rpe: number | null; note: string };
+export type SetDraft = { weight: string; reps: string; rpe: number | null; note: string; type: SetType };
 
-export const emptySetDraft: SetDraft = { weight: '', reps: '', rpe: null, note: '' };
+export const emptySetDraft: SetDraft = { weight: '', reps: '', rpe: null, note: '', type: 'normal' };
 
 /** A draft holding a logged Set, to correct it. */
 export function setDraftOf(set: SessionSet): SetDraft {
-  return { weight: String(set.weight), reps: String(set.reps), rpe: set.rpe, note: set.note };
+  return { weight: String(set.weight), reps: String(set.reps), rpe: set.rpe, note: set.note, type: set.type };
 }
 
 /** The Set a draft describes, in weightUnit, or null while it's incomplete. */
 export function parseSetDraft(
   draft: SetDraft,
   weightUnit: UnitPreference,
-): { weight: number; weightUnit: UnitPreference; reps: number; rpe: number | null; note: string } | null {
+): {
+  weight: number;
+  weightUnit: UnitPreference;
+  reps: number;
+  rpe: number | null;
+  note: string;
+  type: SetType;
+} | null {
   const weight = parseWeight(draft.weight);
   const reps = parseReps(draft.reps);
   if (weight === null || reps === null) return null;
-  return { weight, weightUnit, reps, rpe: draft.rpe, note: draft.note.trim() };
+  return { weight, weightUnit, reps, rpe: draft.rpe, note: draft.note.trim(), type: draft.type };
 }
 
 /** "32.5 kg × 10", or "32.5 kg × 10 @ RPE 8.5" */
@@ -302,12 +344,21 @@ export function formatSet(set: Pick<SessionSet, 'weight' | 'weightUnit' | 'reps'
   return set.rpe === null ? base : `${base} @ RPE ${set.rpe}`;
 }
 
+/** What a Set type is called: "Warm-up". */
+export function setTypeLabel(type: SetType): string {
+  return SET_TYPES.find((t) => t.type === type)?.label ?? 'Normal';
+}
+
 /**
- * A logged Set as a screen reader says it: its values, then its Record tier
- * if it has one. "100 kg × 5, Silver".
+ * A logged Set as a screen reader says it: its values, then its Set type
+ * unless normal, then its Record tier if it has one. "60 kg × 10, Warm-up",
+ * "100 kg × 5, Silver".
  */
 export function formatSetWithTier(set: SessionSet): string {
-  return set.recordTier ? `${formatSet(set)}, ${recordTierLabels[set.recordTier]}` : formatSet(set);
+  const parts = [formatSet(set)];
+  if (set.type !== 'normal') parts.push(setTypeLabel(set.type));
+  if (set.recordTier) parts.push(recordTierLabels[set.recordTier]);
+  return parts.join(', ');
 }
 
 /** "3 × 5 · 100 kg", or "3 × 5" with no weight (0) planned. */
@@ -368,15 +419,19 @@ export function nextSetDraft(exercise: SessionExercise, weightUnit: UnitPreferen
   return last ? { ...draft, weight: String(last.weight) } : draft;
 }
 
-/** Logged Sets of a Session exercise in a row done with one Exercise, each with its number in the exercise, from 1. */
-export type SetRun = { exerciseId: string; name: string; sets: { set: SessionSet; number: number }[] };
+/**
+ * Logged Sets of a Session exercise in a row done with one Exercise, each
+ * with its place in the exercise, from 1, and its mark (see setMarks).
+ */
+export type SetRun = { exerciseId: string; name: string; sets: { set: SessionSet; number: number; mark: string }[] };
 
 /** A Session exercise's logged Sets, in runs done with the same Exercise, as swaps split them. */
 export function setRuns(exercise: SessionExercise): SetRun[] {
   const runs: SetRun[] = [];
+  const marks = setMarks(exercise.sets.map((s) => s.type));
   exercise.sets.forEach((set, i) => {
     const last = runs.at(-1);
-    const entry = { set, number: i + 1 };
+    const entry = { set, number: i + 1, mark: marks[i] };
     if (last && last.exerciseId === set.exerciseId) last.sets.push(entry);
     else runs.push({ exerciseId: set.exerciseId, name: set.name, sets: [entry] });
   });

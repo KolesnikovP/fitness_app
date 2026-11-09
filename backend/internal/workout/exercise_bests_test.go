@@ -141,6 +141,28 @@ func TestExerciseBests(t *testing.T) {
 			t.Errorf("bests = %s, want %s", got, want)
 		}
 	})
+
+	t.Run("leaves warm-ups out of every Best", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		setUnitPreference(t, srv, token, "kg")
+		id := startSession(t, srv, token)
+		e := addExercise(t, srv, token, id, "Bench Press")
+		logTypedSet(t, srv, token, id, e, 150, 10, "warmup")
+		logTypedSet(t, srv, token, id, e, 100, 5, "normal")
+		finishSession(t, srv, token, id)
+
+		got := exerciseBests(t, srv, token, exerciseID(t, srv, token, "Bench Press"))
+
+		if want := strings.Join([]string{
+			"estimated1RM 116.7kg 100kg×5 " + id,
+			"heaviestWeight 100kg 100kg×5 " + id,
+			"setVolume 500kg 100kg×5 " + id,
+			"exerciseVolume 500kg " + id,
+			"mostReps 5 " + id,
+		}, "; "); got != want {
+			t.Errorf("bests =\n%s\nwant\n%s", got, want)
+		}
+	})
 }
 
 // exerciseBests returns the caller's Bests for an Exercise, from its records,

@@ -181,11 +181,8 @@ describe('freeform workout', () => {
       '95 kg × 5, Bronze',
       '100 kg × 3',
     ]);
-    const row = (n: number) => within(card.getByRole('button', { name: `Edit set ${n}` }));
-    expect(row(1).getByText('🏆')).toBeVisible();
-    expect(row(2).getByText('🥈')).toBeVisible();
-    expect(row(3).getByText('🥉')).toBeVisible();
-    expect(row(5).queryByText(/🏆|🥈|🥉/)).toBeNull();
+    // Each tiered row shows its medal by its mark, in order; the last has none.
+    expect(card.getAllByText(/^(🏆|🥈|🥉)$/).map((medal) => medal.props.children)).toEqual(['🏆', '🥈', '🥉', '🥉']);
   });
 
   it('accepts only numbers for weight and reps', async () => {
@@ -245,6 +242,87 @@ describe('freeform workout', () => {
       { weight: 140, reps: 5, rpe: 6 },
       { weight: 140, reps: 4, rpe: null },
     ]);
+  });
+
+  it('marks a set as a warm-up, failure or drop set by tapping its number, and numbers only the working sets', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Back Squat');
+    const typeOf = (n: number) => card.getByRole('button', { name: `Set ${n} type` });
+
+    // A set is normal until marked, showing its number.
+    expect(within(typeOf(1)).getByText('1')).toBeVisible();
+    await fireEvent.press(typeOf(1));
+    const types = within(screen.getByLabelText('Set 1 type options'));
+    expect(types.getAllByRole('radio').map((option) => option.props.accessibilityLabel)).toEqual([
+      'Normal',
+      'Warm-up',
+      'Failure',
+      'Drop',
+    ]);
+    await fireEvent.press(types.getByRole('radio', { name: 'Warm-up' }));
+    expect(screen.queryByLabelText('Set 1 type options')).toBeNull();
+    expect(within(typeOf(1)).getByText('W')).toBeVisible();
+
+    await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '60');
+    await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '10');
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
+    await waitFor(() => expect(loggedSets(card)).toEqual(['60 kg × 10, Warm-up']));
+
+    // The warm-up takes no number, so the next set, normal, is the first.
+    expect(within(typeOf(1)).getByText('W')).toBeVisible();
+    expect(within(typeOf(2)).getByText('1')).toBeVisible();
+    await fireEvent.changeText(card.getByLabelText('Set 2 weight (kg)'), '140');
+    await fireEvent.changeText(card.getByLabelText('Set 2 reps'), '5');
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 2' }));
+    await waitFor(() => expect(loggedSets(card)).toHaveLength(2));
+
+    await fireEvent.press(typeOf(3));
+    await fireEvent.press(within(screen.getByLabelText('Set 3 type options')).getByRole('radio', { name: 'Drop' }));
+    expect(within(typeOf(3)).getByText('D')).toBeVisible();
+    await fireEvent.changeText(card.getByLabelText('Set 3 reps'), '8');
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 3' }));
+    await waitFor(() => expect(loggedSets(card)).toHaveLength(3));
+
+    // A failure set counts, though it shows F: the normal set after it is the third.
+    await fireEvent.press(typeOf(4));
+    await fireEvent.press(within(screen.getByLabelText('Set 4 type options')).getByRole('radio', { name: 'Failure' }));
+    await fireEvent.changeText(card.getByLabelText('Set 4 reps'), '4');
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 4' }));
+    await waitFor(() => expect(loggedSets(card)).toHaveLength(4));
+    expect(['W', '1', 'D', 'F', '3'].map((mark, i) => within(typeOf(i + 1)).getByText(mark))).toHaveLength(5);
+
+    expect(fakeApi.sessions(account.id)[0].exercises[0].sets.map((set) => set.type)).toEqual([
+      'warmup',
+      'normal',
+      'drop',
+      'failure',
+    ]);
+  });
+
+  it('changes the type of a logged set by tapping its number, keeping its values', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const squat = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
+    fakeApi.addSet(squat, 60, 'kg', 10, '', 7);
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Back Squat');
+
+    await fireEvent.press(card.getByRole('button', { name: 'Set 1 type' }));
+    await fireEvent.press(within(screen.getByLabelText('Set 1 type options')).getByRole('radio', { name: 'Warm-up' }));
+
+    await waitFor(() => expect(loggedSets(card)).toEqual(['60 kg × 10 @ RPE 7, Warm-up']));
+    expect(within(card.getByRole('button', { name: 'Set 1 type' })).getByText('W')).toBeVisible();
+    expect(within(card.getByRole('button', { name: 'Set 2 type' })).getByText('1')).toBeVisible();
+    expect(fakeApi.sessions(account.id)[0].exercises[0].sets).toMatchObject([
+      { weight: 60, reps: 10, rpe: 7, type: 'warmup' },
+    ]);
+
+    // Correcting the set's values keeps its type.
+    await fireEvent.press(card.getByRole('button', { name: 'Edit set 1' }));
+    await fireEvent.changeText(within(card.getByLabelText('Editing set 1')).getByLabelText('Reps'), '8');
+    await fireEvent.press(within(card.getByLabelText('Editing set 1')).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(loggedSets(card)).toEqual(['60 kg × 8 @ RPE 7, Warm-up']));
   });
 
   it('clears an RPE picked by mistake', async () => {

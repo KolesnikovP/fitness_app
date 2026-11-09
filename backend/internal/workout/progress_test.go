@@ -111,6 +111,28 @@ func TestExerciseProgress(t *testing.T) {
 			t.Errorf("got %d %q, want 404 exercise_not_found", hidden.Status, hidden.ErrorCode())
 		}
 	})
+
+	t.Run("leaves warm-ups out, and a session of only warm-ups has no point", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		setUnitPreference(t, srv, token, "kg")
+		worked := startSession(t, srv, token)
+		e := addExercise(t, srv, token, worked, "Bench Press")
+		logTypedSet(t, srv, token, worked, e, 60, 10, "warmup")
+		logTypedSet(t, srv, token, worked, e, 100, 5, "normal")
+		finishSession(t, srv, token, worked)
+		warmUpOnly := startSession(t, srv, token)
+		logTypedSet(t, srv, token, warmUpOnly, addExercise(t, srv, token, warmUpOnly, "Bench Press"), 50, 10, "warmup")
+		finishSession(t, srv, token, warmUpOnly)
+
+		res := progress(t, srv, token, exerciseID(t, srv, token, "Bench Press"))
+
+		got := describeProgress(objects(t, res.Body, "sessions"))
+		if want := fmt.Sprint([]string{
+			worked + " estimated1RM 116.7 heaviest 100 setVol 500 vol 500 reps 5 record false",
+		}); got != want {
+			t.Errorf("progress =\n%s\nwant\n%s", got, want)
+		}
+	})
 }
 
 func progress(t *testing.T, srv *httptest.Server, token, exerciseID string) testutil.Response {

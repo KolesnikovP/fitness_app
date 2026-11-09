@@ -108,6 +108,7 @@ type SessionSet struct {
 	Rpe               *float64
 	SupersetID        *uuid.UUID
 	ExerciseID        uuid.UUID
+	SetType           string
 }
 
 type WorkoutSession struct {

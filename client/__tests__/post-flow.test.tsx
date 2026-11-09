@@ -4,6 +4,7 @@ import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-rout
 
 import { findHeaderTitle } from './support/native-header';
 import { fakeApi } from './support/fake-api';
+import { readouts } from './support/set-table';
 import { imagePicker } from './support/image-picker';
 import { secureStore } from './support/secure-store';
 import { sharing } from './support/sharing';
@@ -287,6 +288,50 @@ describe('the workout screen', () => {
           '',
           'No sets logged.',
           '',
+        ].join('\n'),
+      ),
+    );
+  });
+
+  it('marks warm-up, failure and drop sets on the finished workout and in its Session summary', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id, new Date(2026, 10, 5, 9, 0));
+    const bench = fakeApi.addSessionExercise(session, 'Bench Press');
+    fakeApi.addSet(bench, 60, 'kg', 10, '', null, 'warmup');
+    fakeApi.addSet(bench, 100, 'kg', 5);
+    fakeApi.addSet(bench, 100, 'kg', 4, '', 10, 'failure');
+    fakeApi.addSet(bench, 80, 'kg', 6, '', null, 'drop');
+    fakeApi.finishSession(session, new Date(2026, 10, 5, 10, 0));
+    secureStore.set('auth-token', fakeApi.issueToken(account.id));
+    await renderRouter('./src/app', { initialUrl: '/' });
+    await screen.findByRole('header', { name: 'Workout' });
+    await act(async () => router.navigate(`/profile/workouts/${session.id}`));
+    await screen.findByLabelText('Carousel');
+
+    // Each Set is marked as in the set table: a letter, or its number among the working sets.
+    const lines = ['Set 1', 'Set 2', 'Set 3', 'Set 4'].map((name) => screen.getByLabelText(name));
+    expect(readouts(lines)).toEqual([
+      '60 kg × 10, Warm-up',
+      '100 kg × 5',
+      '100 kg × 4 @ RPE 10, Failure',
+      '80 kg × 6, Drop',
+    ]);
+    expect(lines.map((line) => within(line).getByText(/^(W|F|D|\d)$/).props.children)).toEqual(['W', '1', 'F', 'D']);
+
+    await pressAndSave(screen.getByRole('button', { name: 'Copy session summary' }));
+
+    await waitFor(() =>
+      expect(sharing.clipboard).toContain(
+        [
+          '- Volume: 1,380 kg', // 500 + 400 + 480: not the warm-up.
+          '- Sets: 3',
+          '',
+          '## Bench Press',
+          '',
+          '1. Warm-up: 60 kg × 10',
+          '2. 100 kg × 5',
+          '3. Failure: 100 kg × 4 @ RPE 10',
+          '4. Drop: 80 kg × 6',
         ].join('\n'),
       ),
     );

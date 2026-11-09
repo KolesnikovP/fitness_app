@@ -30,7 +30,7 @@ ORDER BY created_at, id;
 
 -- name: ListSessionSets :many
 SELECT s.id, s.session_exercise_id, s.exercise_id, s.weight::float8 AS weight, s.weight_unit, s.reps, s.note,
-       s.rpe, s.superset_id
+       s.rpe, s.superset_id, s.set_type
 FROM session_sets s
 JOIN session_exercises e ON e.id = s.session_exercise_id
 WHERE e.session_id = $1
@@ -66,9 +66,10 @@ VALUES (sqlc.arg(session_id), sqlc.arg(exercise_id), sqlc.arg(exercise_id), sqlc
 -- Logs a set, provided the session exercise belongs to the session. The set
 -- records the exercise being done now (a substitute, if swapped to one) and
 -- keeps the superset its session exercise is in now.
-INSERT INTO session_sets (session_exercise_id, exercise_id, weight, weight_unit, reps, note, rpe, superset_id)
+INSERT INTO session_sets (session_exercise_id, exercise_id, weight, weight_unit, reps, note, rpe, superset_id,
+                          set_type)
 SELECT e.id, e.exercise_id, sqlc.arg(weight)::float8, sqlc.arg(weight_unit), sqlc.arg(reps), sqlc.arg(note),
-       sqlc.narg(rpe), e.superset_id
+       sqlc.narg(rpe), e.superset_id, sqlc.arg(set_type)
 FROM session_exercises e
 WHERE e.id = sqlc.arg(session_exercise_id) AND e.session_id = sqlc.arg(session_id);
 
@@ -140,7 +141,7 @@ WHERE session_id = $1 AND superset_id = $2;
 -- the superset it was logged in.
 UPDATE session_sets s
 SET weight = sqlc.arg(weight)::float8, weight_unit = sqlc.arg(weight_unit), reps = sqlc.arg(reps),
-    rpe = sqlc.narg(rpe), note = sqlc.arg(note)
+    rpe = sqlc.narg(rpe), note = sqlc.arg(note), set_type = sqlc.arg(set_type)
 FROM session_exercises e
 WHERE s.id = sqlc.arg(id) AND e.id = s.session_exercise_id AND e.session_id = sqlc.arg(session_id);
 
@@ -159,24 +160,26 @@ WHERE account_id = sqlc.arg(account_id) AND finished_at >= sqlc.arg(from_time)::
 ORDER BY finished_at DESC, id;
 
 -- name: ListSetsOfSessions :many
--- The sets logged in each of the sessions, for working out their stats.
+-- The working sets logged in each of the sessions, for working out their
+-- stats: warm-ups count toward none.
 SELECT e.session_id, s.exercise_id, s.weight::float8 AS weight, s.weight_unit, s.reps
 FROM session_sets s
 JOIN session_exercises e ON e.id = s.session_exercise_id
-WHERE e.session_id = ANY(sqlc.arg(session_ids)::uuid[])
+WHERE e.session_id = ANY(sqlc.arg(session_ids)::uuid[]) AND s.set_type <> 'warmup'
 ORDER BY s.created_at, s.id;
 
 -- name: ListFinishedSetsOfExercises :many
--- Every set the account logged of the exercises in its finished sessions, in
--- the order they were done: by session finished, then as logged. Personal
--- records are worked out from these.
+-- Every working set the account logged of the exercises in its finished
+-- sessions, in the order they were done: by session finished, then as logged.
+-- Personal records, Record tiers and Bests are worked out from these; warm-ups
+-- count toward none.
 SELECT w.id AS session_id, w.finished_at::timestamptz AS finished_at, s.id, s.exercise_id, s.weight::float8 AS weight,
        s.weight_unit, s.reps
 FROM session_sets s
 JOIN session_exercises e ON e.id = s.session_exercise_id
 JOIN workout_sessions w ON w.id = e.session_id
 WHERE w.account_id = sqlc.arg(account_id) AND w.finished_at IS NOT NULL
-  AND s.exercise_id = ANY(sqlc.arg(exercise_ids)::uuid[])
+  AND s.exercise_id = ANY(sqlc.arg(exercise_ids)::uuid[]) AND s.set_type <> 'warmup'
 ORDER BY w.finished_at, w.id, s.created_at, s.id;
 
 -- name: ListFinishedTimes :many
