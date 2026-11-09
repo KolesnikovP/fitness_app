@@ -13,7 +13,7 @@ export function SettingsScreen() {
   if (state.status !== 'signedIn') return null;
 
   return (
-    <Screen title="Settings">
+    <Screen headerTitle="Settings">
       <View style={styles.row}>
         <Text style={styles.label}>Email</Text>
         <Text style={styles.value}>{state.me.email}</Text>

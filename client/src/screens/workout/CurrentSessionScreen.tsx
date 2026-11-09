@@ -139,7 +139,7 @@ export function CurrentSessionScreen() {
 
   return (
     <Screen
-      title="Current workout"
+      headerTitle="Current workout"
       footer={
         justSet.length > 0 || deletion.pendingSetId ? (
           <>

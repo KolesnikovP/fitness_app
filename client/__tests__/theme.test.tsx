@@ -6,6 +6,7 @@ import { darkColors, lightColors } from '@/shared/ui';
 
 import { phone, useFakeColorScheme } from './support/appearance';
 import { fakeApi } from './support/fake-api';
+import { findHeaderTitle, queryHeaderTitle } from './support/native-header';
 import { secureStore } from './support/secure-store';
 
 const TOKEN_KEY = 'auth-token';
@@ -29,7 +30,7 @@ async function launchSignedIn() {
 
 async function openSettings() {
   await act(async () => router.navigate('/profile/settings'));
-  return screen.findByRole('header', { name: 'Settings' });
+  return findHeaderTitle('Settings');
 }
 
 describe('theme', () => {
@@ -51,12 +52,12 @@ describe('theme', () => {
 
     await openSettings();
     await fireEvent.press(screen.getByRole('radio', { name: 'Light' }));
-    expect(screen.getByRole('header', { name: 'Settings' })).toHaveStyle({ color: lightColors.text });
+    expect(queryHeaderTitle('Settings')?.titleColor).toBe(lightColors.text);
     expect(secureStore.get(THEME_KEY)).toBe('light');
 
     await setPhoneScheme('light');
     await setPhoneScheme('dark');
-    expect(screen.getByRole('header', { name: 'Settings' })).toHaveStyle({ color: lightColors.text });
+    expect(queryHeaderTitle('Settings')?.titleColor).toBe(lightColors.text);
   });
 
   it('launches in the theme the user picked, whatever mode the phone is in', async () => {
@@ -74,10 +75,10 @@ describe('theme', () => {
 
     await openSettings();
     await fireEvent.press(screen.getByRole('radio', { name: 'Dark' }));
-    expect(screen.getByRole('header', { name: 'Settings' })).toHaveStyle({ color: darkColors.text });
+    expect(queryHeaderTitle('Settings')?.titleColor).toBe(darkColors.text);
 
     await fireEvent.press(screen.getByRole('radio', { name: 'System' }));
-    expect(screen.getByRole('header', { name: 'Settings' })).toHaveStyle({ color: lightColors.text });
+    expect(queryHeaderTitle('Settings')?.titleColor).toBe(lightColors.text);
     expect(secureStore.get(THEME_KEY)).toBe('system');
   });
 

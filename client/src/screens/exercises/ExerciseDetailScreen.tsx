@@ -53,7 +53,7 @@ export function ExerciseDetailScreen() {
   }
 
   return (
-    <Screen title={exercise.name}>
+    <Screen headerTitle={exercise.name}>
       <View accessibilityLabel="About this exercise" style={styles.about}>
         <Text style={styles.detail}>{equipmentLabel(exercise.equipmentType)}</Text>
         <Text style={styles.detail}>Primary: {muscleGroupLabel(exercise.muscleGroup)}</Text>
@@ -114,7 +114,7 @@ function HowTo({ exercise, token, onUploaded }: HowToProps) {
 const useStyles = makeStyles((colors) => ({
   error: { color: colors.danger, fontSize: 15 },
   badge: { fontSize: 15, color: colors.primary, fontWeight: '600' },
-  about: { gap: spacing.xs, marginTop: -spacing.md },
+  about: { gap: spacing.xs },
   tab: { gap: spacing.md },
   hidden: { display: 'none' },
   detail: { fontSize: 15, color: colors.muted },

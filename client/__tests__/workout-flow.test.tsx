@@ -3,6 +3,7 @@ import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-rout
 import { Alert } from 'react-native';
 
 import { fakeApi } from './support/fake-api';
+import { findHeaderTitle } from './support/native-header';
 import { secureStore } from './support/secure-store';
 import { loggedSets } from './support/set-table';
 
@@ -21,7 +22,7 @@ async function resumeWorkout(accountId: string) {
   await renderRouter('./src/app', { initialUrl: '/' });
   await screen.findByRole('header', { name: 'Workout' });
   await fireEvent.press(await screen.findByRole('button', { name: 'Resume workout' }));
-  await screen.findByRole('header', { name: 'Current workout' });
+  await findHeaderTitle('Current workout');
 }
 
 /** The card for one exercise in the workout in progress. */
@@ -34,18 +35,18 @@ describe('freeform workout', () => {
     const account = await openWorkoutTab();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Start Workout' }));
-    expect(await screen.findByRole('header', { name: 'Current workout' })).toBeVisible();
+    await findHeaderTitle('Current workout');
     // An empty workout can't be saved yet.
     expect(screen.getByRole('button', { name: 'Finish workout' })).toBeDisabled();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Add exercise' }));
-    await screen.findByRole('header', { name: 'Add exercise' });
+    await findHeaderTitle('Add exercise');
     // Jest mounts every tab, so the Exercises tab's search is also on screen.
     const picker = within(screen.getByLabelText('Exercise picker'));
     await fireEvent.changeText(picker.getByLabelText('Search exercises'), 'bench');
     await fireEvent.press(await picker.findByRole('button', { name: 'Dumbbell Bench Press' }));
 
-    await screen.findByRole('header', { name: 'Current workout' });
+    await findHeaderTitle('Current workout');
     const card = exerciseCard('Dumbbell Bench Press');
     // A table of sets, a column each for weight, reps and RPE; with nothing
     // planned, one row is ready for the first set.
@@ -82,7 +83,7 @@ describe('freeform workout', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Finish workout' }));
 
     // A freeform workout can be saved as a routine; not this time.
-    await screen.findByRole('header', { name: 'Workout finished' });
+    await findHeaderTitle('Workout finished');
     await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
     await screen.findByRole('header', { name: 'Workout' });
     expect(screen.getByRole('button', { name: 'Start Workout' })).toBeVisible();
@@ -111,7 +112,7 @@ describe('freeform workout', () => {
 
     await fireEvent.press(await screen.findByRole('button', { name: 'Resume workout' }));
 
-    await screen.findByRole('header', { name: 'Current workout' });
+    await findHeaderTitle('Current workout');
     expect(loggedSets(exerciseCard('Deadlift'))).toEqual(['140 kg × 3']);
     // A note already written is shown open.
     expect(exerciseCard('Deadlift').getByLabelText('Exercise note')).toHaveDisplayValue('Mixed grip');
@@ -388,7 +389,7 @@ describe('freeform workout', () => {
     await fireEvent.press(card.getByRole('button', { name: 'Delete set' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Finish workout' }));
 
-    await screen.findByRole('header', { name: 'Workout finished' });
+    await findHeaderTitle('Workout finished');
     const [saved] = fakeApi.sessions(account.id);
     expect(saved.finishedAt).not.toBeNull();
     expect(saved.exercises[0].sets).toMatchObject([{ reps: 5 }]);
@@ -410,7 +411,7 @@ describe('freeform workout', () => {
     try {
       await openWorkoutTab();
       await fireEvent.press(screen.getByRole('button', { name: 'Start Workout' }));
-      await screen.findByRole('header', { name: 'Current workout' });
+      await findHeaderTitle('Current workout');
 
       await fireEvent.press(screen.getByRole('button', { name: 'Rest 1:30' }));
       expect(screen.getByLabelText('Rest time left')).toHaveTextContent('1:30');
@@ -432,7 +433,7 @@ describe('freeform workout', () => {
   it('discards a workout after confirming', async () => {
     const account = await openWorkoutTab();
     await fireEvent.press(screen.getByRole('button', { name: 'Start Workout' }));
-    await screen.findByRole('header', { name: 'Current workout' });
+    await findHeaderTitle('Current workout');
     // Confirm the dialog by choosing its destructive button.
     jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
       buttons?.find((b) => b.style === 'destructive')?.onPress?.();

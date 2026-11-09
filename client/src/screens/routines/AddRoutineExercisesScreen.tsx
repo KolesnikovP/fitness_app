@@ -28,7 +28,7 @@ export function AddRoutineExercisesScreen() {
   const label = count === 0 ? 'Add exercises' : `Add ${count} ${count === 1 ? 'exercise' : 'exercises'}`;
 
   return (
-    <Screen title="Add exercises" footer={<Button label={label} onPress={add} disabled={count === 0} />}>
+    <Screen headerTitle="Add exercises" footer={<Button label={label} onPress={add} disabled={count === 0} />}>
       <ExercisePicker onPick={toggle} selectedIds={selected.map((e) => e.id)} />
     </Screen>
   );
