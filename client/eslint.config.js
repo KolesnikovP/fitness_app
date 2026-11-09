@@ -86,6 +86,17 @@ const layerZones = LAYERS.flatMap((layer) =>
   layer === 'app' ? zonesFor(layer) : slicesOf(layer).flatMap((slice) => zonesFor(layer, slice)),
 );
 
+// expect(queryBy…(…)).not.toBeVisible() passes on null, and queryBy leaves
+// hidden elements out by default, so it can never fail. `key` is where the
+// query's name sits on its call: a bare queryByText, or screen.queryByText.
+function vacuousHiddenAssertion(key) {
+  return {
+    selector: `CallExpression[callee.property.name='toBeVisible'][callee.object.property.name='not'][callee.object.object.callee.name='expect'][callee.object.object.arguments.0.callee.${key}=/^query(All)?By/]`,
+    message:
+      'queryBy finds nothing hidden, so .not.toBeVisible() passes on null. Use getBy with { includeHiddenElements: true } to assert something is mounted but hidden, or expect(queryBy…).toBeNull() to assert it is absent.',
+  };
+}
+
 module.exports = defineConfig([
   expoConfig,
   { ignores: ['dist/*', '.expo/*'] },
@@ -95,4 +106,23 @@ module.exports = defineConfig([
   { files: ['jest.setup.ts'], rules: { '@typescript-eslint/no-require-imports': 'off' } },
   { files: ['scripts/**', 'eslint.config.js'], languageOptions: { globals: globals.node } },
   { files: ['src/**'], rules: { 'import/no-restricted-paths': ['error', { zones: layerZones }] } },
+  {
+    files: ['src/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'Property[key.name=/^headerLargeTitle(Enabled)?$/]',
+          message:
+            "Large titles freeze iOS with Screen's layout when pushed from a screen without a top bar (a native layout loop Jest can't see). Pass headerTitle to Screen for the regular top-bar title.",
+        },
+      ],
+    },
+  },
+  {
+    files: ['__tests__/**'],
+    rules: {
+      'no-restricted-syntax': ['error', ...['name', 'property.name'].map(vacuousHiddenAssertion)],
+    },
+  },
 ]);

@@ -34,7 +34,7 @@ export function EditRoutineScreen() {
   if (!token) return null;
 
   return (
-    <Screen title="Edit routine">
+    <Screen headerTitle="Edit routine">
       {draft ? (
         <RoutineEditor
           initial={draft}

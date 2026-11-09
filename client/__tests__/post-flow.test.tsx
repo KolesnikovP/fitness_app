@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { Dimensions, Linking } from 'react-native';
 import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library';
 
+import { findHeaderTitle } from './support/native-header';
 import { fakeApi } from './support/fake-api';
 import { imagePicker } from './support/image-picker';
 import { secureStore } from './support/secure-store';
@@ -37,7 +38,7 @@ async function finishABenchWorkout() {
   await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
   await waitFor(() => expect(screen.getByRole('button', { name: 'Finish workout' })).toBeEnabled());
   await fireEvent.press(screen.getByRole('button', { name: 'Finish workout' }));
-  await screen.findByRole('header', { name: 'Workout finished' });
+  await findHeaderTitle('Workout finished');
 }
 
 /**
@@ -138,7 +139,7 @@ describe('the workout screen', () => {
 
     // Back returns to the finished screen, in the Workout tab.
     await act(async () => router.back());
-    expect(await screen.findByRole('header', { name: 'Workout finished' })).toBeVisible();
+    await findHeaderTitle('Workout finished');
     expect(app.getPathname()).toBe('/workout/finished');
   });
 

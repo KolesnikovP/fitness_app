@@ -15,7 +15,7 @@ export function NewRoutineScreen() {
   const { token } = state;
 
   return (
-    <Screen title="New routine">
+    <Screen headerTitle="New routine">
       <RoutineEditor
         initial={emptyRoutineDraft}
         onAddExercises={picker.open}

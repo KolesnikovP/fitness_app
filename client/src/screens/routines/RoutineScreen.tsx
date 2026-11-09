@@ -150,7 +150,7 @@ export function RoutineScreen() {
   }
 
   return (
-    <Screen title={routine.name}>
+    <Screen headerTitle={routine.name}>
       <View accessibilityLabel="Planned exercises" style={styles.plan}>
         {slotBlocks(routine.slots).map((block) =>
           block.kind === 'slot' ? (
