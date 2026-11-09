@@ -5,6 +5,7 @@ import {
   formatDuration,
   formatVolume,
   setRuns,
+  setTypeLabel,
   type PersonalRecord,
   type Session,
   type SessionSet,
@@ -25,9 +26,10 @@ function formatLongDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 }
 
-/** "102.06 kg × 3 @ RPE 8.5, note: Belt on" */
+/** "102.06 kg × 3 @ RPE 8.5, note: Belt on", or "Warm-up: 60 kg × 10" for a Set that isn't normal. */
 function setLine(set: SessionSet, unit: UnitPreference): string {
   let line = `${inUnit(set.weight, set.weightUnit, unit)} ${unit} × ${set.reps}`;
+  if (set.type !== 'normal') line = `${setTypeLabel(set.type)}: ${line}`;
   if (set.rpe !== null) line += ` @ RPE ${set.rpe}`;
   if (set.note) line += `, note: ${set.note}`;
   return line;
@@ -45,7 +47,8 @@ function recordLine(record: PersonalRecord, unit: UnitPreference): string {
  * A finished Session's Session summary: plain lines that read as Markdown,
  * to paste anywhere, such as into a chat with an AI. Its name and date; its
  * duration, Volume and Set count; each Exercise with every Set on its own
- * line (weight × reps, and its RPE and note when it has them), then the
+ * line (weight × reps, its Set type when not normal, and its RPE and note
+ * when it has them), then the
  * Exercise's note; then its Personal records. Weights are in unit, the
  * User's Unit preference. Nothing is shortened, and the caption and Progress
  * photo, which are the Post's, are left out.

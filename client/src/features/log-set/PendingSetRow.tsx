@@ -8,6 +8,7 @@ import {
   repsInput,
   RPE_SCALE,
   setColumns,
+  SetTypeSelect,
   weightInput,
   type Session,
   type SetDraft,
@@ -23,6 +24,8 @@ type PendingSetRowProps = {
   sessionExerciseId: string;
   /** The Set's place in its exercise, from 1. */
   number: number;
+  /** What marks it in the number column (see setMarks). */
+  mark: string;
   draft: SetDraft;
   onChange: (draft: SetDraft) => void;
   weightUnit: UnitPreference;
@@ -30,13 +33,15 @@ type PendingSetRowProps = {
 };
 
 /**
- * A row of the set table for a Set still to do: weight, reps and RPE in their
- * columns, and an unchecked box that logs it when ticked.
+ * A row of the set table for a Set still to do: its mark, tapped to pick its
+ * Set type, then weight, reps and RPE in their columns, and an unchecked box
+ * that logs it when ticked.
  */
 export function PendingSetRow({
   sessionId,
   sessionExerciseId,
   number,
+  mark,
   draft,
   onChange,
   weightUnit,
@@ -68,7 +73,14 @@ export function PendingSetRow({
   return (
     <View>
       <View style={setColumns.row}>
-        <Text style={[setColumns.number, styles.number]}>{number}</Text>
+        <View style={setColumns.number}>
+          <SetTypeSelect
+            label={`Set ${number} type`}
+            mark={mark}
+            value={draft.type}
+            onChange={(type) => change({ type })}
+          />
+        </View>
         <View style={setColumns.weight}>
           <TextField
             dense
@@ -119,7 +131,6 @@ export function PendingSetRow({
 }
 
 const useStyles = makeStyles((colors) => ({
-  number: { fontSize: 17, color: colors.muted, textAlign: 'center' },
   // An unchecked box; a logged Set's row shows it ticked.
   box: { width: 30, height: 30, borderRadius: 8, borderWidth: 2, borderColor: colors.primary },
   dimmed: { borderColor: colors.border },

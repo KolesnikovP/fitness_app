@@ -40,6 +40,7 @@ type FakeSet = {
   rpe: number | null;
   note: string;
   supersetId: string | null;
+  type: 'normal' | 'warmup' | 'failure' | 'drop';
 };
 
 type FakeTarget = {
@@ -269,8 +270,10 @@ export const fakeApi = {
     reps: number,
     note = '',
     rpe: number | null = null,
+    type: FakeSet['type'] = 'normal',
   ) {
     sessionExercise.sets.push({
+      type,
       id: `set-${nextId++}`,
       exerciseId: sessionExercise.exerciseId,
       weight,
@@ -391,15 +394,14 @@ function exercisesDone(session: FakeSession) {
 function statsOf(session: FakeSession) {
   if (!session.finishedAt) return null;
   const unit = unitOf(session.ownerId);
+  // Warm-ups count toward no stats, as in the real API.
+  const working = session.exercises.flatMap((e) => e.sets).filter((s) => s.type !== 'warmup');
   return {
     durationSeconds: Math.floor((Date.parse(session.finishedAt) - Date.parse(session.startedAt)) / 1000),
-    volume: volumeOf(
-      session.exercises.flatMap((e) => e.sets),
-      unit,
-    ),
+    volume: volumeOf(working, unit),
     volumeUnit: unit,
     exerciseCount: exercisesDone(session).length,
-    setCount: session.exercises.flatMap((e) => e.sets).length,
+    setCount: working.length,
   };
 }
 
@@ -642,7 +644,10 @@ function setNotFound() {
 /** The 400 the real API sends for a Set it won't log or save, or null if it's valid. */
 type SetBody = Partial<Omit<FakeSet, 'id' | 'exerciseId' | 'supersetId'>>;
 
-function invalidSet({ weight, weightUnit, reps, rpe = null, note = '' }: SetBody) {
+function invalidSet({ weight, weightUnit, reps, rpe = null, note = '', type = 'normal' }: SetBody) {
+  if (!['normal', 'warmup', 'failure', 'drop'].includes(type)) {
+    return error(400, 'invalid_set_type', 'type must be "normal", "warmup", "failure" or "drop", or left blank.');
+  }
   if (typeof weight !== 'number' || weight < 0 || weight > 9999.99) {
     return error(400, 'invalid_weight', 'Weight must be from 0 to 9999.99.');
   }
@@ -1065,8 +1070,8 @@ const handlers = [
     if (!session) return response;
     const sessionExercise = session.exercises.find((e) => e.id === params.sessionExerciseId);
     if (!sessionExercise) return sessionExerciseNotFound();
-    const { weight, weightUnit, reps, rpe = null, note = '' } = body as Required<SetBody>;
-    fakeApi.addSet(sessionExercise, weight, weightUnit, reps, note.trim(), rpe);
+    const { weight, weightUnit, reps, rpe = null, note = '', type = 'normal' } = body as Required<SetBody>;
+    fakeApi.addSet(sessionExercise, weight, weightUnit, reps, note.trim(), rpe, type);
     return HttpResponse.json(sessionJson(session), { status: 201 });
   }),
 
@@ -1086,6 +1091,7 @@ const handlers = [
       reps: body.reps,
       rpe: body.rpe ?? null,
       note: (body.note ?? '').trim(),
+      type: body.type ?? 'normal',
     });
     return HttpResponse.json(sessionJson(session));
   }),
