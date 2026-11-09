@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
@@ -30,6 +30,11 @@ type PendingSetRowProps = {
   onChange: (draft: SetDraft) => void;
   weightUnit: UnitPreference;
   onLogged: (session: Session) => void;
+  // PROTOTYPE: a cell before the weight (variant A), values shown greyed in
+  // empty fields and logged as they are (B), and something under the row (C).
+  before?: ReactNode;
+  ghost?: SetDraft;
+  below?: ReactNode;
 };
 
 /**
@@ -46,6 +51,9 @@ export function PendingSetRow({
   onChange,
   weightUnit,
   onLogged,
+  before,
+  ghost,
+  below,
 }: PendingSetRowProps) {
   const styles = useStyles();
   const { state } = useAuth();
@@ -54,7 +62,11 @@ export function PendingSetRow({
 
   if (state.status !== 'signedIn') return null;
   const { token } = state;
-  const set = parseSetDraft(draft, weightUnit);
+  // PROTOTYPE: an empty field takes its ghost value.
+  const filled = ghost
+    ? { ...draft, weight: draft.weight || ghost.weight, reps: draft.reps || ghost.reps, rpe: draft.rpe ?? ghost.rpe }
+    : draft;
+  const set = parseSetDraft(filled, weightUnit);
   const change = (patch: Partial<SetDraft>) => onChange({ ...draft, ...patch });
 
   async function save() {
@@ -81,11 +93,13 @@ export function PendingSetRow({
             onChange={(type) => change({ type })}
           />
         </View>
+        {before}
         <View style={setColumns.weight}>
           <TextField
             dense
             label={`Set ${number} weight (${weightUnit})`}
             value={draft.weight}
+            placeholder={ghost?.weight}
             onChangeText={(text) => change({ weight: weightInput(text) })}
             keyboardType="decimal-pad"
           />
@@ -95,6 +109,7 @@ export function PendingSetRow({
             dense
             label={`Set ${number} reps`}
             value={draft.reps}
+            placeholder={ghost?.reps}
             onChangeText={(text) => change({ reps: repsInput(text) })}
             keyboardType="number-pad"
           />
@@ -103,7 +118,7 @@ export function PendingSetRow({
           <Select
             dense
             label={`Set ${number} RPE`}
-            placeholder="–"
+            placeholder={ghost?.rpe != null ? String(ghost.rpe) : '–'}
             options={RPE_OPTIONS}
             value={draft.rpe}
             onChange={(rpe) => change({ rpe })}
@@ -121,6 +136,7 @@ export function PendingSetRow({
           />
         </View>
       </View>
+      {below}
       {error ? (
         <Text accessibilityRole="alert" style={styles.error}>
           {error}

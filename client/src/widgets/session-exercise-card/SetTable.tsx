@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
@@ -9,6 +9,7 @@ import {
   pendingSetCount,
   RecordTierMedal,
   setColumns,
+  setDraftOf,
   setMarks,
   setRuns,
   type Session,
@@ -19,7 +20,9 @@ import {
 } from '@/entities/workout';
 import { EditSetForm, LoggedSetTypeSelect } from '@/features/edit-set';
 import { PendingSetRow } from '@/features/log-set';
-import { Button, makeStyles, spacing } from '@/shared/ui';
+import { Button, makeStyles, spacing, usePrototypeVariant } from '@/shared/ui';
+
+import { fakePrevious, LastTimeCard, PREVIOUS_VARIANTS, PrevCell, PrevHeading, SameAsAbove } from './PreviousPrototype';
 
 type SetTableProps = {
   sessionId: string;
@@ -58,7 +61,30 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
   const pendingLabel = labelled && runs.at(-1)?.exerciseId !== sessionExercise.exerciseId;
   const pending = pendingSetCount(sessionExercise, added);
   const fresh = nextSetDraft(sessionExercise, unit);
-  const pendingDrafts = Array.from({ length: pending }, (_, i) => drafts[i] ?? fresh);
+  // PROTOTYPE: last time's Sets (faked), and how each variant starts a row.
+  const variant = usePrototypeVariant(PREVIOUS_VARIANTS);
+  const previous = fakePrevious(sessionExercise, unit);
+  const lastLogged = logged.findLast((s) => s.exerciseId === sessionExercise.exerciseId);
+  const above = lastLogged ? { ...setDraftOf(lastLogged), note: '', type: 'normal' as const } : undefined;
+  // A: the set above when there is one, else last time's at that place.
+  // B: empty, with ghosts. C: as today (the Target's reps, the last weight).
+  const startOf = (i: number): SetDraft =>
+    variant === 'A'
+      ? ((i === 0 ? above : undefined) ?? drafts[i - 1] ?? previous[logged.length + i] ?? fresh)
+      : variant === 'B'
+        ? { ...fresh, weight: '', reps: '', rpe: null }
+        : fresh;
+  const pendingDrafts: SetDraft[] = [];
+  for (let i = 0; i < pending; i++) {
+    pendingDrafts.push(
+      drafts[i] ?? (variant === 'A' && i > 0 ? { ...pendingDrafts[i - 1], type: 'normal' } : startOf(i)),
+    );
+  }
+  // B: a row's ghost is the set above it, logged or still to do, else last time's.
+  const ghostOf = (i: number): SetDraft | undefined =>
+    i === 0 ? (above ?? previous[logged.length] ?? undefined) : (drafts[i - 1] ?? ghostOf(i - 1));
+  const fillFromLastTime = () =>
+    setDrafts(pendingDrafts.map((d, i) => ({ ...(previous[logged.length + i] ?? d), type: d.type })));
   const marks = setMarks([...logged.map((s) => s.type), ...pendingDrafts.map((d) => d.type)]);
 
   function changeDraft(index: number, draft: SetDraft) {
@@ -77,8 +103,10 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
 
   return (
     <View accessibilityLabel="Sets" style={styles.table}>
+      {variant === 'C' && pending > 0 ? <LastTimeCard previous={previous} onFill={fillFromLastTime} /> : null}
       <View style={[setColumns.row, styles.header]}>
         <Text style={[setColumns.number, styles.heading]}>SET</Text>
+        {variant === 'A' ? <PrevHeading /> : null}
         <Text style={[setColumns.weight, styles.heading]}>{unit.toUpperCase()}</Text>
         <Text style={[setColumns.reps, styles.heading]}>REPS</Text>
         <Text style={[setColumns.rpe, styles.heading]}>RPE</Text>
@@ -112,6 +140,7 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
                 number={number}
                 mark={mark}
                 unit={unit}
+                prev={variant === 'A' ? <PrevCell draft={previous[number - 1]} /> : undefined}
                 onPress={() => setEditingSetId(set.id)}
                 onChange={onChange}
               />
@@ -131,6 +160,28 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
           onChange={(draft) => changeDraft(i, draft)}
           weightUnit={unit}
           onLogged={(session) => onLogged(i, session)}
+          before={
+            variant === 'A' ? (
+              <PrevCell
+                draft={previous[logged.length + i]}
+                onUse={() => changeDraft(i, { ...previous[logged.length + i], type: pendingDrafts[i].type })}
+              />
+            ) : undefined
+          }
+          ghost={variant === 'B' ? ghostOf(i) : undefined}
+          below={
+            variant === 'C' && (i > 0 || lastLogged) ? (
+              <SameAsAbove
+                label={`Same as set ${logged.length + i}`}
+                onCopy={() =>
+                  changeDraft(i, {
+                    ...(i > 0 ? pendingDrafts[i - 1] : above!),
+                    type: pendingDrafts[i].type,
+                  })
+                }
+              />
+            ) : undefined
+          }
         />
       ))}
       <Button label="+ Add set" variant="link" onPress={() => setAdded((n) => n + 1)} />
@@ -156,6 +207,8 @@ type LoggedSetRowProps = {
   mark: string;
   /** The table's unit; a Set logged in the other one says so. */
   unit: string;
+  /** PROTOTYPE: variant A's PREV cell. */
+  prev?: ReactNode;
   onPress: () => void;
   onChange: (session: Session) => void;
 };
@@ -166,7 +219,7 @@ type LoggedSetRowProps = {
  * below. A Set with a Record tier is filled in the tier's colour, with its
  * medal on its mark's corner, and says its tier after its values.
  */
-function LoggedSetRow({ sessionId, set, number, mark, unit, onPress, onChange }: LoggedSetRowProps) {
+function LoggedSetRow({ sessionId, set, number, mark, unit, prev, onPress, onChange }: LoggedSetRowProps) {
   const styles = useStyles();
   const tier = set.recordTier;
   const { fill, text } = useRecordTierColours(tier);
@@ -181,6 +234,7 @@ function LoggedSetRow({ sessionId, set, number, mark, unit, onPress, onChange }:
             </View>
           ) : null}
         </View>
+        {prev}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Edit set ${number}`}
