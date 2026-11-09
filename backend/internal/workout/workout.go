@@ -1137,7 +1137,7 @@ func (h handlers) loadSession(ctx context.Context, caller, id uuid.UUID) (Sessio
 	if err != nil {
 		return Session{}, err
 	}
-	if err := h.addLastTime(ctx, caller, unit, session); err != nil {
+	if err := h.addLastTime(ctx, caller, unit, &session); err != nil {
 		return Session{}, err
 	}
 	var setExerciseIDs []uuid.UUID
@@ -1175,7 +1175,7 @@ func (h handlers) loadSession(ctx context.Context, caller, id uuid.UUID) (Sessio
 
 // addLastTime gives each exercise of a session in progress last time's Sets of
 // the Exercise being done now, in unit; a finished session's exercises get none.
-func (h handlers) addLastTime(ctx context.Context, caller uuid.UUID, unit string, session Session) error {
+func (h handlers) addLastTime(ctx context.Context, caller uuid.UUID, unit string, session *Session) error {
 	for i := range session.Exercises {
 		session.Exercises[i].LastTime = []LastTimeSet{}
 	}

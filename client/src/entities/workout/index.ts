@@ -20,7 +20,6 @@ export {
   MAX_SESSION_NAME_CHARS,
   newRecords,
   pendingSetDrafts,
-  setDraftFromLastTime,
   parseReps,
   pendingSetCount,
   parseSetDraft,
@@ -59,6 +58,7 @@ export {
   type SetType,
   type SupersetProgress,
   weightInput,
+  withLastTime,
   withoutSet,
 } from './model';
 export {

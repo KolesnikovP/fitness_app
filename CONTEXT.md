@@ -61,7 +61,7 @@ What kind of round a Set was: normal (the default), warm-up, failure or drop. A 
 _Avoid_: Set kind, set tag, set category
 
 **Last time**:
-An Exercise's Sets in the User's most recent finished Session with a Set of it, whether from a Routine or freeform, as logged and warm-ups included. A swapped Set counts for the Exercise swapped to. While a Session is in progress, its set table shows last time's Set at each place beside today's (set 1 with set 1), in the User's Unit preference, and starts each row from it: the first row still to do from last time's Set at its place (or the Set just logged), each later one from the row above. Only weight and reps are carried over; RPE is how that Set felt. Without Last time, rows start at the Target.
+An Exercise's Sets in the User's most recent finished Session with a Set of it, whether from a Routine or freeform, as logged and warm-ups included. A swapped Set counts for the Exercise swapped to. While a Session is in progress, its set table shows last time's Set at each place beside today's (set 1 with set 1), in the User's Unit preference, and starts each row from it: the first row still to do from last time's Set at its place (or the Set just logged), each later one from the row above. Only weight and reps are carried over; RPE is how that Set felt. Without Last time, rows start at the Target's reps and the last weight logged, else the Target's.
 _Avoid_: Previous workout, history (for this), PREV (outside the column heading)
 
 **RPE**:

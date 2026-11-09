@@ -9,9 +9,9 @@ import {
   repsInput,
   RPE_SCALE,
   setColumns,
-  setDraftFromLastTime,
   SetTypeSelect,
   weightInput,
+  withLastTime,
   type LastTimeSet,
   type Session,
   type SetDraft,
@@ -91,7 +91,7 @@ export function PendingSetRow({
         <LastTimeCell
           number={number}
           set={lastTime}
-          onUse={lastTime ? () => onChange(setDraftFromLastTime(lastTime, draft.type)) : undefined}
+          onUse={lastTime ? () => onChange(withLastTime(draft, lastTime)) : undefined}
         />
         <View style={setColumns.weight}>
           <TextField

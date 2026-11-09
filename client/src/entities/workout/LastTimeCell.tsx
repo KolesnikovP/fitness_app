@@ -10,12 +10,12 @@ type LastTimeCellProps = {
   number: number;
   /** Last time's Set at that place; none when last time had fewer. */
   set: LastTimeSet | undefined;
-  /** Puts last time's Set into the row; a logged Set's cell can't be tapped. */
+  /** Puts last time's weight and reps into the row; a logged Set's cell can't be tapped. */
   onUse?: () => void;
 };
 
 /**
- * A row's cell in the set table's PREV column: last time's Set at its place,
+ * A row's cell in the set table's Last time column: last time's Set at its place,
  * "60 × 10" with "@ 7" under it when it had an RPE, or "–" when there was none.
  */
 export function LastTimeCell({ number, set, onUse }: LastTimeCellProps) {
@@ -34,7 +34,7 @@ export function LastTimeCell({ number, set, onUse }: LastTimeCellProps) {
   );
   if (!onUse || !set) {
     return (
-      <View accessible accessibilityLabel={label} accessibilityValue={value} style={[setColumns.prev, styles.cell]}>
+      <View accessible accessibilityLabel={label} accessibilityValue={value} style={[setColumns.lastTime, styles.cell]}>
         {content}
       </View>
     );
@@ -46,7 +46,7 @@ export function LastTimeCell({ number, set, onUse }: LastTimeCellProps) {
       accessibilityValue={value}
       accessibilityHint="Puts it into this set"
       onPress={onUse}
-      style={({ pressed }) => [setColumns.prev, styles.cell, pressed && styles.pressed]}
+      style={({ pressed }) => [setColumns.lastTime, styles.cell, pressed && styles.pressed]}
     >
       {content}
     </Pressable>

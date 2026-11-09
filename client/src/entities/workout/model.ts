@@ -115,7 +115,7 @@ export type SessionExercise = {
  */
 export type LastTimeSet = { weight: number; weightUnit: UnitPreference; reps: number; rpe: number | null };
 
-/** "60 × 10": last time's Set as its PREV cell shows it, under the table's unit. */
+/** "60 × 10": last time's Set as its cell in the set table shows it, under the table's unit. */
 export function formatLastTimeSet(set: LastTimeSet): string {
   return `${set.weight} × ${set.reps}`;
 }
@@ -424,11 +424,16 @@ export function addedAfterLogging(exercise: SessionExercise, added: number): num
 }
 
 /**
- * A row's draft holding last time's Set: its weight and reps, but not its
- * RPE, which is how that Set felt. It keeps the row's Set type.
+ * A row's draft with last time's weight and reps put in. It keeps its own
+ * RPE, note and Set type: last time's RPE is how that Set felt.
  */
-export function setDraftFromLastTime(set: LastTimeSet, type: SetType): SetDraft {
-  return { ...emptySetDraft, weight: String(set.weight), reps: String(set.reps), type };
+export function withLastTime(draft: SetDraft, set: LastTimeSet): SetDraft {
+  return { ...draft, ...weightAndReps(set) };
+}
+
+/** A fresh draft's weight and reps, from a Set's. */
+function weightAndReps(set: { weight: number; reps: number }): Pick<SetDraft, 'weight' | 'reps'> {
+  return { weight: String(set.weight), reps: String(set.reps) };
 }
 
 /**
@@ -449,11 +454,9 @@ export function pendingSetDrafts(
   if (exercise.lastTime.length === 0) return Array.from({ length: count }, (_, i) => typed[i] ?? fresh);
   const above = lastLoggedSet(exercise, weightUnit);
   const atPlace = exercise.lastTime[exercise.sets.length];
-  const first = above
-    ? { ...emptySetDraft, weight: String(above.weight), reps: String(above.reps) }
-    : atPlace && atPlace.weightUnit === weightUnit
-      ? setDraftFromLastTime(atPlace, 'normal')
-      : fresh;
+  // Last time is in the User's Unit preference, the table's unit.
+  const from = above ?? atPlace;
+  const first = from ? { ...emptySetDraft, ...weightAndReps(from) } : fresh;
   const drafts: SetDraft[] = [];
   for (let i = 0; i < count; i++) {
     const start = i === 0 ? first : { ...emptySetDraft, weight: drafts[i - 1].weight, reps: drafts[i - 1].reps };

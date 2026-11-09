@@ -526,7 +526,7 @@ describe('freeform workout', () => {
 });
 
 describe('last time', () => {
-  /** What each row's PREV cell shows, in order: last time's Set at that place, or none. */
+  /** What each row's Last time cell shows, in order: last time's Set at that place, or none. */
   function lastTimeCells(card: ReturnType<typeof exerciseCard>) {
     return readouts(card.getAllByLabelText(/^Set \d+ last time$/));
   }
@@ -562,15 +562,18 @@ describe('last time', () => {
     // Last time's set 1 again ties the best before: silver.
     await waitFor(() => expect(loggedSets(card)).toEqual(['60 kg × 10, Silver']));
 
-    // The logged set keeps its PREV; the next row repeats the set just done.
+    // The logged set keeps its Last time; the next row repeats the set just done.
     expect(lastTimeCells(card)).toEqual(['60 kg × 10 @ RPE 7', '62.5 kg × 8']);
     expect(card.getByLabelText('Set 2 weight (kg)')).toHaveDisplayValue('60');
     expect(card.getByLabelText('Set 2 reps')).toHaveDisplayValue('10');
 
-    // Tapping PREV puts last time's set into the row.
+    // Tapping Last time puts its weight and reps into the row, keeping the RPE picked.
+    await fireEvent.press(card.getByRole('button', { name: 'Set 2 RPE' }));
+    await fireEvent.press(within(screen.getByLabelText('Set 2 RPE options')).getByRole('radio', { name: '9' }));
     await fireEvent.press(card.getByRole('button', { name: 'Set 2 last time' }));
     expect(card.getByLabelText('Set 2 weight (kg)')).toHaveDisplayValue('62.5');
     expect(card.getByLabelText('Set 2 reps')).toHaveDisplayValue('8');
+    expect(within(card.getByRole('button', { name: 'Set 2 RPE' })).getByText('9')).toBeVisible();
 
     // A row added after follows the row above, and last time had no set there.
     await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
