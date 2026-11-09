@@ -92,7 +92,8 @@ export type SessionTarget = {
  * one Superset share its supersetId. target is what its Routine's slot
  * planned, and planned the slot's own Exercise, both null for an exercise
  * not started from a Routine. It can be swapped to planned or one of its
- * substitutes.
+ * substitutes. lastTime is Last time's Sets of the Exercise being done now,
+ * while the Session is in progress; none once it's finished.
  */
 export type SessionExercise = {
   id: string;
@@ -104,7 +105,20 @@ export type SessionExercise = {
   planned: ExerciseRef | null;
   substitutes: ExerciseRef[];
   sets: SessionSet[];
+  lastTime: LastTimeSet[];
 };
+
+/**
+ * One of an Exercise's Sets the last time the User did it, in their most
+ * recent finished Session with a Set of it, warm-ups included. weight is in
+ * weightUnit, the User's Unit preference. rpe is null when none was entered.
+ */
+export type LastTimeSet = { weight: number; weightUnit: UnitPreference; reps: number; rpe: number | null };
+
+/** "60 × 10": last time's Set as its PREV cell shows it, under the table's unit. */
+export function formatLastTimeSet(set: LastTimeSet): string {
+  return `${set.weight} × ${set.reps}`;
+}
 
 /**
  * Every Exercise a Session exercise can be done as: its planned one, then its
@@ -410,12 +424,56 @@ export function addedAfterLogging(exercise: SessionExercise, added: number): num
 }
 
 /**
- * What a row for the next Set starts at: the Target's reps, and the weight of
- * the last Set logged for this Exercise, else the Target's.
+ * A row's draft holding last time's Set: its weight and reps, but not its
+ * RPE, which is how that Set felt. It keeps the row's Set type.
  */
-export function nextSetDraft(exercise: SessionExercise, weightUnit: UnitPreference): SetDraft {
+export function setDraftFromLastTime(set: LastTimeSet, type: SetType): SetDraft {
+  return { ...emptySetDraft, weight: String(set.weight), reps: String(set.reps), type };
+}
+
+/**
+ * What each of a Session exercise's count rows still to do holds: what the
+ * User typed in it (typed, by position), else where it starts. With Last
+ * time, the first row starts as the Set logged just before it, else as last
+ * time's Set at its place, and each later row as the row above it, so the
+ * next row repeats the Set just done. Without, every row starts at
+ * nextSetDraft. A row never starts with an RPE or note, and starts normal.
+ */
+export function pendingSetDrafts(
+  exercise: SessionExercise,
+  weightUnit: UnitPreference,
+  typed: (SetDraft | undefined)[],
+  count: number,
+): SetDraft[] {
+  const fresh = nextSetDraft(exercise, weightUnit);
+  if (exercise.lastTime.length === 0) return Array.from({ length: count }, (_, i) => typed[i] ?? fresh);
+  const above = lastLoggedSet(exercise, weightUnit);
+  const atPlace = exercise.lastTime[exercise.sets.length];
+  const first = above
+    ? { ...emptySetDraft, weight: String(above.weight), reps: String(above.reps) }
+    : atPlace && atPlace.weightUnit === weightUnit
+      ? setDraftFromLastTime(atPlace, 'normal')
+      : fresh;
+  const drafts: SetDraft[] = [];
+  for (let i = 0; i < count; i++) {
+    const start = i === 0 ? first : { ...emptySetDraft, weight: drafts[i - 1].weight, reps: drafts[i - 1].reps };
+    drafts.push(typed[i] ?? start);
+  }
+  return drafts;
+}
+
+/** The last Set logged of the Exercise being done now, in weightUnit, if any. */
+function lastLoggedSet(exercise: SessionExercise, weightUnit: UnitPreference): SessionSet | undefined {
+  return exercise.sets.findLast((s) => s.exerciseId === exercise.exerciseId && s.weightUnit === weightUnit);
+}
+
+/**
+ * What a row for the next Set starts at without Last time: the Target's reps,
+ * and the weight of the last Set logged for this Exercise, else the Target's.
+ */
+function nextSetDraft(exercise: SessionExercise, weightUnit: UnitPreference): SetDraft {
   const draft = setDraftFromTarget(currentTarget(exercise), weightUnit);
-  const last = exercise.sets.findLast((s) => s.exerciseId === exercise.exerciseId && s.weightUnit === weightUnit);
+  const last = lastLoggedSet(exercise, weightUnit);
   return last ? { ...draft, weight: String(last.weight) } : draft;
 }
 

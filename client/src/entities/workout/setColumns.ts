@@ -7,6 +7,8 @@ import { StyleSheet } from 'react-native';
 export const setColumns = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   number: { width: 40 },
+  // Last time's Set at the row's place.
+  prev: { flex: 1.2 },
   weight: { flex: 1.3 },
   reps: { flex: 1 },
   rpe: { flex: 1 },

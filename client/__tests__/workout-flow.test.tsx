@@ -5,7 +5,7 @@ import { Alert } from 'react-native';
 import { fakeApi } from './support/fake-api';
 import { findHeaderTitle } from './support/native-header';
 import { secureStore } from './support/secure-store';
-import { loggedSets } from './support/set-table';
+import { loggedSets, readouts } from './support/set-table';
 
 /** Launches the app signed in as an onboarded kg user, on the Workout tab. */
 async function openWorkoutTab() {
@@ -522,5 +522,81 @@ describe('freeform workout', () => {
     await screen.findByRole('header', { name: 'Workout' });
     expect(await screen.findByRole('button', { name: 'Start Workout' })).toBeVisible();
     expect(fakeApi.sessions(account.id)).toEqual([]);
+  });
+});
+
+describe('last time', () => {
+  /** What each row's PREV cell shows, in order: last time's Set at that place, or none. */
+  function lastTimeCells(card: ReturnType<typeof exerciseCard>) {
+    return readouts(card.getAllByLabelText(/^Set \d+ last time$/));
+  }
+
+  /** A finished Session of Bench Press, a day ago, with these Sets. */
+  function benchedYesterday(accountId: string, sets: [number, 'kg' | 'lb', number, (number | null)?][]) {
+    const earlier = fakeApi.addSession(accountId, new Date(Date.now() - 86_400_000));
+    const bench = fakeApi.addSessionExercise(earlier, 'Bench Press');
+    for (const [weight, unit, reps, rpe = null] of sets) fakeApi.addSet(bench, weight, unit, reps, '', rpe);
+    fakeApi.finishSession(earlier, new Date(Date.now() - 86_400_000 + 3_600_000));
+  }
+
+  it("shows last time's sets beside today's, and starts each row from them or the row above", async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    benchedYesterday(account.id, [
+      [60, 'kg', 10, 7],
+      [62.5, 'kg', 8],
+    ]);
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Bench Press');
+
+    expect(card.getByText('PREV')).toBeVisible();
+    expect(lastTimeCells(card)).toEqual(['60 kg × 10 @ RPE 7']);
+    expect(card.getByText('60 × 10')).toBeVisible();
+    expect(card.getByText('@ 7')).toBeVisible();
+    // Set 1 starts as last time's set 1, but not its RPE: that's how it felt.
+    expect(card.getByLabelText('Set 1 weight (kg)')).toHaveDisplayValue('60');
+    expect(card.getByLabelText('Set 1 reps')).toHaveDisplayValue('10');
+    expect(within(card.getByRole('button', { name: 'Set 1 RPE' })).getByText('–')).toBeVisible();
+
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
+    // Last time's set 1 again ties the best before: silver.
+    await waitFor(() => expect(loggedSets(card)).toEqual(['60 kg × 10, Silver']));
+
+    // The logged set keeps its PREV; the next row repeats the set just done.
+    expect(lastTimeCells(card)).toEqual(['60 kg × 10 @ RPE 7', '62.5 kg × 8']);
+    expect(card.getByLabelText('Set 2 weight (kg)')).toHaveDisplayValue('60');
+    expect(card.getByLabelText('Set 2 reps')).toHaveDisplayValue('10');
+
+    // Tapping PREV puts last time's set into the row.
+    await fireEvent.press(card.getByRole('button', { name: 'Set 2 last time' }));
+    expect(card.getByLabelText('Set 2 weight (kg)')).toHaveDisplayValue('62.5');
+    expect(card.getByLabelText('Set 2 reps')).toHaveDisplayValue('8');
+
+    // A row added after follows the row above, and last time had no set there.
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
+    expect(lastTimeCells(card)).toEqual(['60 kg × 10 @ RPE 7', '62.5 kg × 8', 'None']);
+    expect(card.getByLabelText('Set 3 weight (kg)')).toHaveDisplayValue('62.5');
+    expect(card.getByLabelText('Set 3 reps')).toHaveDisplayValue('8');
+    await fireEvent.changeText(card.getByLabelText('Set 2 weight (kg)'), '65');
+    expect(card.getByLabelText('Set 3 weight (kg)')).toHaveDisplayValue('65');
+  });
+
+  it('comes before the Target, and is in the unit the user sees', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'lb');
+    // 100 kg is 220.5 lb.
+    benchedYesterday(account.id, [
+      [100, 'kg', 6],
+      [225, 'lb', 5],
+    ]);
+    const bench = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
+    bench.target = { sets: 3, reps: 10, weight: 185, weightUnit: 'lb', restSeconds: null, note: '' };
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Bench Press');
+
+    expect(lastTimeCells(card)).toEqual(['220.5 lb × 6', '225 lb × 5', 'None']);
+    for (const set of [1, 2, 3]) {
+      expect(card.getByLabelText(`Set ${set} weight (lb)`)).toHaveDisplayValue('220.5');
+      expect(card.getByLabelText(`Set ${set} reps`)).toHaveDisplayValue('6');
+    }
   });
 });

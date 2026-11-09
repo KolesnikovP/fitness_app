@@ -3,13 +3,16 @@ import { Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import {
+  LastTimeCell,
   logSet,
   parseSetDraft,
   repsInput,
   RPE_SCALE,
   setColumns,
+  setDraftFromLastTime,
   SetTypeSelect,
   weightInput,
+  type LastTimeSet,
   type Session,
   type SetDraft,
 } from '@/entities/workout';
@@ -27,6 +30,8 @@ type PendingSetRowProps = {
   /** What marks it in the number column (see setMarks). */
   mark: string;
   draft: SetDraft;
+  /** Last time's Set at its place, if there was one. */
+  lastTime: LastTimeSet | undefined;
   onChange: (draft: SetDraft) => void;
   weightUnit: UnitPreference;
   onLogged: (session: Session) => void;
@@ -34,8 +39,9 @@ type PendingSetRowProps = {
 
 /**
  * A row of the set table for a Set still to do: its mark, tapped to pick its
- * Set type, then weight, reps and RPE in their columns, and an unchecked box
- * that logs it when ticked.
+ * Set type, then last time's Set at its place, tapped to put it in, then
+ * weight, reps and RPE in their columns, and an unchecked box that logs it
+ * when ticked.
  */
 export function PendingSetRow({
   sessionId,
@@ -43,6 +49,7 @@ export function PendingSetRow({
   number,
   mark,
   draft,
+  lastTime,
   onChange,
   weightUnit,
   onLogged,
@@ -81,6 +88,11 @@ export function PendingSetRow({
             onChange={(type) => change({ type })}
           />
         </View>
+        <LastTimeCell
+          number={number}
+          set={lastTime}
+          onUse={lastTime ? () => onChange(setDraftFromLastTime(lastTime, draft.type)) : undefined}
+        />
         <View style={setColumns.weight}>
           <TextField
             dense

@@ -195,3 +195,23 @@ FROM session_sets s
 JOIN session_exercises e ON e.id = s.session_exercise_id
 JOIN workout_sessions w ON w.id = e.session_id
 WHERE w.account_id = $1 AND w.finished_at IS NOT NULL;
+
+-- name: ListLastTimeSets :many
+-- Last time for each of the exercises: every set of it, warm-ups too, in the
+-- account's most recent finished session with a set of it, as logged. A set
+-- counts for the exercise it records, so a swapped one for the exercise
+-- swapped to.
+WITH last AS (
+    SELECT DISTINCT ON (s.exercise_id) s.exercise_id, w.id AS session_id
+    FROM session_sets s
+    JOIN session_exercises e ON e.id = s.session_exercise_id
+    JOIN workout_sessions w ON w.id = e.session_id
+    WHERE w.account_id = sqlc.arg(account_id) AND w.finished_at IS NOT NULL
+      AND s.exercise_id = ANY(sqlc.arg(exercise_ids)::uuid[])
+    ORDER BY s.exercise_id, w.finished_at DESC, w.id DESC
+)
+SELECT s.exercise_id, s.weight::float8 AS weight, s.weight_unit, s.reps, s.rpe
+FROM session_sets s
+JOIN session_exercises e ON e.id = s.session_exercise_id
+JOIN last ON last.exercise_id = s.exercise_id AND last.session_id = e.session_id
+ORDER BY s.created_at, s.id;

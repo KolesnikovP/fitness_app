@@ -60,6 +60,10 @@ _Avoid_: Logged set (as a system term), entry
 What kind of round a Set was: normal (the default), warm-up, failure or drop. A warm-up is a lighter Set done to get ready. A failure Set was taken until no more reps were possible. A drop Set was done straight after the Set before it, lighter, without rest. Every Set but a warm-up is a **working Set**: warm-ups count toward no Volume, Best, Personal record or Record tier, and failure and drop Sets count like normal ones. Normal and failure Sets are numbered 1, 2, 3 in their Session exercise; warm-ups and drop Sets take no number. Like the rest of a Set, its type can be corrected after logging. A Target plans no Set types.
 _Avoid_: Set kind, set tag, set category
 
+**Last time**:
+An Exercise's Sets in the User's most recent finished Session with a Set of it, whether from a Routine or freeform, as logged and warm-ups included. A swapped Set counts for the Exercise swapped to. While a Session is in progress, its set table shows last time's Set at each place beside today's (set 1 with set 1), in the User's Unit preference, and starts each row from it: the first row still to do from last time's Set at its place (or the Set just logged), each later one from the row above. Only weight and reps are carried over; RPE is how that Set felt. Without Last time, rows start at the Target.
+_Avoid_: Previous workout, history (for this), PREV (outside the column heading)
+
 **RPE**:
 Rate of perceived exertion: how hard a Set felt, read as how many more reps the User could have done (10 is none left, 9 is one more, down to 5 for five or more). The app offers 5 to 10; the API takes 1 to 10 in half steps. Optional; a Set logged without one has none.
 _Avoid_: Effort, intensity, difficulty
