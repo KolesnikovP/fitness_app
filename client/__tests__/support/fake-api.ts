@@ -1,6 +1,20 @@
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 
+import type { AuthResponse } from '@/entities/auth';
+import type { EquipmentType, Exercise, MuscleGroup } from '@/entities/exercise';
+import type { Post, PostSummary } from '@/entities/post';
+import type { Routine, RoutineSummary } from '@/entities/routine';
+import type { Me, ProfileCounts } from '@/entities/user';
+import type {
+  Bests,
+  ExerciseBest,
+  ExerciseProgress,
+  ExerciseRecords,
+  Session,
+  SessionSummary,
+} from '@/entities/workout';
+
 /**
  * An in-memory fake of the backend API, served at the network boundary with
  * MSW. It follows the real API's contract (see backend/internal/auth,
@@ -21,9 +35,9 @@ type FakeAccount = {
 type FakeExercise = {
   id: string;
   name: string;
-  muscleGroup: string;
-  secondaryMuscles: string[];
-  equipmentType: string;
+  muscleGroup: MuscleGroup;
+  secondaryMuscles: MuscleGroup[];
+  equipmentType: EquipmentType;
   instructions: string[];
   isCustom: boolean;
   imageUrl: string | null;
@@ -101,7 +115,7 @@ type FakeRoutine = {
 };
 
 /** A slice of the real seeded library, enough to search and filter. */
-const CANONICAL: [name: string, muscleGroup: string, equipmentType: string][] = [
+const CANONICAL: [name: string, muscleGroup: MuscleGroup, equipmentType: EquipmentType][] = [
   ['Back Squat', 'quads', 'barbell'],
   ['Bench Press', 'chest', 'barbell'],
   ['Deadlift', 'back', 'barbell'],
@@ -195,9 +209,9 @@ export const fakeApi = {
   addCustomExercise(
     ownerId: string,
     name: string,
-    muscleGroup: string,
-    equipmentType: string,
-    { secondaryMuscles = [], instructions = [] }: { secondaryMuscles?: string[]; instructions?: string[] } = {},
+    muscleGroup: MuscleGroup,
+    equipmentType: EquipmentType,
+    { secondaryMuscles = [], instructions = [] }: { secondaryMuscles?: MuscleGroup[]; instructions?: string[] } = {},
   ) {
     const exercise: FakeExercise = {
       id: `exercise-${nextId++}`,
@@ -358,7 +372,7 @@ function visibleExercise(account: FakeAccount, id: string | readonly string[] | 
   return exercises.find((e) => e.id === id && (e.ownerId === null || e.ownerId === account.id));
 }
 
-function exerciseJson({ ownerId: _ownerId, ...exercise }: FakeExercise) {
+function exerciseJson({ ownerId: _ownerId, ...exercise }: FakeExercise): Exercise {
   return exercise;
 }
 
@@ -414,7 +428,7 @@ const BEATS_BY = 1e-6;
  * them out: the first to reach a value keeps it, and those by weight come
  * only from Sets with weight.
  */
-function bestsOf(finished: FakeSession[], exerciseId: string, unit: 'kg' | 'lb') {
+function bestsOf(finished: FakeSession[], exerciseId: string, unit: 'kg' | 'lb'): Bests {
   type Top = { session: FakeSession; set?: FakeSet; value: number };
   const tops: Record<'estimated1RM' | 'heaviestWeight' | 'setVolume' | 'exerciseVolume' | 'mostReps', Top | null> = {
     estimated1RM: null,
@@ -445,7 +459,7 @@ function bestsOf(finished: FakeSession[], exerciseId: string, unit: 'kg' | 'lb')
       value: inUnit ? toUnit(top.value, unit) : top.value,
       ...(inUnit ? { unit } : {}),
       sessionId: top.session.id,
-      achievedAt: top.session.finishedAt,
+      achievedAt: top.session.finishedAt!,
       ...(top.set
         ? { set: { setId: top.set.id, weight: top.set.weight, weightUnit: top.set.weightUnit, reps: top.set.reps } }
         : {}),
@@ -586,7 +600,7 @@ function nameOf(session: FakeSession) {
   return givenNameOf(routineName, new Date(session.startedAt));
 }
 
-function sessionJson(fakeSession: FakeSession) {
+function sessionJson(fakeSession: FakeSession): Session {
   const tiers = recordTiersOf(fakeSession);
   const { ownerId: _ownerId, exercises: sessionExercises, givenName: _given, name: _name, ...session } = fakeSession;
   return {
@@ -627,7 +641,7 @@ function ownPost(account: FakeAccount, id: string | readonly string[] | undefine
   return { session };
 }
 
-function postJson(session: FakeSession) {
+function postJson(session: FakeSession): Post {
   return { id: session.id, ...fakeApi.post(session.id), session: sessionJson(session) };
 }
 
@@ -663,7 +677,7 @@ function exerciseName(id: string) {
   return exercises.find((e) => e.id === id)?.name ?? '';
 }
 
-function routineJson({ ownerId: _ownerId, slots, ...routine }: FakeRoutine) {
+function routineJson({ ownerId: _ownerId, slots, ...routine }: FakeRoutine): Routine {
   return {
     ...routine,
     slots: slots.map(({ substituteIds, ...slot }) => ({
@@ -762,7 +776,7 @@ function plannedRoutine(account: FakeAccount, body: { name?: string; slots?: Slo
   };
 }
 
-function me(account: FakeAccount) {
+function me(account: FakeAccount): Me {
   return {
     id: account.id,
     email: account.email,
@@ -797,10 +811,11 @@ function finishedSessionsOf(account: FakeAccount) {
     .sort((a, b) => b.finishedAt!.localeCompare(a.finishedAt!));
 }
 
-function sessionSummaryJson(s: FakeSession) {
+function sessionSummaryJson(s: FakeSession): SessionSummary {
   const { id, name, routineName, startedAt, finishedAt, stats, personalRecords } = sessionJson(s);
   const exerciseNames = [...new Set(exercisesDone(s).map(exerciseName))];
-  return { id, name, routineName, startedAt, finishedAt, stats, personalRecords, exerciseNames };
+  // Only finished Sessions are summarised, so both are set.
+  return { id, name, routineName, startedAt, finishedAt: finishedAt!, stats: stats!, personalRecords, exerciseNames };
 }
 
 // The workout handlers come first: '*/exercises' would also match
@@ -809,7 +824,9 @@ const handlers = [
   http.get('*/workouts/sessions', ({ request }) => {
     const account = caller(request);
     if (!account) return unauthorized();
-    return HttpResponse.json({ sessions: finishedSessionsOf(account).map(sessionSummaryJson) });
+    return HttpResponse.json<{ sessions: SessionSummary[] }>({
+      sessions: finishedSessionsOf(account).map(sessionSummaryJson),
+    });
   }),
 
   http.get('*/workouts/records', ({ request }) => {
@@ -825,7 +842,7 @@ const handlers = [
         if (!top || kg > top.kg + BEATS_BY) best.set(set.exerciseId, { session, set, kg });
       }
     }
-    return HttpResponse.json({
+    return HttpResponse.json<{ exercises: ExerciseBest[] }>({
       exercises: [...best.entries()]
         .map(([exerciseId, { session, set, kg }]) => ({
           exerciseId,
@@ -833,7 +850,7 @@ const handlers = [
           best: {
             sessionId: session.id,
             setId: set.id,
-            achievedAt: session.finishedAt,
+            achievedAt: session.finishedAt!,
             weight: set.weight,
             weightUnit: set.weightUnit,
             reps: set.reps,
@@ -896,7 +913,7 @@ const handlers = [
     const account = caller(request);
     if (!account) return unauthorized();
     const session = sessions.find((s) => s.ownerId === account.id && !s.finishedAt);
-    return HttpResponse.json({ session: session ? sessionJson(session) : null });
+    return HttpResponse.json<{ session: Session | null }>({ session: session ? sessionJson(session) : null });
   }),
 
   http.get('*/workouts/sessions/:id', ({ request, params }) => {
@@ -936,7 +953,7 @@ const handlers = [
     const bestSet = ({ session, set }: (typeof done)[number]) => ({
       sessionId: session.id,
       setId: set.id,
-      achievedAt: session.finishedAt,
+      achievedAt: session.finishedAt!,
       weight: set.weight,
       weightUnit: set.weightUnit,
       reps: set.reps,
@@ -948,7 +965,7 @@ const handlers = [
       const heaviest = byReps.get(entry.set.reps);
       if (!heaviest || kgOf(entry.set) > kgOf(heaviest.set) + BEATS_BY) byReps.set(entry.set.reps, entry);
     }
-    return HttpResponse.json({
+    return HttpResponse.json<ExerciseRecords>({
       bests: bestsOf(finished, String(params.id), unit),
       repRecords: [...byReps.values()].sort((a, b) => a.set.reps - b.set.reps).map(bestSet),
     });
@@ -968,7 +985,7 @@ const handlers = [
         return [
           {
             sessionId: session.id,
-            finishedAt: session.finishedAt,
+            finishedAt: session.finishedAt!,
             estimated1RM: toUnit(Math.max(...sets.map((s) => estimated1RM(kgOf(s), s.reps))), unit),
             heaviestWeight: toUnit(Math.max(...sets.map(kgOf)), unit),
             setVolume: toUnit(Math.max(...sets.map((s) => kgOf(s) * s.reps)), unit),
@@ -978,7 +995,7 @@ const handlers = [
           },
         ];
       });
-    return HttpResponse.json({ unit, sessions: points });
+    return HttpResponse.json<ExerciseProgress>({ unit, sessions: points });
   }),
 
   http.get('*/workouts/totals', ({ request }) => {
@@ -1192,7 +1209,7 @@ const handlers = [
     const account = caller(request);
     if (!account) return unauthorized();
     const own = fakeApi.routines(account.id).sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
-    return HttpResponse.json({
+    return HttpResponse.json<{ routines: RoutineSummary[] }>({
       routines: own.map(({ id, name, updatedAt, slots }) => ({
         id,
         name,
@@ -1247,7 +1264,7 @@ const handlers = [
     if (fakeApi.findAccount(email)) return error(409, 'email_taken', 'An account with this email already exists.');
 
     const account = fakeApi.addAccount(email, password, null);
-    return HttpResponse.json(
+    return HttpResponse.json<AuthResponse>(
       { token: fakeApi.issueToken(account.id), account: { id: account.id, email } },
       { status: 201 },
     );
@@ -1259,7 +1276,10 @@ const handlers = [
     if (!account || account.password !== password) {
       return error(401, 'invalid_credentials', 'Email or password is incorrect.');
     }
-    return HttpResponse.json({ token: fakeApi.issueToken(account.id), account: { id: account.id, email } });
+    return HttpResponse.json<AuthResponse>({
+      token: fakeApi.issueToken(account.id),
+      account: { id: account.id, email },
+    });
   }),
 
   http.get('*/users/me', ({ request }) => {
@@ -1317,7 +1337,7 @@ const handlers = [
       return error(400, 'invalid_time_zone', 'Send timeZone as an IANA time zone, such as Europe/Berlin.');
     }
     const finished = finishedSessionsOf(account);
-    return HttpResponse.json({
+    return HttpResponse.json<ProfileCounts>({
       workouts: finished.length,
       personalRecords: finished.reduce((n, s) => n + personalRecordsOf(s).length, 0),
       streak: streakOf(finished.map((s) => new Date(s.finishedAt!))),
@@ -1337,7 +1357,7 @@ const handlers = [
       .filter((e) => !muscleGroup || e.muscleGroup === muscleGroup)
       .filter((e) => !equipmentType || e.equipmentType === equipmentType)
       .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
-    return HttpResponse.json({ exercises: found.map(exerciseJson) });
+    return HttpResponse.json<{ exercises: Exercise[] }>({ exercises: found.map(exerciseJson) });
   }),
 
   http.post('*/exercises', async ({ request }) => {
@@ -1351,9 +1371,9 @@ const handlers = [
       instructions = [],
     } = (await request.json()) as {
       name?: string;
-      muscleGroup: string;
-      equipmentType: string;
-      secondaryMuscles?: string[];
+      muscleGroup: MuscleGroup;
+      equipmentType: EquipmentType;
+      secondaryMuscles?: MuscleGroup[];
       instructions?: string[];
     };
     if (!name?.trim()) return error(400, 'invalid_name', 'Name must be 1 to 100 characters.');
@@ -1407,7 +1427,7 @@ const handlers = [
   http.get('*/posts', ({ request }) => {
     const account = caller(request);
     if (!account) return unauthorized();
-    return HttpResponse.json({
+    return HttpResponse.json<{ posts: PostSummary[] }>({
       posts: finishedSessionsOf(account).map((s) => ({
         id: s.id,
         ...fakeApi.post(s.id),

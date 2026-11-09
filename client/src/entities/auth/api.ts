@@ -1,6 +1,6 @@
 import { apiRequest } from '@/shared/api';
 
-type AuthResponse = {
+export type AuthResponse = {
   token: string;
   account: { id: string; email: string };
 };
