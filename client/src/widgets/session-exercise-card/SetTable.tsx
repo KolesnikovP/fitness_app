@@ -194,7 +194,7 @@ function LoggedSetRow({ sessionId, set, number, mark, unit, lastTime, onPress, o
           accessibilityLabel={`Edit set ${number}`}
           accessibilityValue={{ text: formatSetWithTier(set) }}
           onPress={onPress}
-          style={({ pressed }) => [setColumns.row, styles.values, pressed && styles.pressed]}
+          style={({ pressed }) => [setColumns.values, styles.values, pressed && styles.pressed]}
         >
           <Text style={[setColumns.weight, styles.value, text]}>
             {set.weight}
@@ -225,7 +225,7 @@ const useStyles = makeStyles((colors) => ({
   // A badge on the corner of the mark's box.
   medal: { position: 'absolute', top: -6, right: -8 },
   // The values and tick, tapped to correct the Set; the mark before them is its own button.
-  values: { flex: 1, alignSelf: 'stretch' },
+  values: { alignSelf: 'stretch' },
   value: { fontSize: 17, color: colors.text, textAlign: 'center' },
   // The box a row still to do shows, ticked.
   checked: {
