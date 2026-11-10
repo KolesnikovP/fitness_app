@@ -2,7 +2,7 @@
 
 ### Issue tracker
 
-Issues live as GitHub issues in `KolesnikovP/fitness_app`, managed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Before any `gh` call (reading, listing or picking the next ticket), read `docs/agents/issue-tracker.md`: issues live in `KolesnikovP/fitness_app`, and `gh issue view` prints nothing for a ticket with no comments.
 
 ### Triage labels
 

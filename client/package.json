@@ -46,6 +46,7 @@
     "dev": "./scripts/dev.sh",
     "reload": "node scripts/reload.mjs",
     "sim-check": "./scripts/sim-check.sh",
+    "sim-seed": "node scripts/sim-seed.mjs",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
