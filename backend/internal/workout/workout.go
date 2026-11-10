@@ -99,7 +99,9 @@ type Session struct {
 // now. SupersetID is shared by the exercises of one Superset, and null for an
 // exercise in none. Target is what its Routine's slot planned, and Planned
 // the slot's own Exercise, both null for an exercise added during the
-// Session. It can be swapped to Planned or one of its Substitutes.
+// Session. It can be swapped to Planned or one of its Substitutes. LastTime
+// is last time's Sets of the Exercise being done now, while the Session is in
+// progress; empty once it's finished.
 type SessionExercise struct {
 	ID          uuid.UUID     `json:"id"`
 	ExerciseID  uuid.UUID     `json:"exerciseId"`
@@ -110,6 +112,18 @@ type SessionExercise struct {
 	Planned     *ExerciseRef  `json:"planned"`
 	Substitutes []ExerciseRef `json:"substitutes"`
 	Sets        []Set         `json:"sets"`
+	LastTime    []LastTimeSet `json:"lastTime"`
+}
+
+// LastTimeSet is one of an Exercise's Sets the last time the User did it: in
+// their most recent finished Session with a Set of it. Weight is in
+// WeightUnit, the User's Unit preference, converted when logged in the other
+// unit. RPE is null when none was entered.
+type LastTimeSet struct {
+	Weight     float64  `json:"weight"`
+	WeightUnit string   `json:"weightUnit"`
+	Reps       int32    `json:"reps"`
+	RPE        *float64 `json:"rpe"`
 }
 
 // ExerciseRef names an Exercise.
@@ -1123,6 +1137,9 @@ func (h handlers) loadSession(ctx context.Context, caller, id uuid.UUID) (Sessio
 	if err != nil {
 		return Session{}, err
 	}
+	if err := h.addLastTime(ctx, caller, unit, &session); err != nil {
+		return Session{}, err
+	}
 	var setExerciseIDs []uuid.UUID
 	var inProgress []store.ListFinishedSetsOfExercisesRow
 	for _, s := range setRows {
@@ -1154,6 +1171,38 @@ func (h handlers) loadSession(ctx context.Context, caller, id uuid.UUID) (Sessio
 		session.RoutineName = routineName(routineNames, row.RoutineID)
 	}
 	return session, nil
+}
+
+// addLastTime gives each exercise of a session in progress last time's Sets of
+// the Exercise being done now, in unit; a finished session's exercises get none.
+func (h handlers) addLastTime(ctx context.Context, caller uuid.UUID, unit string, session *Session) error {
+	for i := range session.Exercises {
+		session.Exercises[i].LastTime = []LastTimeSet{}
+	}
+	if session.FinishedAt != nil || len(session.Exercises) == 0 {
+		return nil
+	}
+	ids := make([]uuid.UUID, len(session.Exercises))
+	for i, e := range session.Exercises {
+		ids[i] = e.ExerciseID
+	}
+	rows, err := h.queries.ListLastTimeSets(ctx, store.ListLastTimeSetsParams{AccountID: caller, ExerciseIds: ids})
+	if err != nil {
+		return fmt.Errorf("list last time's sets: %w", err)
+	}
+	byExercise := make(map[uuid.UUID][]LastTimeSet)
+	for _, r := range rows {
+		weight := r.Weight
+		if r.WeightUnit != unit {
+			weight = inUnit(kgOf(r.Weight, r.WeightUnit), unit)
+		}
+		byExercise[r.ExerciseID] = append(byExercise[r.ExerciseID],
+			LastTimeSet{Weight: weight, WeightUnit: unit, Reps: r.Reps, RPE: r.Rpe})
+	}
+	for i, e := range session.Exercises {
+		session.Exercises[i].LastTime = append(session.Exercises[i].LastTime, byExercise[e.ExerciseID]...)
+	}
+	return nil
 }
 
 // routineName looks up routineID in names, or returns nil if it's nil or

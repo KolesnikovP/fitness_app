@@ -5,8 +5,10 @@ import { useAuth } from '@/entities/auth';
 import {
   addedAfterLogging,
   formatSetWithTier,
-  nextSetDraft,
+  LastTimeCell,
+  type LastTimeSet,
   pendingSetCount,
+  pendingSetDrafts,
   RecordTierMedal,
   setColumns,
   setMarks,
@@ -29,14 +31,14 @@ type SetTableProps = {
 };
 
 /**
- * A Session exercise's Sets as a table, a column each for weight, reps and
- * RPE: the logged ones (tap one to correct or delete it), then a row for each
- * Set still to do, ready at the Target, with a box to tick to log it. Each
- * row starts with the Set's mark, its number or its type's letter, tapped to
- * change its Set type. "Add
- * set" adds another row. Once a swap means the Sets were done with more than
- * one Exercise, each run of them is labelled with its Exercise, and so are
- * the rows still to do. A logged Set with a Record tier is filled in its
+ * A Session exercise's Sets as a table, a column each for Last time's Set at
+ * the same place, weight, reps and RPE: the logged ones (tap one to correct
+ * or delete it), then a row for each Set still to do, ready from Last time or
+ * the row above, else at the Target (see pendingSetDrafts), with a box to
+ * tick to log it. Each row starts with the Set's mark, its number or its
+ * type's letter, tapped to change its Set type. "Add set" adds another row.
+ * Once a swap means the Sets were done with more than one Exercise, each run
+ * of them is labelled with its Exercise, and so are the rows still to do. A logged Set with a Record tier is filled in its
  * colour and shows its medal.
  */
 export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: SetTableProps) {
@@ -46,7 +48,7 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
   const [editingSetId, setEditingSetId] = useState<string | null>(null);
   // Rows the User added beyond the Target, and what they've typed in each
   // row still to do, by position; a row they haven't touched follows the
-  // last Set logged.
+  // Last time, the row above, or the Target (see pendingSetDrafts).
   const [added, setAdded] = useState(0);
   const [drafts, setDrafts] = useState<(SetDraft | undefined)[]>([]);
 
@@ -57,8 +59,8 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
   // run when the last Sets were done with another.
   const pendingLabel = labelled && runs.at(-1)?.exerciseId !== sessionExercise.exerciseId;
   const pending = pendingSetCount(sessionExercise, added);
-  const fresh = nextSetDraft(sessionExercise, unit);
-  const pendingDrafts = Array.from({ length: pending }, (_, i) => drafts[i] ?? fresh);
+  const pendingDrafts = pendingSetDrafts(sessionExercise, unit, drafts, pending);
+  const lastTime = sessionExercise.lastTime;
   const marks = setMarks([...logged.map((s) => s.type), ...pendingDrafts.map((d) => d.type)]);
 
   function changeDraft(index: number, draft: SetDraft) {
@@ -79,6 +81,7 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
     <View accessibilityLabel="Sets" style={styles.table}>
       <View style={[setColumns.row, styles.header]}>
         <Text style={[setColumns.number, styles.heading]}>SET</Text>
+        <Text style={[setColumns.lastTime, styles.heading]}>PREV</Text>
         <Text style={[setColumns.weight, styles.heading]}>{unit.toUpperCase()}</Text>
         <Text style={[setColumns.reps, styles.heading]}>REPS</Text>
         <Text style={[setColumns.rpe, styles.heading]}>RPE</Text>
@@ -112,6 +115,7 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
                 number={number}
                 mark={mark}
                 unit={unit}
+                lastTime={lastTime[number - 1]}
                 onPress={() => setEditingSetId(set.id)}
                 onChange={onChange}
               />
@@ -128,6 +132,7 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
           number={logged.length + i + 1}
           mark={marks[logged.length + i]}
           draft={pendingDrafts[i]}
+          lastTime={lastTime[logged.length + i]}
           onChange={(draft) => changeDraft(i, draft)}
           weightUnit={unit}
           onLogged={(session) => onLogged(i, session)}
@@ -156,17 +161,19 @@ type LoggedSetRowProps = {
   mark: string;
   /** The table's unit; a Set logged in the other one says so. */
   unit: string;
+  /** Last time's Set at its place, if there was one. */
+  lastTime: LastTimeSet | undefined;
   onPress: () => void;
   onChange: (session: Session) => void;
 };
 
 /**
  * A logged Set as a row of the table: its mark, tapped to change its Set
- * type, then its values in their columns, tapped to correct it, and its note
- * below. A Set with a Record tier is filled in the tier's colour, with its
+ * type, then last time's Set at its place, then its values in their columns,
+ * tapped to correct it, and its note below. A Set with a Record tier is filled in the tier's colour, with its
  * medal on its mark's corner, and says its tier after its values.
  */
-function LoggedSetRow({ sessionId, set, number, mark, unit, onPress, onChange }: LoggedSetRowProps) {
+function LoggedSetRow({ sessionId, set, number, mark, unit, lastTime, onPress, onChange }: LoggedSetRowProps) {
   const styles = useStyles();
   const tier = set.recordTier;
   const { fill, text } = useRecordTierColours(tier);
@@ -174,19 +181,27 @@ function LoggedSetRow({ sessionId, set, number, mark, unit, onPress, onChange }:
     <View>
       <View style={[setColumns.row, styles.logged, fill]}>
         <View style={[setColumns.number, styles.markCell]}>
-          <LoggedSetTypeSelect sessionId={sessionId} set={set} number={number} mark={mark} onSaved={onChange} />
+          <LoggedSetTypeSelect
+            sessionId={sessionId}
+            set={set}
+            number={number}
+            mark={mark}
+            textStyle={text}
+            onSaved={onChange}
+          />
           {tier ? (
             <View style={styles.medal} pointerEvents="none">
               <RecordTierMedal tier={tier} />
             </View>
           ) : null}
         </View>
+        <LastTimeCell number={number} set={lastTime} />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Edit set ${number}`}
           accessibilityValue={{ text: formatSetWithTier(set) }}
           onPress={onPress}
-          style={({ pressed }) => [setColumns.row, styles.values, pressed && styles.pressed]}
+          style={({ pressed }) => [setColumns.values, styles.values, pressed && styles.pressed]}
         >
           <Text style={[setColumns.weight, styles.value, text]}>
             {set.weight}
@@ -217,7 +232,7 @@ const useStyles = makeStyles((colors) => ({
   // A badge on the corner of the mark's box.
   medal: { position: 'absolute', top: -6, right: -8 },
   // The values and tick, tapped to correct the Set; the mark before them is its own button.
-  values: { flex: 1, alignSelf: 'stretch' },
+  values: { alignSelf: 'stretch' },
   value: { fontSize: 17, color: colors.text, textAlign: 'center' },
   // The box a row still to do shows, ticked.
   checked: {

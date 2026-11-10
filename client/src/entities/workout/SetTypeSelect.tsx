@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View, type StyleProp, type TextStyle } from 'react-native';
 
 import { Button, makeStyles, spacing } from '@/shared/ui';
 
@@ -13,6 +13,12 @@ type SetTypeSelectProps = {
   value: SetType;
   onChange: (type: SetType) => void;
   disabled?: boolean;
+  /**
+   * A logged Set's mark is plain, like its values beside it, in their colour
+   * (textStyle); one still to do is boxed like the fields beside it.
+   */
+  plain?: boolean;
+  textStyle?: StyleProp<TextStyle>;
 };
 
 /**
@@ -20,7 +26,7 @@ type SetTypeSelectProps = {
  * a sheet of the Set types, each with what it means. A warm-up, failure or
  * drop Set's letter is in the type's colour.
  */
-export function SetTypeSelect({ label, mark, value, onChange, disabled }: SetTypeSelectProps) {
+export function SetTypeSelect({ label, mark, value, onChange, disabled, plain, textStyle }: SetTypeSelectProps) {
   const styles = useStyles();
   const [open, setOpen] = useState(false);
 
@@ -39,9 +45,17 @@ export function SetTypeSelect({ label, mark, value, onChange, disabled }: SetTyp
         disabled={disabled}
         hitSlop={8}
         onPress={() => setOpen(true)}
-        style={({ pressed }) => [styles.mark, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.mark, !plain && styles.boxed, pressed && styles.pressed]}
       >
-        <Text style={[styles.markText, value !== 'normal' && [styles.letter, styles[value]]]}>{mark}</Text>
+        <Text
+          style={[
+            styles.markText,
+            plain && [styles.plainText, textStyle],
+            value !== 'normal' && [styles.letter, styles[value]],
+          ]}
+        >
+          {mark}
+        </Text>
       </Pressable>
       <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
         <Pressable accessibilityLabel={`Close ${label}`} style={styles.backdrop} onPress={() => setOpen(false)} />
@@ -81,13 +95,15 @@ export function SetTypeSelect({ label, mark, value, onChange, disabled }: SetTyp
 }
 
 const useStyles = makeStyles((colors) => ({
-  // Boxed so the mark reads as something to tap.
   mark: {
     // As big as the weight and reps fields beside it.
     minHeight: 40,
     alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Boxed so the mark reads as something to tap.
+  boxed: {
     borderWidth: 1,
     borderColor: colors.fieldBorder,
     borderRadius: 10,
@@ -95,6 +111,7 @@ const useStyles = makeStyles((colors) => ({
   },
   pressed: { opacity: 0.5 },
   markText: { fontSize: 17, color: colors.muted, textAlign: 'center' },
+  plainText: { color: colors.text },
   letter: { fontWeight: '800' },
   warmup: { color: colors.link },
   failure: { color: colors.danger },

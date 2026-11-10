@@ -602,6 +602,27 @@ function nameOf(session: FakeSession) {
   return givenNameOf(routineName, new Date(session.startedAt));
 }
 
+/**
+ * Last time's Sets of exerciseId, as the real API works it out: every Set of
+ * it, warm-ups too, in the owner's most recent finished session with one, in
+ * their unit, converted when logged in the other.
+ */
+function lastTimeOf(ownerId: string, exerciseId: string) {
+  const unit = unitOf(ownerId);
+  const last = sessions
+    .filter((s) => s.ownerId === ownerId && s.finishedAt && setsOf(s).some((set) => set.exerciseId === exerciseId))
+    .sort((a, b) => b.finishedAt!.localeCompare(a.finishedAt!))[0];
+  if (!last) return [];
+  return setsOf(last)
+    .filter((set) => set.exerciseId === exerciseId)
+    .map((set) => ({
+      weight: set.weightUnit === unit ? set.weight : toUnit(kgOf(set), unit),
+      weightUnit: unit,
+      reps: set.reps,
+      rpe: set.rpe,
+    }));
+}
+
 function sessionJson(fakeSession: FakeSession): Session {
   const tiers = recordTiersOf(fakeSession);
   const { ownerId: _ownerId, exercises: sessionExercises, givenName: _given, name: _name, ...session } = fakeSession;
@@ -618,6 +639,8 @@ function sessionJson(fakeSession: FakeSession): Session {
       planned: plannedExerciseId === null ? null : exerciseRef(plannedExerciseId),
       substitutes: substituteIds.map(exerciseRef),
       sets: sets.map((set) => ({ ...set, name: exerciseName(set.exerciseId), recordTier: tiers.get(set.id) ?? null })),
+      // Only while in progress.
+      lastTime: fakeSession.finishedAt ? [] : lastTimeOf(fakeSession.ownerId, sessionExercise.exerciseId),
     })),
   };
 }

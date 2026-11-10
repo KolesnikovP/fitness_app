@@ -5,6 +5,7 @@ export {
   countOf,
   currentTarget,
   formatClockTime,
+  formatLastTimeSet,
   formatDuration,
   formatSessionDate,
   formatShortDate,
@@ -18,7 +19,7 @@ export {
   hasSets,
   MAX_SESSION_NAME_CHARS,
   newRecords,
-  nextSetDraft,
+  pendingSetDrafts,
   parseReps,
   pendingSetCount,
   parseSetDraft,
@@ -41,6 +42,7 @@ export {
   type ExerciseBest,
   type ExerciseProgress,
   type ExerciseRecords,
+  type LastTimeSet,
   type PersonalRecord,
   type ProgressPoint,
   type RecordTier,
@@ -56,6 +58,7 @@ export {
   type SetType,
   type SupersetProgress,
   weightInput,
+  withLastTime,
   withoutSet,
 } from './model';
 export {
@@ -81,6 +84,7 @@ export {
 } from './api';
 export { sessionSummary } from './sessionSummary';
 export { ExerciseBestsCard } from './ExerciseBestsCard';
+export { LastTimeCell } from './LastTimeCell';
 export { NewRecordBanner } from './NewRecordBanner';
 export { PersonalRecordList } from './PersonalRecordList';
 export { RecordTierMedal, useRecordTierColours } from './RecordTier';
