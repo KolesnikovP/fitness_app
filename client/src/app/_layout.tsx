@@ -58,6 +58,8 @@ function RootNavigator() {
           {/* Over whichever tab it's opened from. */}
           <Stack.Screen name="edit-workout/[id]" options={{ presentation: 'fullScreenModal' }} />
         </Stack.Protected>
+        {/* Reachable in every state: scripts/sim-seed.mjs opens it to log in. */}
+        <Stack.Screen name="dev-log-in" />
       </Stack>
     </>
   );

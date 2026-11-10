@@ -29,8 +29,20 @@ if ! pgrep -f "script .*$LOG" >/dev/null; then
 fi
 
 xcrun simctl terminate booted host.exp.Exponent >/dev/null 2>&1
+logged=$(wc -l <"$LOG" 2>/dev/null || echo 0)
 xcrun simctl openurl booted "$APP"
-sleep 20
+# A cold start waits for Metro to bundle, 15s or more after a code change: wait
+# for Metro to log the bundle, then for the app to start. Without the log, guess.
+if [ -f "$LOG" ] && pgrep -f "script .*$LOG" >/dev/null; then
+  waited=0
+  until tail -n +"$((logged + 1))" "$LOG" | grep -q "Bundled" || [ "$waited" -ge 90 ]; do
+    sleep 1
+    waited=$((waited + 1))
+  done
+  sleep 8
+else
+  sleep 20
+fi
 if [ -n "$FROM" ]; then
   xcrun simctl openurl booted "$APP/--$FROM"
   sleep 4

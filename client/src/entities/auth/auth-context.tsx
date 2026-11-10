@@ -24,6 +24,8 @@ type AuthContextValue = {
   setMe: (me: Me) => void;
   /** Try restoring the stored login again, after 'unreachable'. */
   retry: () => Promise<void>;
+  /** Development only: log in with a token the API issued, as scripts/sim-seed.mjs does through /dev-log-in. */
+  logInWithToken: (token: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -90,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setState({ status: 'loading' });
         await restore();
       },
+      logInWithToken: finishLogIn,
     }),
     [state, finishLogIn, restore],
   );

@@ -10,6 +10,8 @@ Judgement calls for review. `npm run lint`, `typecheck` and `format:check` alrea
 
 - **A screen with a top bar puts its title there.** A screen pushed onto a stack, under the top bar and back button, passes `headerTitle` to `Screen`, which shows it in the top bar. A `title` drawn in the content on such a screen sits under an empty top bar and leaves a gap. `title` is only for screens with no top bar: a tab's first screen, or one shown on its own such as Log in or onboarding. Tests find a `headerTitle` with `findHeaderTitle` from `__tests__/support/native-header.ts`, since Jest doesn't draw the native top bar.
 
+- **Table rows line up with their header through shared columns.** Every cell of a set-table row takes its size from `setColumns`, and a cell that wraps several columns (a logged Set's tappable values) is sized as those columns and their gaps are in the header, never `flex: 1`. A new column changes the header, the logged row and the row still to do together. Flag a diff that changes only some of them, or sizes a row's cell outside `setColumns`.
+
 ## Wording
 
 - **Glossary terms, unless the ticket decided otherwise.** Code names, test names and on-screen copy use the terms in `CONTEXT.md` and avoid its _Avoid_ list. A ticket's **Decided** section can set an on-screen label that differs, such as "Best 1RM" for Estimated 1RM or a "How to" tab. Read the originating ticket before flagging a label, and flag the label only when no decision covers it.
