@@ -18,7 +18,7 @@ func (h handlers) counts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, _ := auth.AccountID(r.Context())
-	counts, err := h.workouts.ProfileCounts(r.Context(), id, loc, time.Now())
+	counts, err := h.workouts.ProfileCounts(r.Context(), id, loc, h.now())
 	if err != nil {
 		httpx.WriteInternalError(w, r, err)
 		return

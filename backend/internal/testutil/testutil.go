@@ -65,10 +65,23 @@ func Pool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
-// NewServer starts the full API router against the test database.
+// NewServer starts the full API router against the test database, on the
+// real clock.
 func NewServer(t *testing.T) *httptest.Server {
 	t.Helper()
-	srv := httptest.NewServer(app.NewHandler(Pool(t), Tokens()))
+	return newServer(t, time.Now)
+}
+
+// NewServerAt starts the full API router against the test database, with
+// its clock pinned to now. Tokens still use the real time.
+func NewServerAt(t *testing.T, now time.Time) *httptest.Server {
+	t.Helper()
+	return newServer(t, func() time.Time { return now })
+}
+
+func newServer(t *testing.T, now func() time.Time) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(app.NewHandler(Pool(t), Tokens(), now))
 	t.Cleanup(srv.Close)
 	return srv
 }

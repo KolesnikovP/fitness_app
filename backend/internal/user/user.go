@@ -39,10 +39,12 @@ type Workouts interface {
 type Service struct {
 	pool    *pgxpool.Pool
 	queries *store.Queries
+	now     func() time.Time
 }
 
-func NewService(pool *pgxpool.Pool) *Service {
-	return &Service{pool: pool, queries: store.New(pool)}
+// NewService builds the user module, which reads the current time from now.
+func NewService(pool *pgxpool.Pool, now func() time.Time) *Service {
+	return &Service{pool: pool, queries: store.New(pool), now: now}
 }
 
 // CreateProfile implements auth.ProfileCreator.
@@ -88,7 +90,7 @@ const MaxNameChars = 50
 // Routes takes workouts here rather than in NewService, as the workout
 // module is built with this one as its Profiles.
 func (s *Service) Routes(mux *http.ServeMux, accounts Accounts, workouts Workouts) {
-	h := handlers{pool: s.pool, queries: s.queries, accounts: accounts, workouts: workouts}
+	h := handlers{pool: s.pool, queries: s.queries, accounts: accounts, workouts: workouts, now: s.now}
 	mux.Handle("GET /users/me", accounts.RequireAuth(http.HandlerFunc(h.getMe)))
 	mux.Handle("PATCH /users/me", accounts.RequireAuth(http.HandlerFunc(h.patchMe)))
 	mux.Handle("PUT /users/me/avatar", accounts.RequireAuth(http.HandlerFunc(h.setAvatar)))
@@ -102,6 +104,7 @@ type handlers struct {
 	queries  *store.Queries
 	accounts Accounts
 	workouts Workouts
+	now      func() time.Time
 }
 
 func (h handlers) getMe(w http.ResponseWriter, r *http.Request) {

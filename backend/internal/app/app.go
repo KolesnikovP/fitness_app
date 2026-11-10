@@ -4,6 +4,7 @@ package app
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -16,8 +17,10 @@ import (
 	"github.com/KolesnikovP/fitness_app/backend/internal/workout"
 )
 
-func NewHandler(pool *pgxpool.Pool, tokens *auth.Tokens) http.Handler {
-	users := user.NewService(pool)
+// NewHandler builds the API, which reads the current time from now: time.Now
+// in production, a fixed instant in tests. Tokens keep the real time.
+func NewHandler(pool *pgxpool.Pool, tokens *auth.Tokens, now func() time.Time) http.Handler {
+	users := user.NewService(pool, now)
 	accounts := auth.NewService(pool, tokens, users)
 	exercises := exercise.NewService(pool)
 	programs := program.NewService(pool, exercises)

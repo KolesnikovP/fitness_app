@@ -45,7 +45,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           app.NewHandler(pool, auth.NewTokens([]byte(cfg.JWTSecret), cfg.TokenTTL)),
+		Handler:           app.NewHandler(pool, auth.NewTokens([]byte(cfg.JWTSecret), cfg.TokenTTL), time.Now),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
