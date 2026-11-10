@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, type StyleProp, type TextStyle } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { editSet, SetTypeSelect, type Session, type SessionSet } from '@/entities/workout';
@@ -12,11 +12,13 @@ type LoggedSetTypeSelectProps = {
   number: number;
   /** What marks it in the number column (see setMarks). */
   mark: string;
+  /** The colour of the row's values, so the mark matches them. */
+  textStyle?: StyleProp<TextStyle>;
   onSaved: (session: Session) => void;
 };
 
-/** A logged Set's mark, tapped to change its Set type, keeping its values. */
-export function LoggedSetTypeSelect({ sessionId, set, number, mark, onSaved }: LoggedSetTypeSelectProps) {
+/** A logged Set's mark, plain like its values, tapped to change its Set type, keeping its values. */
+export function LoggedSetTypeSelect({ sessionId, set, number, mark, textStyle, onSaved }: LoggedSetTypeSelectProps) {
   const { state } = useAuth();
   const [saving, setSaving] = useState(false);
   if (state.status !== 'signedIn') return null;
@@ -35,6 +37,14 @@ export function LoggedSetTypeSelect({ sessionId, set, number, mark, onSaved }: L
   }
 
   return (
-    <SetTypeSelect label={`Set ${number} type`} mark={mark} value={set.type} onChange={change} disabled={saving} />
+    <SetTypeSelect
+      label={`Set ${number} type`}
+      mark={mark}
+      value={set.type}
+      onChange={change}
+      disabled={saving}
+      plain
+      textStyle={textStyle}
+    />
   );
 }

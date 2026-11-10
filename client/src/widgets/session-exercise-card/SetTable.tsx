@@ -181,7 +181,14 @@ function LoggedSetRow({ sessionId, set, number, mark, unit, lastTime, onPress, o
     <View>
       <View style={[setColumns.row, styles.logged, fill]}>
         <View style={[setColumns.number, styles.markCell]}>
-          <LoggedSetTypeSelect sessionId={sessionId} set={set} number={number} mark={mark} onSaved={onChange} />
+          <LoggedSetTypeSelect
+            sessionId={sessionId}
+            set={set}
+            number={number}
+            mark={mark}
+            textStyle={text}
+            onSaved={onChange}
+          />
           {tier ? (
             <View style={styles.medal} pointerEvents="none">
               <RecordTierMedal tier={tier} />
