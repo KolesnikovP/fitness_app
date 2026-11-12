@@ -57,11 +57,11 @@ One round of a Session exercise: the weight and the number of reps, with an opti
 _Avoid_: Logged set (as a system term), entry
 
 **Set type**:
-What kind of round a Set was: normal (the default), warm-up, failure or drop. A warm-up is a lighter Set done to get ready. A failure Set was taken until no more reps were possible. A drop Set was done straight after the Set before it, lighter, without rest. Every Set but a warm-up is a **working Set**: warm-ups count toward no Volume, Best, Personal record or Record tier, and failure and drop Sets count like normal ones. Normal and failure Sets are numbered 1, 2, 3 in their Session exercise; warm-ups and drop Sets take no number. Like the rest of a Set, its type can be corrected after logging. A Target plans no Set types.
+What kind of round a Set was: normal (the default), warm-up, failure or drop. A warm-up is a lighter Set done to get ready. A failure Set was taken until no more reps were possible. A drop Set was done straight after the Set before it, lighter, without rest. Every Set but a warm-up is a **working Set**: warm-ups count toward no Volume, Best, Personal record or Record tier, and failure and drop Sets count like normal ones. Normal and failure Sets are numbered 1, 2, 3 in their Session exercise; warm-ups and drop Sets take no number. Like the rest of a Set, its type can be corrected after logging. A Target plans only numbered Sets.
 _Avoid_: Set kind, set tag, set category
 
 **Last time**:
-An Exercise's Sets in the User's most recent finished Session with a Set of it, whether from a Routine or freeform, as logged and warm-ups included. A swapped Set counts for the Exercise swapped to. While a Session is in progress, its set table shows last time's Set at each place beside today's (set 1 with set 1), in the User's Unit preference, and starts each row from it: the first row still to do from last time's Set at its place (or the Set just logged), each later one from the row above. Only weight and reps are carried over; RPE is how that Set felt. Without Last time, rows start at the Target's reps and the last weight logged, else the Target's.
+An Exercise's Sets in the User's most recent finished Session with a Set of it, whether from a Routine or freeform, as logged and warm-ups included. A swapped Set counts for the Exercise swapped to. While a Session is in progress, its set table shows last time's Set at each place beside today's, in the User's Unit preference. Warm-ups and numbered Sets are placed apart: warm-up 1 with warm-up 1, set 1 with set 1; a drop Set has no place. A Session exercise with nothing logged yet starts with a warm-up row for each warm-up last time had before its first numbered Set, in order, each starting from last time's warm-up at its place; mid-Session warm-ups and drop Sets don't come back. The first numbered row still to do starts from the numbered Set just logged, else last time's Set at its place, and each later one from the row above. Only weight and reps are carried over, and the type of a warm-up; RPE is how that Set felt. Without Last time, rows start at the Target's reps and the last weight logged, else the Target's.
 _Avoid_: Previous workout, history (for this), PREV (outside the column heading)
 
 **RPE**:
@@ -123,7 +123,7 @@ One Exercise planned in a Routine: its Target, and optionally a rest, a note, Su
 _Avoid_: Slot exercise, routine exercise, entry
 
 **Target**:
-What an Exercise slot plans: a number of Sets, each of so many reps at a weight (in kg or lb). A weight of 0 means none is planned yet, as for a new lifter who doesn't know theirs: starting the Routine asks for one and saves it. A Session started from a Routine keeps a copy of each slot's Target on its Session exercise, and the User logs the Sets they actually did against it.
+What an Exercise slot plans: a number of Sets, each of so many reps at a weight (in kg or lb). The Sets it plans are the numbered ones, normal and failure: warm-ups and drop Sets logged against it leave its count of Sets still to do as it was. A weight of 0 means none is planned yet, as for a new lifter who doesn't know theirs: starting the Routine asks for one and saves it. A Session started from a Routine keeps a copy of each slot's Target on its Session exercise, and the User logs the Sets they actually did against it.
 _Avoid_: Goal, prescription, planned set
 
 **Substitute**:
