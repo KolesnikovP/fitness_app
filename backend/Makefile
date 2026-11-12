@@ -24,3 +24,4 @@ sqlc:
 
 vet:
 	go vet ./...
+	./scripts/check-clock.sh

@@ -6,6 +6,8 @@ Judgement calls for review. `npm run lint`, `typecheck` and `format:check` alrea
 
 - **Expected values are independent of the code.** Each expected value is a literal or a worked example ("330 lb × 3 is 149.7 kg, so 164.7 kg estimated"), never recomputed the way the code computes it. A tautological expectation, such as a date formatted with the same `toLocaleDateString` call the component uses, passes by construction and hides the very question a test should answer. Flag it, and suggest a literal or asserting only the parts the code decides.
 
+- **Day and week boundaries are tested at pinned instants, in zones on both sides of UTC.** A backend test of anything that depends on the date, such as the Streak, runs on `testutil.NewServerAt` and builds every date from that instant. It checks one instant near the boundary, where the User's zone and UTC are on different days, and one well away from it. Where the User's time zone matters, it covers a zone behind UTC and one ahead, such as `America/Chicago` and `Europe/Rome`. Flag a test that reads the real clock for such dates, or covers only one side of UTC.
+
 ## UI
 
 - **A screen with a top bar puts its title there.** A screen pushed onto a stack, under the top bar and back button, passes `headerTitle` to `Screen`, which shows it in the top bar. A `title` drawn in the content on such a screen sits under an empty top bar and leaves a gap. `title` is only for screens with no top bar: a tab's first screen, or one shown on its own such as Log in or onboarding. Tests find a `headerTitle` with `findHeaderTitle` from `__tests__/support/native-header.ts`, since Jest doesn't draw the native top bar.
