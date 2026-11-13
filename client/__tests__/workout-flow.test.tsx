@@ -6,7 +6,7 @@ import { fakeApi } from './support/fake-api';
 import { findHeaderTitle } from './support/native-header';
 import { secureStore } from './support/secure-store';
 import type { FakeSetType } from './support/fake-api';
-import { chooseSetType, loggedSets, readouts } from './support/set-table';
+import { chooseSetType, loggedSets, readouts, rowsToDo } from './support/set-table';
 
 /** Launches the app signed in as an onboarded kg user, on the Workout tab. */
 async function openWorkoutTab() {
@@ -599,6 +599,85 @@ describe('last time', () => {
       expect(card.getByLabelText(`Set ${set} weight (lb)`)).toHaveDisplayValue('220.5');
       expect(card.getByLabelText(`Set ${set} reps`)).toHaveDisplayValue('6');
     }
+  });
+});
+
+describe('last time across a swap', () => {
+  function lastTimeCells(card: ReturnType<typeof exerciseCard>) {
+    return readouts(card.getAllByLabelText(/^Set \d+ last time$/));
+  }
+
+  /**
+   * A finished Session a day ago of Bench Press, 60×10, 62.5×8, 65×6, and
+   * Dumbbell Bench Press, 30×10, 32×8; then today's, with Bench Press on a
+   * Target of sets × 5 at 60 kg that can swap to Dumbbell Bench Press.
+   */
+  async function benchToday(sets: number) {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const earlier = fakeApi.addSession(account.id, new Date(Date.now() - 86_400_000));
+    const benchBefore = fakeApi.addSessionExercise(earlier, 'Bench Press');
+    for (const [weight, reps] of [
+      [60, 10],
+      [62.5, 8],
+      [65, 6],
+    ])
+      fakeApi.addSet(benchBefore, weight, 'kg', reps);
+    const dumbbellsBefore = fakeApi.addSessionExercise(earlier, 'Dumbbell Bench Press');
+    for (const [weight, reps] of [
+      [30, 10],
+      [32, 8],
+    ])
+      fakeApi.addSet(dumbbellsBefore, weight, 'kg', reps);
+    fakeApi.finishSession(earlier, new Date(Date.now() - 86_400_000 + 3_600_000));
+    const bench = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
+    bench.target = { sets, reps: 5, weight: 60, weightUnit: 'kg', restSeconds: null, note: '' };
+    bench.plannedExerciseId = bench.exerciseId;
+    bench.substituteIds = [fakeApi.exerciseNamed('Dumbbell Bench Press').id];
+    await resumeWorkout(account.id);
+  }
+
+  async function swap(from: string, to: string) {
+    await fireEvent.press(screen.getByRole('button', { name: `Swap ${from}` }));
+    await fireEvent.press(
+      within(await screen.findByLabelText('Substitutes for Bench Press')).getByRole('button', {
+        name: `Swap to ${to}`,
+      }),
+    );
+    return within(await screen.findByLabelText(`${to} card`));
+  }
+
+  async function logSet(card: ReturnType<typeof exerciseCard>, n: number) {
+    await fireEvent.press(card.getByRole('button', { name: `Log set ${n}` }));
+    await waitFor(() => expect(loggedSets(card)).toHaveLength(n));
+  }
+
+  it("starts the Exercise swapped to at its own set 1, and shows no last time for the other's Sets", async () => {
+    await benchToday(3);
+    const bench = exerciseCard('Bench Press');
+    await logSet(bench, 1);
+    await logSet(bench, 2);
+
+    const card = await swap('Bench Press', 'Dumbbell Bench Press');
+    // The Target still counts the Bench Press Sets: one row left.
+    expect(rowsToDo(card)).toBe(1);
+    expect(lastTimeCells(card)).toEqual(['None', 'None', '30 kg × 10']);
+    expect(card.getByLabelText('Set 3 weight (kg)')).toHaveDisplayValue('30');
+    expect(card.getByLabelText('Set 3 reps')).toHaveDisplayValue('10');
+  });
+
+  it("carries on where an Exercise's Sets left off after a Swap back", async () => {
+    await benchToday(4);
+    const bench = exerciseCard('Bench Press');
+    await logSet(bench, 1);
+    await logSet(bench, 2);
+    const dumbbells = await swap('Bench Press', 'Dumbbell Bench Press');
+    await logSet(dumbbells, 3);
+
+    const card = await swap('Dumbbell Bench Press', 'Bench Press');
+    expect(rowsToDo(card)).toBe(1);
+    // The Bench Press rows show its Last time again, the Dumbbell one none,
+    // and the next row lines up with Bench Press's set 3.
+    expect(lastTimeCells(card)).toEqual(['60 kg × 10', '62.5 kg × 8', 'None', '65 kg × 6']);
   });
 });
 

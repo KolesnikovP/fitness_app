@@ -64,7 +64,10 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
   const pendingDrafts = pendingSetDrafts(sessionExercise, unit, drafts, pending);
   const types = [...logged.map((s) => s.type), ...pendingDrafts.map((d) => d.type)];
   const marks = setMarks(types);
-  const lastTime = lastTimeAtPlaces(sessionExercise.lastTime, types);
+  const lastTime = lastTimeAtPlaces(
+    sessionExercise,
+    pendingDrafts.map((d) => d.type),
+  );
 
   function changeDraft(index: number, draft: SetDraft) {
     setDrafts((current) => {
