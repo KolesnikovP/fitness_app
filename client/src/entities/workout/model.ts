@@ -553,8 +553,10 @@ function fromAbove(above: SetDraft): SetDraft {
 function firstNumberedDraft(exercise: SessionExercise, weightUnit: UnitPreference, above: SetDraft[]): SetDraft {
   const logged = lastNumberedSet(exercise, weightUnit);
   const atPlace = lastTimeAtPlaces(exercise, [...above.map((d) => d.type), 'normal']).at(-1);
-  const from = logged ?? atPlace;
-  return from ? { ...emptySetDraft, ...weightAndReps(from) } : setDraftFromTarget(currentTarget(exercise), weightUnit);
+  const start = logged ?? atPlace;
+  return start
+    ? { ...emptySetDraft, ...weightAndReps(start) }
+    : setDraftFromTarget(currentTarget(exercise), weightUnit);
 }
 
 /** The last numbered Set logged of the Exercise being done now, in weightUnit, if any. */

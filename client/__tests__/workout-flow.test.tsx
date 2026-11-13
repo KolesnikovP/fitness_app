@@ -679,9 +679,12 @@ describe('rows still to do without last time', () => {
     await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '8');
     await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
     await waitFor(() => expect(loggedSets(card)).toEqual(['60 kg × 8, Warm-up']));
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
 
-    expect(card.getByLabelText('Set 2 weight (kg)')).toHaveDisplayValue('');
-    expect(card.getByLabelText('Set 2 reps')).toHaveDisplayValue('');
+    for (const set of [2, 3]) {
+      expect(card.getByLabelText(`Set ${set} weight (kg)`)).toHaveDisplayValue('');
+      expect(card.getByLabelText(`Set ${set} reps`)).toHaveDisplayValue('');
+    }
   });
 });
 
