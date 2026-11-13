@@ -5,3 +5,7 @@ This SDK may postdate your training. Before using an Expo or React Native API no
 # Native layout
 
 Jest doesn't draw layout: widths and alignment, the native top bar, safe area or scroll insets. After changing any of them, run `npm run sim-check -- <route> [from-route]` and read `tmp/sim-check.png` before calling it done. For a screen that needs data, such as a workout in progress, run `npm run sim-seed` first: it puts the simulator in a new account, so leave the User's own account alone. Metro logs to `tmp/metro.log` only when started with `npm run dev`.
+
+# Tests
+
+Flow tests only, in `__tests__/`, with helpers in `__tests__/support/`: a test drives the app through its screens with `renderRouter` and the fake API, never a model function directly.
