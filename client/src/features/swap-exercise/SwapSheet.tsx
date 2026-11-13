@@ -3,7 +3,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { equipmentLabel, getExercise } from '@/entities/exercise';
-import { swapChoices, swappedFrom, swapSessionExercise, type Session, type SessionExercise } from '@/entities/workout';
+import { swapChoices, swapSessionExercise, type Session, type SessionExercise } from '@/entities/workout';
 import { errorMessage } from '@/shared/api';
 import type { ExerciseRef } from '@/shared/model';
 import { makeStyles, spacing } from '@/shared/ui';
@@ -12,35 +12,39 @@ type SwapSheetProps = {
   sessionId: string;
   sessionExercise: SessionExercise;
   onSwapped: (session: Session) => void;
+  open: boolean;
+  onClose: () => void;
 };
 
+/** Whether a Session exercise can be Swapped: it was started from an Exercise slot with Substitutes. */
+export function canSwap(sessionExercise: SessionExercise): boolean {
+  return sessionExercise.planned !== null && swapChoices(sessionExercise).length >= 2;
+}
+
 /**
- * A Swap button for a Session exercise with Substitutes, after a line saying
- * what it's for ("Equipment taken?"), or what it was swapped from. It opens a
- * sheet for when the equipment is taken: every Exercise it can be done as, with its
- * equipment, and the one being done marked. Tapping one swaps to it for this
- * workout only.
+ * The sheet for when a Session exercise's equipment is taken: every Exercise
+ * it can be done as, with its equipment, and the one being done marked.
+ * Tapping one swaps to it for this workout only. Nothing shows for a Session
+ * exercise that can't be Swapped.
  */
-export function SwapSheet({ sessionId, sessionExercise, onSwapped }: SwapSheetProps) {
+export function SwapSheet({ sessionId, sessionExercise, onSwapped, open, onClose }: SwapSheetProps) {
   const styles = useStyles();
   const { state } = useAuth();
-  const [open, setOpen] = useState(false);
   const [swapping, setSwapping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const choices = swapChoices(sessionExercise);
   const equipment = useEquipment(open ? choices : []);
 
-  if (state.status !== 'signedIn' || !sessionExercise.planned || choices.length < 2) return null;
+  if (state.status !== 'signedIn' || !sessionExercise.planned || !canSwap(sessionExercise)) return null;
   const { token } = state;
   const planned = sessionExercise.planned;
-  const swappedAway = swappedFrom(sessionExercise);
 
   async function swap(exerciseId: string) {
     setError(null);
     setSwapping(true);
     try {
       onSwapped(await swapSessionExercise(token, sessionId, sessionExercise.id, exerciseId));
-      setOpen(false);
+      onClose();
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -49,7 +53,7 @@ export function SwapSheet({ sessionId, sessionExercise, onSwapped }: SwapSheetPr
   }
 
   function close() {
-    setOpen(false);
+    onClose();
     setError(null);
   }
 
@@ -64,61 +68,48 @@ export function SwapSheet({ sessionId, sessionExercise, onSwapped }: SwapSheetPr
   }
 
   return (
-    <>
-      <View style={styles.prompt}>
-        <Text style={styles.promptText}>{swappedAway ? `Instead of ${swappedAway.name}` : 'Equipment taken?'}</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Swap ${sessionExercise.name}`}
-          onPress={() => setOpen(true)}
-          style={({ pressed }) => [styles.button, pressed && styles.pressed]}
-        >
-          <Text style={styles.buttonText}>⇄ Swap</Text>
+    <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
+      <Pressable accessibilityLabel="Close" style={styles.backdrop} onPress={close} />
+      <View accessibilityLabel={`Substitutes for ${planned.name}`} style={styles.sheet}>
+        <Text accessibilityRole="header" style={styles.title}>
+          Can't do {planned.name} right now?
+        </Text>
+        <Text style={styles.muted}>
+          Bench or bar taken? Do one of these instead. They work the same muscles, so you stay on plan. Only this
+          workout changes, not your routine.
+        </Text>
+        <View style={styles.list}>
+          {choices.map((choice) => {
+            const doing = choice.exerciseId === sessionExercise.exerciseId;
+            return (
+              <Pressable
+                key={choice.exerciseId}
+                accessibilityRole="button"
+                accessibilityLabel={doing ? `${choice.name}, doing now` : `Swap to ${choice.name}`}
+                accessibilityState={{ disabled: doing || swapping }}
+                disabled={doing || swapping}
+                onPress={() => swap(choice.exerciseId)}
+                style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+              >
+                <View style={styles.rowText}>
+                  <Text style={[styles.name, doing && styles.doing]}>{choice.name}</Text>
+                  <Text style={styles.muted}>{detail(choice, doing)}</Text>
+                </View>
+                <Text style={styles.action}>{doing ? '✓' : 'Swap'}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {error ? (
+          <Text accessibilityRole="alert" style={styles.error}>
+            {error}
+          </Text>
+        ) : null}
+        <Pressable accessibilityRole="button" accessibilityLabel="Cancel" onPress={close} style={styles.cancel}>
+          <Text style={styles.action}>Cancel</Text>
         </Pressable>
       </View>
-      <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
-        <Pressable accessibilityLabel="Close" style={styles.backdrop} onPress={close} />
-        <View accessibilityLabel={`Substitutes for ${planned.name}`} style={styles.sheet}>
-          <Text accessibilityRole="header" style={styles.title}>
-            Can't do {planned.name} right now?
-          </Text>
-          <Text style={styles.muted}>
-            Bench or bar taken? Do one of these instead. They work the same muscles, so you stay on plan. Only this
-            workout changes, not your routine.
-          </Text>
-          <View style={styles.list}>
-            {choices.map((choice) => {
-              const doing = choice.exerciseId === sessionExercise.exerciseId;
-              return (
-                <Pressable
-                  key={choice.exerciseId}
-                  accessibilityRole="button"
-                  accessibilityLabel={doing ? `${choice.name}, doing now` : `Swap to ${choice.name}`}
-                  accessibilityState={{ disabled: doing || swapping }}
-                  disabled={doing || swapping}
-                  onPress={() => swap(choice.exerciseId)}
-                  style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-                >
-                  <View style={styles.rowText}>
-                    <Text style={[styles.name, doing && styles.doing]}>{choice.name}</Text>
-                    <Text style={styles.muted}>{detail(choice, doing)}</Text>
-                  </View>
-                  <Text style={styles.action}>{doing ? '✓' : 'Swap'}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          {error ? (
-            <Text accessibilityRole="alert" style={styles.error}>
-              {error}
-            </Text>
-          ) : null}
-          <Pressable accessibilityRole="button" accessibilityLabel="Cancel" onPress={close} style={styles.cancel}>
-            <Text style={styles.action}>Cancel</Text>
-          </Pressable>
-        </View>
-      </Modal>
-    </>
+    </Modal>
   );
 }
 
@@ -149,15 +140,6 @@ function useEquipment(choices: ExerciseRef[]): Record<string, string> {
 }
 
 const useStyles = makeStyles((colors) => ({
-  prompt: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm },
-  promptText: { fontSize: 15, color: colors.muted },
-  button: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: colors.primarySubtle,
-  },
-  buttonText: { fontSize: 15, fontWeight: '600', color: colors.primary },
   pressed: { opacity: 0.5 },
   backdrop: { flex: 1, backgroundColor: colors.backdrop },
   sheet: {

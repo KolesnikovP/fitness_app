@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library';
 import { Alert } from 'react-native';
 
+import { openSwapSheet } from './support/exercise-menu';
 import { fakeApi } from './support/fake-api';
 import { findHeaderTitle, queryHeaderTitle } from './support/native-header';
 import { secureStore } from './support/secure-store';
@@ -255,9 +256,13 @@ describe('routines', () => {
     await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
     await waitFor(() => expect(loggedSets(card)).toEqual(['100 kg × 5']));
 
-    // The bench is taken: Swap shows the substitutes, saying what they're for.
-    expect(card.getByText('Equipment taken?')).toBeVisible();
-    await fireEvent.press(card.getByRole('button', { name: 'Swap Bench Press' }));
+    // The bench is taken: Replace, from the card's menu, shows the substitutes.
+    expect(card.queryByRole('button', { name: 'Swap Bench Press' })).toBeNull();
+    await fireEvent.press(card.getByRole('button', { name: 'Bench Press options' }));
+    const menu = within(await screen.findByLabelText('Bench Press options sheet'));
+    expect(menu.getByRole('header', { name: 'Bench Press' })).toBeVisible();
+    await fireEvent.press(menu.getByRole('button', { name: 'Replace exercise' }));
+    expect(screen.queryByLabelText('Bench Press options sheet')).toBeNull();
     let sheet = within(await screen.findByLabelText('Substitutes for Bench Press'));
     expect(sheet.getByRole('header', { name: "Can't do Bench Press right now?" })).toBeVisible();
     expect(sheet.getByText('Doing now · Barbell')).toBeVisible();
@@ -275,7 +280,7 @@ describe('routines', () => {
         .map((h) => h.props.children);
     expect(runLabels()).toEqual(['Bench Press', 'Dumbbell Bench Press']);
     // Back to the bench is a swap away, once it's free.
-    await fireEvent.press(card.getByRole('button', { name: 'Swap Dumbbell Bench Press' }));
+    await openSwapSheet('Dumbbell Bench Press');
     sheet = within(await screen.findByLabelText('Substitutes for Bench Press'));
     expect(sheet.getByRole('header', { name: "Can't do Bench Press right now?" })).toBeVisible();
     expect(sheet.getByRole('button', { name: 'Swap to Bench Press' })).toBeVisible();

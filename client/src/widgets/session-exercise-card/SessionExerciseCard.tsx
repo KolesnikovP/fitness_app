@@ -1,10 +1,10 @@
 import { Text, View } from 'react-native';
 
-import { currentTarget, formatTarget, type Session, type SessionExercise } from '@/entities/workout';
+import { currentTarget, formatTarget, swappedFrom, type Session, type SessionExercise } from '@/entities/workout';
 import { ExerciseNoteField } from '@/features/exercise-note';
-import { SwapSheet } from '@/features/swap-exercise';
 import { makeStyles, spacing } from '@/shared/ui';
 
+import { ExerciseMenu } from './ExerciseMenu';
 import { SetTable } from './SetTable';
 
 type SessionExerciseCardProps = {
@@ -16,22 +16,24 @@ type SessionExerciseCardProps = {
 
 /**
  * One exercise in the workout in progress: what its Routine planned, if
- * anything, and swapping it for a Substitute; its Sets as a table, logged and
- * still to do; and a note.
+ * anything, and what it was Swapped from; a ⋯ menu of what can be done with
+ * it; its Sets as a table, logged and still to do; and a note.
  */
 export function SessionExerciseCard({ sessionId, sessionExercise, onChange, onDeleteSet }: SessionExerciseCardProps) {
   const styles = useStyles();
   const target = currentTarget(sessionExercise);
+  const swappedAway = swappedFrom(sessionExercise);
 
   return (
     <View accessibilityLabel={`${sessionExercise.name} card`} style={styles.card}>
       <View style={styles.header}>
         <View style={styles.heading}>
           <Text style={styles.name}>{sessionExercise.name}</Text>
-          <SwapSheet sessionId={sessionId} sessionExercise={sessionExercise} onSwapped={onChange} />
+          {swappedAway ? <Text style={styles.swappedFrom}>Instead of {swappedAway.name}</Text> : null}
         </View>
         {/* Where the exercise's picture will go. */}
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.picture} />
+        <ExerciseMenu sessionId={sessionId} sessionExercise={sessionExercise} onSwapped={onChange} />
       </View>
       {target ? (
         <View style={styles.target}>
@@ -62,6 +64,7 @@ const useStyles = makeStyles((colors) => ({
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
   heading: { flex: 1, gap: spacing.xs },
   name: { fontSize: 20, fontWeight: '600', color: colors.text },
+  swappedFrom: { fontSize: 15, color: colors.muted },
   picture: { width: 64, height: 64, borderRadius: 10, backgroundColor: colors.background },
   target: { gap: 2 },
   targetValue: { fontSize: 15, fontWeight: '600', color: colors.primary },

@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library';
 import { Alert } from 'react-native';
 
+import { openSwapSheet } from './support/exercise-menu';
 import { fakeApi } from './support/fake-api';
 import { findHeaderTitle } from './support/native-header';
 import { secureStore } from './support/secure-store';
@@ -391,6 +392,37 @@ describe('freeform workout', () => {
     expect(fakeApi.sessions(account.id)[0].exercises.every((e) => e.supersetId === null)).toBe(true);
   });
 
+  it("swaps an exercise in a superset from its card's menu, and offers no Replace without Substitutes", async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    const bench = fakeApi.addSessionExercise(session, 'Bench Press');
+    bench.plannedExerciseId = bench.exerciseId;
+    bench.substituteIds = [fakeApi.exerciseNamed('Dumbbell Bench Press').id];
+    const pulldown = fakeApi.addSessionExercise(session, 'Lat Pulldown');
+    bench.supersetId = 'superset-1';
+    pulldown.supersetId = 'superset-1';
+    await resumeWorkout(account.id);
+    const superset = within(screen.getByLabelText('Superset of Bench Press and Lat Pulldown'));
+
+    await fireEvent.press(superset.getByRole('button', { name: 'Lat Pulldown options' }));
+    const menu = within(await screen.findByLabelText('Lat Pulldown options sheet'));
+    expect(menu.queryByRole('button', { name: 'Replace exercise' })).toBeNull();
+    await fireEvent.press(menu.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByLabelText('Lat Pulldown options sheet')).toBeNull();
+
+    await openSwapSheet('Bench Press');
+    await fireEvent.press(
+      within(await screen.findByLabelText('Substitutes for Bench Press')).getByRole('button', {
+        name: 'Swap to Dumbbell Bench Press',
+      }),
+    );
+    const swapped = within(await superset.findByLabelText('Dumbbell Bench Press card'));
+    expect(swapped.getByText('Instead of Bench Press')).toBeVisible();
+    expect(fakeApi.sessions(account.id)[0].exercises[0].exerciseId).toBe(
+      fakeApi.exerciseNamed('Dumbbell Bench Press').id,
+    );
+  });
+
   it('corrects a logged set', async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     fakeApi.addSet(fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat'), 140, 'kg', 5);
@@ -637,7 +669,7 @@ describe('last time across a swap', () => {
   }
 
   async function swap(from: string, to: string) {
-    await fireEvent.press(screen.getByRole('button', { name: `Swap ${from}` }));
+    await openSwapSheet(from);
     await fireEvent.press(
       within(await screen.findByLabelText('Substitutes for Bench Press')).getByRole('button', {
         name: `Swap to ${to}`,
@@ -763,7 +795,7 @@ describe('warm-ups from last time', () => {
     await resumeWorkout(account.id);
 
     async function swap(from: string, to: string) {
-      await fireEvent.press(screen.getByRole('button', { name: `Swap ${from}` }));
+      await openSwapSheet(from);
       await fireEvent.press(
         within(await screen.findByLabelText('Substitutes for Bench Press')).getByRole('button', {
           name: `Swap to ${to}`,
