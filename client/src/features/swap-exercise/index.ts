@@ -1,1 +1,1 @@
-export { SwapSheet } from './SwapSheet';
+export { canSwap, SwapSheet } from './SwapSheet';

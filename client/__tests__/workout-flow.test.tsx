@@ -391,6 +391,39 @@ describe('freeform workout', () => {
     expect(fakeApi.sessions(account.id)[0].exercises.every((e) => e.supersetId === null)).toBe(true);
   });
 
+  it("swaps an exercise in a superset from its card's menu, and offers no Replace without Substitutes", async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    const bench = fakeApi.addSessionExercise(session, 'Bench Press');
+    bench.plannedExerciseId = bench.exerciseId;
+    bench.substituteIds = [fakeApi.exerciseNamed('Dumbbell Bench Press').id];
+    const pulldown = fakeApi.addSessionExercise(session, 'Lat Pulldown');
+    bench.supersetId = 'superset-1';
+    pulldown.supersetId = 'superset-1';
+    await resumeWorkout(account.id);
+    const superset = within(screen.getByLabelText('Superset of Bench Press and Lat Pulldown'));
+
+    await fireEvent.press(superset.getByRole('button', { name: 'Lat Pulldown options' }));
+    let menu = within(await screen.findByLabelText('Lat Pulldown options sheet'));
+    expect(menu.queryByRole('button', { name: 'Replace exercise' })).toBeNull();
+    await fireEvent.press(menu.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByLabelText('Lat Pulldown options sheet')).toBeNull();
+
+    await fireEvent.press(superset.getByRole('button', { name: 'Bench Press options' }));
+    menu = within(await screen.findByLabelText('Bench Press options sheet'));
+    await fireEvent.press(menu.getByRole('button', { name: 'Replace exercise' }));
+    await fireEvent.press(
+      within(await screen.findByLabelText('Substitutes for Bench Press')).getByRole('button', {
+        name: 'Swap to Dumbbell Bench Press',
+      }),
+    );
+    const swapped = within(await superset.findByLabelText('Dumbbell Bench Press card'));
+    expect(swapped.getByText('Instead of Bench Press')).toBeVisible();
+    expect(fakeApi.sessions(account.id)[0].exercises[0].exerciseId).toBe(
+      fakeApi.exerciseNamed('Dumbbell Bench Press').id,
+    );
+  });
+
   it('corrects a logged set', async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     fakeApi.addSet(fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat'), 140, 'kg', 5);
@@ -681,7 +714,10 @@ describe('warm-ups from last time', () => {
     await resumeWorkout(account.id);
 
     async function swap(from: string, to: string) {
-      await fireEvent.press(screen.getByRole('button', { name: `Swap ${from}` }));
+      await fireEvent.press(screen.getByRole('button', { name: `${from} options` }));
+      await fireEvent.press(
+        within(await screen.findByLabelText(`${from} options sheet`)).getByRole('button', { name: 'Replace exercise' }),
+      );
       await fireEvent.press(
         within(await screen.findByLabelText('Substitutes for Bench Press')).getByRole('button', {
           name: `Swap to ${to}`,
