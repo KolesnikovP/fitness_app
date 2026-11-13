@@ -128,17 +128,22 @@ export type LastTimeSet = {
 };
 
 /**
- * Last time's Set at the place of each of a Session exercise's Sets, given
- * their types in order, logged then still to do. Warm-ups and numbered Sets
- * are placed apart: warm-up 1 with last time's warm-up 1, set 1 with its set
- * 1. A drop Set has no place, so lines up with none.
+ * Last time's Set at the place of each of a Session exercise's Sets, its
+ * logged ones then the rows still to do, given those rows' types in order.
+ * Warm-ups and numbered Sets are placed apart: warm-up 1 with last time's
+ * warm-up 1, set 1 with its set 1. A drop Set has no place, so lines up with
+ * none. Places count only the Sets of the Exercise being done now, as Last
+ * time is its Sets: a logged Set of another, from before a Swap, takes no
+ * place and lines up with none.
  */
-export function lastTimeAtPlaces(lastTime: LastTimeSet[], types: SetType[]): (LastTimeSet | undefined)[] {
-  const warmups = lastTime.filter((s) => s.type === 'warmup');
-  const numbered = lastTime.filter((s) => isNumbered(s.type));
+export function lastTimeAtPlaces(exercise: SessionExercise, pendingTypes: SetType[]): (LastTimeSet | undefined)[] {
+  const warmups = exercise.lastTime.filter((s) => s.type === 'warmup');
+  const numbered = exercise.lastTime.filter((s) => isNumbered(s.type));
+  const rows = [...exercise.sets, ...pendingTypes.map((type) => ({ type, exerciseId: exercise.exerciseId }))];
   let warmup = 0;
   let number = 0;
-  return types.map((type) => {
+  return rows.map(({ type, exerciseId }) => {
+    if (exerciseId !== exercise.exerciseId) return undefined;
     if (type === 'warmup') return warmups[warmup++];
     return isNumbered(type) ? numbered[number++] : undefined;
   });
@@ -548,8 +553,7 @@ function fromAbove(above: SetDraft): SetDraft {
  */
 function firstNumberedDraft(exercise: SessionExercise, weightUnit: UnitPreference, above: SetDraft[]): SetDraft {
   const logged = lastLoggedSet(exercise, weightUnit, (s) => isNumbered(s.type));
-  const types = [...exercise.sets.map((s) => s.type), ...above.map((d) => d.type), 'normal' as const];
-  const atPlace = lastTimeAtPlaces(exercise.lastTime, types).at(-1);
+  const atPlace = lastTimeAtPlaces(exercise, [...above.map((d) => d.type), 'normal']).at(-1);
   const from = logged ?? atPlace;
   return from ? { ...emptySetDraft, ...weightAndReps(from) } : nextSetDraft(exercise, weightUnit);
 }
