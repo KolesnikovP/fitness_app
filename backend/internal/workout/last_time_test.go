@@ -39,18 +39,21 @@ func TestLastTime(t *testing.T) {
 		}
 	})
 
-	t.Run("warm-ups keep their places", func(t *testing.T) {
+	t.Run("each set says its type, and warm-ups keep their places", func(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
 		setUnitPreference(t, srv, token, "kg")
 		done := startSession(t, srv, token)
 		e := addExercise(t, srv, token, done, "Bench Press")
 		logTypedSet(t, srv, token, done, e, 60, 10, "warmup")
 		logTypedSet(t, srv, token, done, e, 100, 5, "normal")
+		logTypedSet(t, srv, token, done, e, 70, 10, "drop")
+		logTypedSet(t, srv, token, done, e, 100, 3, "failure")
 		finishSession(t, srv, token, done)
 		current := startSession(t, srv, token)
 		addExercise(t, srv, token, current, "Bench Press")
 
-		if got, want := describeLastTime(t, currentExercises(t, srv, token)[0]), "[60kg×10 100kg×5]"; got != want {
+		got := describeTypedLastTime(t, currentExercises(t, srv, token)[0])
+		if want := "[warmup:60kg×10 normal:100kg×5 drop:70kg×10 failure:100kg×3]"; got != want {
 			t.Errorf("lastTime = %s, want %s", got, want)
 		}
 	})
@@ -137,6 +140,18 @@ func describeLastTime(t *testing.T, exercise map[string]any) string {
 		if s["rpe"] != nil {
 			out[i] += fmt.Sprintf("@%v", s["rpe"])
 		}
+	}
+	return fmt.Sprint(out)
+}
+
+// describeTypedLastTime returns a session exercise's lastTime as
+// describeLastTime does, each Set led by its type: "warmup:60kg×10".
+func describeTypedLastTime(t *testing.T, exercise map[string]any) string {
+	t.Helper()
+	sets := objects(t, exercise, "lastTime")
+	out := make([]string, len(sets))
+	for i, s := range sets {
+		out[i] = fmt.Sprintf("%v:%v%v×%v", s["type"], s["weight"], s["weightUnit"], s["reps"])
 	}
 	return fmt.Sprint(out)
 }

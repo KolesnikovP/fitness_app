@@ -54,8 +54,10 @@ type FakeSet = {
   rpe: number | null;
   note: string;
   supersetId: string | null;
-  type: 'normal' | 'warmup' | 'failure' | 'drop';
+  type: FakeSetType;
 };
+
+export type FakeSetType = 'normal' | 'warmup' | 'failure' | 'drop';
 
 type FakeTarget = {
   sets: number;
@@ -620,6 +622,7 @@ function lastTimeOf(ownerId: string, exerciseId: string) {
       weightUnit: unit,
       reps: set.reps,
       rpe: set.rpe,
+      type: set.type,
     }));
 }
 
