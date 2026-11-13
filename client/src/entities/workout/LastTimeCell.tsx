@@ -8,7 +8,7 @@ import { setColumns } from './setColumns';
 type LastTimeCellProps = {
   /** The Set's place in its exercise, from 1. */
   number: number;
-  /** Last time's Set at that place; none when last time had fewer. */
+  /** Last time's Set at that place; none when last time had fewer, or for a drop Set. */
   set: LastTimeSet | undefined;
   /** Puts last time's weight and reps into the row; a logged Set's cell can't be tapped. */
   onUse?: () => void;

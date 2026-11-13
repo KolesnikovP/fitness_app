@@ -6,6 +6,7 @@ import {
   addedAfterLogging,
   formatSetWithTier,
   LastTimeCell,
+  lastTimeAtPlaces,
   type LastTimeSet,
   pendingSetCount,
   pendingSetDrafts,
@@ -17,6 +18,7 @@ import {
   type SessionExercise,
   type SessionSet,
   type SetDraft,
+  typedAfterLogging,
   useRecordTierColours,
 } from '@/entities/workout';
 import { EditSetForm, LoggedSetTypeSelect } from '@/features/edit-set';
@@ -60,8 +62,9 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
   const pendingLabel = labelled && runs.at(-1)?.exerciseId !== sessionExercise.exerciseId;
   const pending = pendingSetCount(sessionExercise, added);
   const pendingDrafts = pendingSetDrafts(sessionExercise, unit, drafts, pending);
-  const lastTime = sessionExercise.lastTime;
-  const marks = setMarks([...logged.map((s) => s.type), ...pendingDrafts.map((d) => d.type)]);
+  const types = [...logged.map((s) => s.type), ...pendingDrafts.map((d) => d.type)];
+  const marks = setMarks(types);
+  const lastTime = lastTimeAtPlaces(sessionExercise.lastTime, types);
 
   function changeDraft(index: number, draft: SetDraft) {
     setDrafts((current) => {
@@ -72,8 +75,9 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
   }
 
   function onLogged(index: number, session: Session) {
-    setAdded((n) => addedAfterLogging(sessionExercise, n));
-    setDrafts((current) => current.filter((_, i) => i !== index));
+    const after = session.exercises.find((e) => e.id === sessionExercise.id) ?? sessionExercise;
+    setAdded((n) => addedAfterLogging(sessionExercise, n, index));
+    setDrafts((current) => typedAfterLogging(sessionExercise, after, current, index));
     onChange(session);
   }
 
