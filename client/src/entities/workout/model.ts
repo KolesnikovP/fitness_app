@@ -55,7 +55,7 @@ export function setMarks(types: SetType[]): string[] {
   });
 }
 
-/** Whether a Set of this type takes a number: normal and failure Sets do, warm-ups and drops don't. */
+/** Whether a Set of this type takes a number: normal and failure Sets do, warm-ups and drop Sets don't. */
 function isNumbered(type: SetType): boolean {
   return type === 'normal' || type === 'failure';
 }
@@ -411,11 +411,11 @@ export function setDraftFromTarget(target: SessionTarget | null, weightUnit: Uni
 
 /**
  * How many of its Target's Sets a Session exercise has left to log: a Target
- * plans numbered Sets only, so warm-ups and drops logged leave it unchanged.
- * Below 0 once more are logged than planned; 0 with no Target.
+ * plans numbered Sets only, so warm-ups and drop Sets logged leave it
+ * unchanged. Below 0 once more are logged than planned; null with no Target.
  */
-function plannedSetsLeft(exercise: SessionExercise): number {
-  if (!exercise.target) return 0;
+function plannedSetsLeft(exercise: SessionExercise): number | null {
+  if (!exercise.target) return null;
   return exercise.target.sets - exercise.sets.filter((s) => isNumbered(s.type)).length;
 }
 
@@ -425,7 +425,8 @@ function plannedSetsLeft(exercise: SessionExercise): number {
  * the User added.
  */
 export function pendingSetCount(exercise: SessionExercise, added: number): number {
-  const planned = exercise.target ? Math.max(plannedSetsLeft(exercise), 0) : 1;
+  const left = plannedSetsLeft(exercise);
+  const planned = left === null ? 1 : Math.max(left, 0);
   return planned + added;
 }
 
@@ -434,7 +435,7 @@ export function pendingSetCount(exercise: SessionExercise, added: number): numbe
  * while the Target has some left, and an added one after.
  */
 export function addedAfterLogging(exercise: SessionExercise, added: number): number {
-  return plannedSetsLeft(exercise) > 0 ? added : Math.max(added - 1, 0);
+  return (plannedSetsLeft(exercise) ?? 0) > 0 ? added : Math.max(added - 1, 0);
 }
 
 /**

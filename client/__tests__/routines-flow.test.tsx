@@ -145,9 +145,12 @@ describe('routines', () => {
     await findHeaderTitle('Current workout');
     const card = within(screen.getByLabelText('Back Squat card'));
     const rowsToDo = () => card.queryAllByRole('button', { name: /^Log set \d+$/ }).length;
-    async function log(n: number, type: string) {
+    async function chooseType(n: number, type: string) {
       await fireEvent.press(card.getByRole('button', { name: `Set ${n} type` }));
       await fireEvent.press(within(screen.getByLabelText(`Set ${n} type options`)).getByRole('radio', { name: type }));
+    }
+    async function log(n: number, type: string) {
+      await chooseType(n, type);
       await fireEvent.press(card.getByRole('button', { name: `Log set ${n}` }));
       await waitFor(() => expect(loggedSets(card)).toHaveLength(n));
     }
@@ -165,8 +168,7 @@ describe('routines', () => {
     expect(rowsToDo()).toBe(1);
 
     // Marking a logged working set a warm-up gives its row back.
-    await fireEvent.press(card.getByRole('button', { name: 'Set 3 type' }));
-    await fireEvent.press(within(screen.getByLabelText('Set 3 type options')).getByRole('radio', { name: 'Warm-up' }));
+    await chooseType(3, 'Warm-up');
     await waitFor(() => expect(rowsToDo()).toBe(2));
 
     // An added row stays while the target has rows left, then is used up.
