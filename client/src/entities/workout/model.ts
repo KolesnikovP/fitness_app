@@ -516,10 +516,10 @@ function weightAndReps(set: { weight: number; reps: number }): Pick<SetDraft, 'w
  * time, the rows start with a warm-up row for each warm-up it has left (see
  * warmupsToDo), each as last time's warm-up at its place. The first numbered
  * row starts as the last numbered Set logged, else as last time's numbered
- * Set at its place, else at the Target; each later row starts as the row
- * above it, with Last time or without, so the next row repeats the Set just
- * done. A row never starts with an RPE or note, and starts normal unless a
- * warm-up.
+ * Set at its place, else at the Target; each later row starts as the
+ * nearest working row above it (a warm-up row never sets it), with Last time
+ * or without, so the next row repeats the Set just done. A row never starts
+ * with an RPE or note, and starts normal unless a warm-up.
  */
 export function pendingSetDrafts(
   exercise: SessionExercise,
@@ -533,14 +533,15 @@ export function pendingSetDrafts(
     .slice(0, count)
     .map((set, i) => typed[i] ?? { ...emptySetDraft, ...weightAndReps(set), type: 'warmup' });
   for (let i = drafts.length; i < count; i++) {
+    const workingAbove = drafts.findLast((d) => d.type !== 'warmup');
     drafts.push(
-      typed[i] ?? (i > warmups.length ? fromAbove(drafts[i - 1]) : firstNumberedDraft(exercise, weightUnit, drafts)),
+      typed[i] ?? (workingAbove ? fromAbove(workingAbove) : firstNumberedDraft(exercise, weightUnit, drafts)),
     );
   }
   return drafts;
 }
 
-/** A row's start as the row above it: its weight and reps. */
+/** A row's start as a working row above it: its weight and reps. */
 function fromAbove(above: SetDraft): SetDraft {
   return { ...emptySetDraft, weight: above.weight, reps: above.reps };
 }
