@@ -456,7 +456,7 @@ export function setDraftFromTarget(target: SessionTarget | null, weightUnit: Uni
  * plans, or with no Target just the first. Warm-ups and drop Sets logged
  * leave it unchanged. Below 0 once more are logged than planned.
  */
-function plannedSetsLeft(exercise: SessionExercise): number {
+function numberedSetsLeft(exercise: SessionExercise): number {
   const planned = exercise.target ? exercise.target.sets : 1;
   return planned - exercise.sets.filter((s) => isNumbered(s.type)).length;
 }
@@ -464,11 +464,11 @@ function plannedSetsLeft(exercise: SessionExercise): number {
 /**
  * How many rows a Session exercise shows for Sets still to log: one for each
  * warm-up it has left from Last time (see warmupsToDo), then one for each
- * numbered Set it has left (see plannedSetsLeft), plus the ones the User
+ * numbered Set it has left (see numberedSetsLeft), plus the ones the User
  * added.
  */
 export function pendingSetCount(exercise: SessionExercise, added: number): number {
-  return warmupsToDo(exercise).length + Math.max(plannedSetsLeft(exercise), 0) + added;
+  return warmupsToDo(exercise).length + Math.max(numberedSetsLeft(exercise), 0) + added;
 }
 
 /**
@@ -478,7 +478,7 @@ export function pendingSetCount(exercise: SessionExercise, added: number): numbe
  */
 export function addedAfterLogging(exercise: SessionExercise, added: number, row: number): number {
   if (row < warmupsToDo(exercise).length) return added;
-  return plannedSetsLeft(exercise) > 0 ? added : Math.max(added - 1, 0);
+  return numberedSetsLeft(exercise) > 0 ? added : Math.max(added - 1, 0);
 }
 
 /**
