@@ -18,12 +18,12 @@ type ExerciseMenuProps = {
 export function ExerciseMenu({ sessionId, sessionExercise, onSwapped }: ExerciseMenuProps) {
   const styles = useStyles();
   const [open, setOpen] = useState(false);
-  const [swapping, setSwapping] = useState(false);
+  const [swapSheetOpen, setSwapSheetOpen] = useState(false);
   const name = sessionExercise.name;
 
-  function replace() {
+  function openSwapSheet() {
     setOpen(false);
-    setSwapping(true);
+    setSwapSheetOpen(true);
   }
 
   return (
@@ -47,14 +47,19 @@ export function ExerciseMenu({ sessionId, sessionExercise, onSwapped }: Exercise
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Replace exercise"
-              onPress={replace}
+              onPress={openSwapSheet}
               style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}
             >
               <Text style={styles.optionIcon}>⇄</Text>
               <Text style={styles.optionLabel}>Replace exercise</Text>
             </Pressable>
           ) : null}
-          <Pressable accessibilityRole="button" onPress={() => setOpen(false)} style={styles.cancel}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Cancel"
+            onPress={() => setOpen(false)}
+            style={styles.cancel}
+          >
             <Text style={styles.cancelText}>Cancel</Text>
           </Pressable>
         </View>
@@ -63,8 +68,8 @@ export function ExerciseMenu({ sessionId, sessionExercise, onSwapped }: Exercise
         sessionId={sessionId}
         sessionExercise={sessionExercise}
         onSwapped={onSwapped}
-        open={swapping}
-        onClose={() => setSwapping(false)}
+        open={swapSheetOpen}
+        onClose={() => setSwapSheetOpen(false)}
       />
     </>
   );

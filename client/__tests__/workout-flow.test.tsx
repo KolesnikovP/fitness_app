@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library';
 import { Alert } from 'react-native';
 
+import { openSwapSheet } from './support/exercise-menu';
 import { fakeApi } from './support/fake-api';
 import { findHeaderTitle } from './support/native-header';
 import { secureStore } from './support/secure-store';
@@ -404,14 +405,12 @@ describe('freeform workout', () => {
     const superset = within(screen.getByLabelText('Superset of Bench Press and Lat Pulldown'));
 
     await fireEvent.press(superset.getByRole('button', { name: 'Lat Pulldown options' }));
-    let menu = within(await screen.findByLabelText('Lat Pulldown options sheet'));
+    const menu = within(await screen.findByLabelText('Lat Pulldown options sheet'));
     expect(menu.queryByRole('button', { name: 'Replace exercise' })).toBeNull();
     await fireEvent.press(menu.getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByLabelText('Lat Pulldown options sheet')).toBeNull();
 
-    await fireEvent.press(superset.getByRole('button', { name: 'Bench Press options' }));
-    menu = within(await screen.findByLabelText('Bench Press options sheet'));
-    await fireEvent.press(menu.getByRole('button', { name: 'Replace exercise' }));
+    await openSwapSheet('Bench Press');
     await fireEvent.press(
       within(await screen.findByLabelText('Substitutes for Bench Press')).getByRole('button', {
         name: 'Swap to Dumbbell Bench Press',
@@ -714,10 +713,7 @@ describe('warm-ups from last time', () => {
     await resumeWorkout(account.id);
 
     async function swap(from: string, to: string) {
-      await fireEvent.press(screen.getByRole('button', { name: `${from} options` }));
-      await fireEvent.press(
-        within(await screen.findByLabelText(`${from} options sheet`)).getByRole('button', { name: 'Replace exercise' }),
-      );
+      await openSwapSheet(from);
       await fireEvent.press(
         within(await screen.findByLabelText('Substitutes for Bench Press')).getByRole('button', {
           name: `Swap to ${to}`,
