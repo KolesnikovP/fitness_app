@@ -62,12 +62,9 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
   const pendingLabel = labelled && runs.at(-1)?.exerciseId !== sessionExercise.exerciseId;
   const pending = pendingSetCount(sessionExercise, added);
   const pendingDrafts = pendingSetDrafts(sessionExercise, unit, drafts, pending);
-  const types = [...logged.map((s) => s.type), ...pendingDrafts.map((d) => d.type)];
-  const marks = setMarks(types);
-  const lastTime = lastTimeAtPlaces(
-    sessionExercise,
-    pendingDrafts.map((d) => d.type),
-  );
+  const pendingTypes = pendingDrafts.map((d) => d.type);
+  const marks = setMarks([...logged.map((s) => s.type), ...pendingTypes]);
+  const lastTime = lastTimeAtPlaces(sessionExercise, pendingTypes);
 
   function changeDraft(index: number, draft: SetDraft) {
     setDrafts((current) => {

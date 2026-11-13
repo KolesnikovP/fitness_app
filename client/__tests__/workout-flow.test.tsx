@@ -610,9 +610,9 @@ describe('last time across a swap', () => {
   /**
    * A finished Session a day ago of Bench Press, 60×10, 62.5×8, 65×6, and
    * Dumbbell Bench Press, 30×10, 32×8; then today's, with Bench Press on a
-   * Target of sets × 5 at 60 kg that can swap to Dumbbell Bench Press.
+   * Target of targetSets × 5 at 60 kg that can swap to Dumbbell Bench Press.
    */
-  async function benchToday(sets: number) {
+  async function benchToday(targetSets: number) {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     const earlier = fakeApi.addSession(account.id, new Date(Date.now() - 86_400_000));
     const benchBefore = fakeApi.addSessionExercise(earlier, 'Bench Press');
@@ -630,7 +630,7 @@ describe('last time across a swap', () => {
       fakeApi.addSet(dumbbellsBefore, weight, 'kg', reps);
     fakeApi.finishSession(earlier, new Date(Date.now() - 86_400_000 + 3_600_000));
     const bench = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
-    bench.target = { sets, reps: 5, weight: 60, weightUnit: 'kg', restSeconds: null, note: '' };
+    bench.target = { sets: targetSets, reps: 5, weight: 60, weightUnit: 'kg', restSeconds: null, note: '' };
     bench.plannedExerciseId = bench.exerciseId;
     bench.substituteIds = [fakeApi.exerciseNamed('Dumbbell Bench Press').id];
     await resumeWorkout(account.id);
@@ -678,6 +678,9 @@ describe('last time across a swap', () => {
     // The Bench Press rows show its Last time again, the Dumbbell one none,
     // and the next row lines up with Bench Press's set 3.
     expect(lastTimeCells(card)).toEqual(['60 kg × 10', '62.5 kg × 8', 'None', '65 kg × 6']);
+    // It starts from the last Bench Press Set logged, not last time's set 3.
+    expect(card.getByLabelText('Set 4 weight (kg)')).toHaveDisplayValue('60');
+    expect(card.getByLabelText('Set 4 reps')).toHaveDisplayValue('10');
   });
 });
 
