@@ -712,6 +712,33 @@ describe('rows still to do without last time', () => {
     expect(card.getByLabelText('Set 4 weight (kg)')).toHaveDisplayValue('100');
     expect(card.getByLabelText('Set 4 reps')).toHaveDisplayValue('5');
   });
+
+  it("doesn't start a drop row from a warm-up", async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Back Squat');
+
+    // Logged: a warm-up, then a normal Set. A drop row after a warm-up row
+    // still to do starts from the normal Set, not the warm-up.
+    await chooseSetType(card, 1, 'Warm-up');
+    await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '60');
+    await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '8');
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
+    await waitFor(() => expect(loggedSets(card)).toEqual(['60 kg × 8, Warm-up']));
+    await fireEvent.changeText(card.getByLabelText('Set 2 weight (kg)'), '100');
+    await fireEvent.changeText(card.getByLabelText('Set 2 reps'), '5');
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 2' }));
+    await waitFor(() => expect(loggedSets(card)).toEqual(['60 kg × 8, Warm-up', '100 kg × 5']));
+
+    await chooseSetType(card, 3, 'Warm-up');
+    await fireEvent.changeText(card.getByLabelText('Set 3 weight (kg)'), '70');
+    await fireEvent.changeText(card.getByLabelText('Set 3 reps'), '3');
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
+    await chooseSetType(card, 4, 'Drop');
+    expect(card.getByLabelText('Set 4 weight (kg)')).toHaveDisplayValue('100');
+    expect(card.getByLabelText('Set 4 reps')).toHaveDisplayValue('5');
+  });
 });
 
 describe('last time across a swap', () => {
