@@ -118,12 +118,13 @@ type SessionExercise struct {
 // LastTimeSet is one of an Exercise's Sets the last time the User did it: in
 // their most recent finished Session with a Set of it. Weight is in
 // WeightUnit, the User's Unit preference, converted when logged in the other
-// unit. RPE is null when none was entered.
+// unit. RPE is null when none was entered. Type is its Set type, as Set's.
 type LastTimeSet struct {
 	Weight     float64  `json:"weight"`
 	WeightUnit string   `json:"weightUnit"`
 	Reps       int32    `json:"reps"`
 	RPE        *float64 `json:"rpe"`
+	Type       string   `json:"type"`
 }
 
 // ExerciseRef names an Exercise.
@@ -1197,7 +1198,7 @@ func (h handlers) addLastTime(ctx context.Context, caller uuid.UUID, unit string
 			weight = inUnit(kgOf(r.Weight, r.WeightUnit), unit)
 		}
 		byExercise[r.ExerciseID] = append(byExercise[r.ExerciseID],
-			LastTimeSet{Weight: weight, WeightUnit: unit, Reps: r.Reps, RPE: r.Rpe})
+			LastTimeSet{Weight: weight, WeightUnit: unit, Reps: r.Reps, RPE: r.Rpe, Type: r.SetType})
 	}
 	for i, e := range session.Exercises {
 		session.Exercises[i].LastTime = append(session.Exercises[i].LastTime, byExercise[e.ExerciseID]...)

@@ -450,7 +450,7 @@ WITH last AS (
       AND s.exercise_id = ANY($2::uuid[])
     ORDER BY s.exercise_id, w.finished_at DESC, w.id DESC
 )
-SELECT s.exercise_id, s.weight::float8 AS weight, s.weight_unit, s.reps, s.rpe
+SELECT s.exercise_id, s.weight::float8 AS weight, s.weight_unit, s.reps, s.rpe, s.set_type
 FROM session_sets s
 JOIN session_exercises e ON e.id = s.session_exercise_id
 JOIN last ON last.exercise_id = s.exercise_id AND last.session_id = e.session_id
@@ -468,6 +468,7 @@ type ListLastTimeSetsRow struct {
 	WeightUnit string
 	Reps       int32
 	Rpe        *float64
+	SetType    string
 }
 
 // Last time for each of the exercises: every set of it, warm-ups too, in the
@@ -489,6 +490,7 @@ func (q *Queries) ListLastTimeSets(ctx context.Context, arg ListLastTimeSetsPara
 			&i.WeightUnit,
 			&i.Reps,
 			&i.Rpe,
+			&i.SetType,
 		); err != nil {
 			return nil, err
 		}
