@@ -2,7 +2,9 @@ import { fireEvent, screen, within } from 'expo-router/testing-library';
 
 /**
  * The logged Sets in a card's set table, in order, as each row reads out to
- * a screen reader: "140 kg × 5", "140 kg × 5 @ RPE 8".
+ * a screen reader: "140 kg × 5", "140 kg × 5 @ RPE 8", then its Set type
+ * unless normal and its Record tier if any: "60 kg × 8, Warm-up",
+ * "100 kg × 5, Silver" (see formatSetWithTier).
  */
 export function loggedSets(card: ReturnType<typeof within>): string[] {
   return readouts(card.queryAllByRole('button', { name: /^Edit set \d+$/ }));
