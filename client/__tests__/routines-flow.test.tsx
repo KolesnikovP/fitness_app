@@ -102,8 +102,8 @@ describe('routines', () => {
     await fireEvent.changeText(benchCard.getByLabelText('Set 2 reps'), '4');
     await fireEvent.press(benchCard.getByRole('button', { name: 'Log set 2' }));
     await waitFor(() => expect(loggedSets(benchCard)).toEqual(['100 kg × 5', '100 kg × 4']));
-    // One planned set left.
-    expect(benchCard.getByLabelText('Set 3 reps')).toHaveDisplayValue('5');
+    // One planned set left, starting from the set just done.
+    expect(benchCard.getByLabelText('Set 3 reps')).toHaveDisplayValue('4');
     expect(benchCard.queryByLabelText('Set 4 reps')).toBeNull();
 
     const pressCard = within(screen.getByLabelText('Overhead Press card'));

@@ -65,9 +65,9 @@ describe('freeform workout', () => {
     await waitFor(() => expect(loggedSets(card)).toEqual(['32.5 kg × 10']));
     // Done with one exercise, the sets need no label.
     expect(within(card.getByLabelText('Sets')).queryAllByRole('header')).toEqual([]);
-    // A row is ready for the next set, at the same weight.
+    // A row is ready for the next set, repeating the set just done.
     expect(card.getByLabelText('Set 2 weight (kg)')).toHaveDisplayValue('32.5');
-    expect(card.getByLabelText('Set 2 reps')).toHaveDisplayValue('');
+    expect(card.getByLabelText('Set 2 reps')).toHaveDisplayValue('10');
 
     // A set's note is added by tapping it.
     await fireEvent.press(card.getByRole('button', { name: 'Edit set 1' }));
@@ -631,6 +631,57 @@ describe('last time', () => {
       expect(card.getByLabelText(`Set ${set} weight (lb)`)).toHaveDisplayValue('220.5');
       expect(card.getByLabelText(`Set ${set} reps`)).toHaveDisplayValue('6');
     }
+  });
+});
+
+describe('rows still to do without last time', () => {
+  it('starts each row from the row above, including what was typed in it', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Back Squat');
+
+    await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '60');
+    await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '10');
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
+
+    expect(card.getByLabelText('Set 2 weight (kg)')).toHaveDisplayValue('60');
+    expect(card.getByLabelText('Set 2 reps')).toHaveDisplayValue('10');
+  });
+
+  it('starts the next row from the set just done, not the Target', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const squat = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
+    squat.target = { sets: 3, reps: 5, weight: 100, weightUnit: 'kg', restSeconds: null, note: '' };
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Back Squat');
+
+    expect(card.getByLabelText('Set 1 weight (kg)')).toHaveDisplayValue('100');
+    expect(card.getByLabelText('Set 1 reps')).toHaveDisplayValue('5');
+    await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '4');
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
+    await waitFor(() => expect(loggedSets(card)).toEqual(['100 kg × 4']));
+
+    for (const set of [2, 3]) {
+      expect(card.getByLabelText(`Set ${set} weight (kg)`)).toHaveDisplayValue('100');
+      expect(card.getByLabelText(`Set ${set} reps`)).toHaveDisplayValue('4');
+    }
+  });
+
+  it("doesn't start a working row from a warm-up", async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Back Squat');
+
+    await chooseSetType(card, 1, 'Warm-up');
+    await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '60');
+    await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '8');
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
+    await waitFor(() => expect(loggedSets(card)).toEqual(['60 kg × 8, Warm-up']));
+
+    expect(card.getByLabelText('Set 2 weight (kg)')).toHaveDisplayValue('');
+    expect(card.getByLabelText('Set 2 reps')).toHaveDisplayValue('');
   });
 });
 
