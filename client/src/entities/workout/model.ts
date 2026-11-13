@@ -516,9 +516,10 @@ function weightAndReps(set: { weight: number; reps: number }): Pick<SetDraft, 'w
  * time, the rows start with a warm-up row for each warm-up it has left (see
  * warmupsToDo), each as last time's warm-up at its place. The first numbered
  * row starts as the last numbered Set logged, else as last time's numbered
- * Set at its place, and each later row as the row above it, so the next row
- * repeats the Set just done. Without, every row starts at nextSetDraft. A
- * row never starts with an RPE or note, and starts normal unless a warm-up.
+ * Set at its place, else at the Target; each later row starts as the
+ * nearest working row above it (a warm-up row never sets it), with Last time
+ * or without, so the next row repeats the Set just done. A row never starts
+ * with an RPE or note, and starts normal unless a warm-up.
  */
 export function pendingSetDrafts(
   exercise: SessionExercise,
@@ -526,22 +527,21 @@ export function pendingSetDrafts(
   typed: (SetDraft | undefined)[],
   count: number,
 ): SetDraft[] {
-  const fresh = nextSetDraft(exercise, weightUnit);
-  if (exercise.lastTime.length === 0) return Array.from({ length: count }, (_, i) => typed[i] ?? fresh);
   // Last time is in the User's Unit preference, the table's unit.
   const warmups = warmupsToDo(exercise);
   const drafts: SetDraft[] = warmups
     .slice(0, count)
     .map((set, i) => typed[i] ?? { ...emptySetDraft, ...weightAndReps(set), type: 'warmup' });
   for (let i = drafts.length; i < count; i++) {
+    const workingAbove = drafts.findLast((d) => d.type !== 'warmup');
     drafts.push(
-      typed[i] ?? (i > warmups.length ? fromAbove(drafts[i - 1]) : firstNumberedDraft(exercise, weightUnit, drafts)),
+      typed[i] ?? (workingAbove ? fromAbove(workingAbove) : firstNumberedDraft(exercise, weightUnit, drafts)),
     );
   }
   return drafts;
 }
 
-/** A row's start as the row above it: its weight and reps. */
+/** A row's start as a working row above it: its weight and reps. */
 function fromAbove(above: SetDraft): SetDraft {
   return { ...emptySetDraft, weight: above.weight, reps: above.reps };
 }
@@ -549,32 +549,22 @@ function fromAbove(above: SetDraft): SetDraft {
 /**
  * Where a Session exercise's first numbered row still to do starts, after the
  * rows above it: as the last numbered Set logged, else as last time's
- * numbered Set at its place, else at nextSetDraft.
+ * numbered Set at its place, else at the Target. A warm-up never sets it.
  */
 function firstNumberedDraft(exercise: SessionExercise, weightUnit: UnitPreference, above: SetDraft[]): SetDraft {
-  const logged = lastLoggedSet(exercise, weightUnit, (s) => isNumbered(s.type));
+  const logged = lastNumberedSet(exercise, weightUnit);
   const atPlace = lastTimeAtPlaces(exercise, [...above.map((d) => d.type), 'normal']).at(-1);
-  const from = logged ?? atPlace;
-  return from ? { ...emptySetDraft, ...weightAndReps(from) } : nextSetDraft(exercise, weightUnit);
+  const start = logged ?? atPlace;
+  return start
+    ? { ...emptySetDraft, ...weightAndReps(start) }
+    : setDraftFromTarget(currentTarget(exercise), weightUnit);
 }
 
-/** The last Set logged of the Exercise being done now, in weightUnit, if any, of those that pass only. */
-function lastLoggedSet(
-  exercise: SessionExercise,
-  weightUnit: UnitPreference,
-  only: (set: SessionSet) => boolean = () => true,
-): SessionSet | undefined {
-  return exercise.sets.findLast((s) => s.exerciseId === exercise.exerciseId && s.weightUnit === weightUnit && only(s));
-}
-
-/**
- * What a row for the next Set starts at without Last time: the Target's reps,
- * and the weight of the last Set logged for this Exercise, else the Target's.
- */
-function nextSetDraft(exercise: SessionExercise, weightUnit: UnitPreference): SetDraft {
-  const draft = setDraftFromTarget(currentTarget(exercise), weightUnit);
-  const last = lastLoggedSet(exercise, weightUnit);
-  return last ? { ...draft, weight: String(last.weight) } : draft;
+/** The last numbered Set logged of the Exercise being done now, in weightUnit, if any. */
+function lastNumberedSet(exercise: SessionExercise, weightUnit: UnitPreference): SessionSet | undefined {
+  return exercise.sets.findLast(
+    (s) => s.exerciseId === exercise.exerciseId && s.weightUnit === weightUnit && isNumbered(s.type),
+  );
 }
 
 /**
