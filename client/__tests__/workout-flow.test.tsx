@@ -5,7 +5,7 @@ import { Alert } from 'react-native';
 import { fakeApi } from './support/fake-api';
 import { findHeaderTitle } from './support/native-header';
 import { secureStore } from './support/secure-store';
-import { loggedSets, readouts } from './support/set-table';
+import { chooseSetType, loggedSets, readouts } from './support/set-table';
 
 /** Launches the app signed in as an onboarded kg user, on the Workout tab. */
 async function openWorkoutTab() {
@@ -278,16 +278,14 @@ describe('freeform workout', () => {
     await fireEvent.press(card.getByRole('button', { name: 'Log set 2' }));
     await waitFor(() => expect(loggedSets(card)).toHaveLength(2));
 
-    await fireEvent.press(typeOf(3));
-    await fireEvent.press(within(screen.getByLabelText('Set 3 type options')).getByRole('radio', { name: 'Drop' }));
+    await chooseSetType(card, 3, 'Drop');
     expect(within(typeOf(3)).getByText('D')).toBeVisible();
     await fireEvent.changeText(card.getByLabelText('Set 3 reps'), '8');
     await fireEvent.press(card.getByRole('button', { name: 'Log set 3' }));
     await waitFor(() => expect(loggedSets(card)).toHaveLength(3));
 
     // A failure set counts, though it shows F: the normal set after it is the third.
-    await fireEvent.press(typeOf(4));
-    await fireEvent.press(within(screen.getByLabelText('Set 4 type options')).getByRole('radio', { name: 'Failure' }));
+    await chooseSetType(card, 4, 'Failure');
     await fireEvent.changeText(card.getByLabelText('Set 4 reps'), '4');
     await fireEvent.press(card.getByRole('button', { name: 'Log set 4' }));
     await waitFor(() => expect(loggedSets(card)).toHaveLength(4));
@@ -308,8 +306,7 @@ describe('freeform workout', () => {
     await resumeWorkout(account.id);
     const card = exerciseCard('Back Squat');
 
-    await fireEvent.press(card.getByRole('button', { name: 'Set 1 type' }));
-    await fireEvent.press(within(screen.getByLabelText('Set 1 type options')).getByRole('radio', { name: 'Warm-up' }));
+    await chooseSetType(card, 1, 'Warm-up');
 
     await waitFor(() => expect(loggedSets(card)).toEqual(['60 kg × 10 @ RPE 7, Warm-up']));
     expect(within(card.getByRole('button', { name: 'Set 1 type' })).getByText('W')).toBeVisible();

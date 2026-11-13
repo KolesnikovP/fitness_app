@@ -50,9 +50,14 @@ export const SET_TYPES: readonly { type: SetType; label: string; letter: string 
 export function setMarks(types: SetType[]): string[] {
   let number = 0;
   return types.map((type) => {
-    if (type === 'normal' || type === 'failure') number++;
+    if (isNumbered(type)) number++;
     return SET_TYPES.find((t) => t.type === type)?.letter ?? String(number);
   });
+}
+
+/** Whether a Set of this type takes a number: normal and failure Sets do, warm-ups and drop Sets don't. */
+function isNumbered(type: SetType): boolean {
+  return type === 'normal' || type === 'failure';
 }
 
 /**
@@ -405,12 +410,23 @@ export function setDraftFromTarget(target: SessionTarget | null, weightUnit: Uni
 }
 
 /**
+ * How many of its Target's Sets a Session exercise has left to log: a Target
+ * plans numbered Sets only, so warm-ups and drop Sets logged leave it
+ * unchanged. Below 0 once more are logged than planned; null with no Target.
+ */
+function plannedSetsLeft(exercise: SessionExercise): number | null {
+  if (!exercise.target) return null;
+  return exercise.target.sets - exercise.sets.filter((s) => isNumbered(s.type)).length;
+}
+
+/**
  * How many rows a Session exercise shows for Sets still to log: one for each
- * Set its Target has left (or one, with no Target), plus the ones the User
- * added.
+ * numbered Set its Target has left (or one, with no Target), plus the ones
+ * the User added.
  */
 export function pendingSetCount(exercise: SessionExercise, added: number): number {
-  const planned = exercise.target ? Math.max(exercise.target.sets - exercise.sets.length, 0) : 1;
+  const left = plannedSetsLeft(exercise);
+  const planned = left === null ? 1 : Math.max(left, 0);
   return planned + added;
 }
 
@@ -419,8 +435,7 @@ export function pendingSetCount(exercise: SessionExercise, added: number): numbe
  * while the Target has some left, and an added one after.
  */
 export function addedAfterLogging(exercise: SessionExercise, added: number): number {
-  const plannedLeft = exercise.target ? exercise.target.sets - exercise.sets.length : 0;
-  return plannedLeft > 0 ? added : Math.max(added - 1, 0);
+  return (plannedSetsLeft(exercise) ?? 0) > 0 ? added : Math.max(added - 1, 0);
 }
 
 /**

@@ -5,7 +5,7 @@ import { Alert } from 'react-native';
 import { fakeApi } from './support/fake-api';
 import { findHeaderTitle, queryHeaderTitle } from './support/native-header';
 import { secureStore } from './support/secure-store';
-import { loggedSets } from './support/set-table';
+import { chooseSetType, loggedSets, rowsToDo } from './support/set-table';
 
 /** Launches the app signed in as an onboarded kg user (made unless given), on the Workout tab. */
 async function openWorkoutTab(accountId?: string) {
@@ -133,6 +133,57 @@ describe('routines', () => {
         [100, 4],
       ],
       [[42.5, 8]],
+    ]);
+  });
+
+  it('counts only numbered sets toward the target, leaving its rows for warm-ups and drop sets', async () => {
+    const accountId = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg').id;
+    fakeApi.addRoutine(accountId, 'Leg day', ['Back Squat']).slots[0].targetReps = 5;
+    await openWorkoutTab(accountId);
+    await fireEvent.press(within(await screen.findByLabelText('Routines')).getByRole('button', { name: 'Leg day' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Start workout' }));
+    await findHeaderTitle('Current workout');
+    const card = within(screen.getByLabelText('Back Squat card'));
+    async function log(n: number, type: string) {
+      await chooseSetType(card, n, type);
+      await fireEvent.press(card.getByRole('button', { name: `Log set ${n}` }));
+      await waitFor(() => expect(loggedSets(card)).toHaveLength(n));
+    }
+    expect(rowsToDo(card)).toBe(3);
+
+    await log(1, 'Warm-up');
+    await log(2, 'Warm-up');
+    expect(rowsToDo(card)).toBe(3);
+    await log(3, 'Normal');
+    expect(rowsToDo(card)).toBe(2);
+    // A drop set leaves the target's rows; a failure set uses one up.
+    await log(4, 'Drop');
+    expect(rowsToDo(card)).toBe(2);
+    await log(5, 'Failure');
+    expect(rowsToDo(card)).toBe(1);
+
+    // Marking a logged working set a warm-up gives its row back.
+    await chooseSetType(card, 3, 'Warm-up');
+    await waitFor(() => expect(rowsToDo(card)).toBe(2));
+
+    // An added row stays while the target has rows left, then is used up.
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
+    expect(rowsToDo(card)).toBe(3);
+    await log(6, 'Normal');
+    expect(rowsToDo(card)).toBe(2);
+    await log(7, 'Normal');
+    expect(rowsToDo(card)).toBe(1);
+    await log(8, 'Normal');
+    expect(rowsToDo(card)).toBe(0);
+    expect(fakeApi.sessions(accountId)[0].exercises[0].sets.map((s) => s.type)).toEqual([
+      'warmup',
+      'warmup',
+      'warmup',
+      'drop',
+      'failure',
+      'normal',
+      'normal',
+      'normal',
     ]);
   });
 
