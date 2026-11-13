@@ -646,7 +646,7 @@ describe('warm-ups from last time', () => {
     await resumeWorkout(account.id);
     const card = exerciseCard('Bench Press');
 
-    // The mid-Session warm-up and the drop set don't come back; working set 3
+    // The mid-Session warm-up and the drop set don't come back; set 3
     // lines up with last time's set 3.
     expect(rowsToDoHold(card)).toEqual(['W 60×8', 'W 80×3', '1 100×5', '2 100×5', '3 100×5']);
     expect(lastTimeCells(card)).toEqual(['60 kg × 8', '80 kg × 3', '100 kg × 5', '102.5 kg × 5', '105 kg × 4']);

@@ -485,9 +485,11 @@ export function addedAfterLogging(exercise: SessionExercise, added: number, row:
  * leaves behind.
  */
 export function typedAfterLogging<T>(before: SessionExercise, after: SessionExercise, typed: T[], row: number): T[] {
-  const warmupRows = warmupsToDo(before).length;
-  const gone = warmupRows - warmupsToDo(after).length - (row < warmupRows ? 1 : 0);
-  return typed.filter((_, i) => i !== row).slice(Math.max(gone, 0));
+  const warmupRowsBefore = warmupsToDo(before).length;
+  const loggedWarmupRow = row < warmupRowsBefore ? 1 : 0;
+  // Warm-up rows gone that weren't the row logged: those a working Set left behind.
+  const leftBehind = warmupRowsBefore - loggedWarmupRow - warmupsToDo(after).length;
+  return typed.filter((_, i) => i !== row).slice(Math.max(leftBehind, 0));
 }
 
 /**
@@ -507,7 +509,7 @@ function weightAndReps(set: { weight: number; reps: number }): Pick<SetDraft, 'w
  * What each of a Session exercise's count rows still to do holds: what the
  * User typed in it (typed, by position), else where it starts. With Last
  * time, the rows start with a warm-up row for each warm-up it has left (see
- * warmupsToDo), each as last time's warm-up at its place. The first working
+ * warmupsToDo), each as last time's warm-up at its place. The first numbered
  * row starts as the last numbered Set logged, else as last time's numbered
  * Set at its place, and each later row as the row above it, so the next row
  * repeats the Set just done. Without, every row starts at nextSetDraft. A
@@ -528,7 +530,7 @@ export function pendingSetDrafts(
     .map((set, i) => typed[i] ?? { ...emptySetDraft, ...weightAndReps(set), type: 'warmup' });
   for (let i = drafts.length; i < count; i++) {
     drafts.push(
-      typed[i] ?? (i > warmups.length ? fromAbove(drafts[i - 1]) : firstWorkingDraft(exercise, weightUnit, drafts)),
+      typed[i] ?? (i > warmups.length ? fromAbove(drafts[i - 1]) : firstNumberedDraft(exercise, weightUnit, drafts)),
     );
   }
   return drafts;
@@ -540,23 +542,25 @@ function fromAbove(above: SetDraft): SetDraft {
 }
 
 /**
- * Where a Session exercise's first working row still to do starts, after the
+ * Where a Session exercise's first numbered row still to do starts, after the
  * rows above it: as the last numbered Set logged, else as last time's
  * numbered Set at its place, else at nextSetDraft.
  */
-function firstWorkingDraft(exercise: SessionExercise, weightUnit: UnitPreference, above: SetDraft[]): SetDraft {
-  const logged = exercise.sets.findLast(
-    (s) => isNumbered(s.type) && s.exerciseId === exercise.exerciseId && s.weightUnit === weightUnit,
-  );
+function firstNumberedDraft(exercise: SessionExercise, weightUnit: UnitPreference, above: SetDraft[]): SetDraft {
+  const logged = lastLoggedSet(exercise, weightUnit, (s) => isNumbered(s.type));
   const types = [...exercise.sets.map((s) => s.type), ...above.map((d) => d.type), 'normal' as const];
   const atPlace = lastTimeAtPlaces(exercise.lastTime, types).at(-1);
   const from = logged ?? atPlace;
   return from ? { ...emptySetDraft, ...weightAndReps(from) } : nextSetDraft(exercise, weightUnit);
 }
 
-/** The last Set logged of the Exercise being done now, in weightUnit, if any. */
-function lastLoggedSet(exercise: SessionExercise, weightUnit: UnitPreference): SessionSet | undefined {
-  return exercise.sets.findLast((s) => s.exerciseId === exercise.exerciseId && s.weightUnit === weightUnit);
+/** The last Set logged of the Exercise being done now, in weightUnit, if any, of those that pass only. */
+function lastLoggedSet(
+  exercise: SessionExercise,
+  weightUnit: UnitPreference,
+  only: (set: SessionSet) => boolean = () => true,
+): SessionSet | undefined {
+  return exercise.sets.findLast((s) => s.exerciseId === exercise.exerciseId && s.weightUnit === weightUnit && only(s));
 }
 
 /**
