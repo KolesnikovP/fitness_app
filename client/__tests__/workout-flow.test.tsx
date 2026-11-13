@@ -669,7 +669,7 @@ describe('last time across a swap', () => {
   }
 
   async function swap(from: string, to: string) {
-    await fireEvent.press(screen.getByRole('button', { name: `Swap ${from}` }));
+    await openSwapSheet(from);
     await fireEvent.press(
       within(await screen.findByLabelText('Substitutes for Bench Press')).getByRole('button', {
         name: `Swap to ${to}`,
