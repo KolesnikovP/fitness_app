@@ -452,35 +452,33 @@ export function setDraftFromTarget(target: SessionTarget | null, weightUnit: Uni
 }
 
 /**
- * How many of its Target's Sets a Session exercise has left to log: a Target
- * plans numbered Sets only, so warm-ups and drop Sets logged leave it
- * unchanged. Below 0 once more are logged than planned; null with no Target.
+ * How many numbered Sets a Session exercise has left to log: those its Target
+ * plans, or with no Target just the first. Warm-ups and drop Sets logged
+ * leave it unchanged. Below 0 once more are logged than planned.
  */
-function plannedSetsLeft(exercise: SessionExercise): number | null {
-  if (!exercise.target) return null;
-  return exercise.target.sets - exercise.sets.filter((s) => isNumbered(s.type)).length;
+function plannedSetsLeft(exercise: SessionExercise): number {
+  const planned = exercise.target ? exercise.target.sets : 1;
+  return planned - exercise.sets.filter((s) => isNumbered(s.type)).length;
 }
 
 /**
  * How many rows a Session exercise shows for Sets still to log: one for each
  * warm-up it has left from Last time (see warmupsToDo), then one for each
- * numbered Set its Target has left (or one, with no Target), plus the ones
- * the User added.
+ * numbered Set it has left (see plannedSetsLeft), plus the ones the User
+ * added.
  */
 export function pendingSetCount(exercise: SessionExercise, added: number): number {
-  const left = plannedSetsLeft(exercise);
-  const planned = left === null ? 1 : Math.max(left, 0);
-  return warmupsToDo(exercise).length + planned + added;
+  return warmupsToDo(exercise).length + Math.max(plannedSetsLeft(exercise), 0) + added;
 }
 
 /**
  * The added rows left once the row at index row is logged: a warm-up row
- * uses up itself; another uses up a planned row while the Target has some
- * left, and an added one after.
+ * uses up itself; another uses up a planned row while there are some left,
+ * and an added one after.
  */
 export function addedAfterLogging(exercise: SessionExercise, added: number, row: number): number {
   if (row < warmupsToDo(exercise).length) return added;
-  return (plannedSetsLeft(exercise) ?? 0) > 0 ? added : Math.max(added - 1, 0);
+  return plannedSetsLeft(exercise) > 0 ? added : Math.max(added - 1, 0);
 }
 
 /**
