@@ -467,37 +467,58 @@ function numberedSetsLeft(exercise: SessionExercise): number {
 }
 
 /**
+ * What the User did to a Session exercise's rows still to do, beyond where
+ * they start: added is how many rows they added with + Add set and haven't
+ * used up, typed is what they typed in each row, by position (a row they
+ * haven't touched follows Last time, the row above, or the Target; see
+ * pendingSetDrafts).
+ */
+export type RowsToDo = { added: number; typed: (SetDraft | undefined)[] };
+
+/** Rows still to do as they start, untouched. */
+export const untouchedRows: RowsToDo = { added: 0, typed: [] };
+
+/**
  * How many rows a Session exercise shows for Sets still to log: one for each
  * warm-up it has left from Last time (see warmupsToDo), then one for each
  * numbered Set it has left (see numberedSetsLeft), plus the ones the User
  * added.
  */
-export function pendingSetCount(exercise: SessionExercise, added: number): number {
-  return warmupsToDo(exercise).length + Math.max(numberedSetsLeft(exercise), 0) + added;
+function pendingSetCount(exercise: SessionExercise, rows: RowsToDo): number {
+  return warmupsToDo(exercise).length + Math.max(numberedSetsLeft(exercise), 0) + rows.added;
+}
+
+/** The rows with one more added with + Add set. */
+export function withRowAdded(rows: RowsToDo): RowsToDo {
+  return { ...rows, added: rows.added + 1 };
+}
+
+/** The rows with draft typed into the row at index row. */
+export function withTyped(rows: RowsToDo, row: number, draft: SetDraft): RowsToDo {
+  const typed = [...rows.typed];
+  typed[row] = draft;
+  return { ...rows, typed };
 }
 
 /**
- * The added rows left once the row at index row is logged: a warm-up row
- * uses up itself; another uses up a planned row while there are some left,
- * and an added one after.
+ * The rows once the row at index row is logged, turning before into after.
+ * A warm-up row uses up itself; another uses up a planned row while there
+ * are some left, and an added one after. What was typed in that row goes,
+ * and so does what was typed in the warm-up rows a logged working Set leaves
+ * behind.
  */
-export function addedAfterLogging(exercise: SessionExercise, added: number, row: number): number {
-  if (row < warmupsToDo(exercise).length) return added;
-  return numberedSetsLeft(exercise) > 0 ? added : Math.max(added - 1, 0);
-}
-
-/**
- * What the User typed in each row still to do (by position, see
- * pendingSetDrafts) once the row at index row is logged, turning before into
- * after: that row goes, and so do the warm-up rows a logged working Set
- * leaves behind.
- */
-export function typedAfterLogging<T>(before: SessionExercise, after: SessionExercise, typed: T[], row: number): T[] {
+export function rowsAfterLogging(
+  before: SessionExercise,
+  after: SessionExercise,
+  rows: RowsToDo,
+  row: number,
+): RowsToDo {
   const warmupRowsBefore = warmupsToDo(before).length;
-  const loggedWarmupRow = row < warmupRowsBefore ? 1 : 0;
+  const loggedWarmupRow = row < warmupRowsBefore;
+  const added = loggedWarmupRow || numberedSetsLeft(before) > 0 ? rows.added : Math.max(rows.added - 1, 0);
   // Warm-up rows gone that weren't the row logged: those a working Set left behind.
-  const leftBehind = warmupRowsBefore - loggedWarmupRow - warmupsToDo(after).length;
-  return typed.filter((_, i) => i !== row).slice(Math.max(leftBehind, 0));
+  const leftBehind = warmupRowsBefore - (loggedWarmupRow ? 1 : 0) - warmupsToDo(after).length;
+  return { added, typed: rows.typed.filter((_, i) => i !== row).slice(Math.max(leftBehind, 0)) };
 }
 
 /**
@@ -514,8 +535,8 @@ function weightAndReps(set: { weight: number; reps: number }): Pick<SetDraft, 'w
 }
 
 /**
- * What each of a Session exercise's count rows still to do holds: what the
- * User typed in it (typed, by position), else where it starts. With Last
+ * What each of a Session exercise's rows still to do holds: what the User
+ * typed in it (see RowsToDo), else where it starts. With Last
  * time, the rows start with a warm-up row for each warm-up it has left (see
  * warmupsToDo), each as last time's warm-up at its place. The first numbered
  * row starts as the last numbered Set logged, else as last time's numbered
@@ -524,12 +545,9 @@ function weightAndReps(set: { weight: number; reps: number }): Pick<SetDraft, 'w
  * or without, so the next row repeats the Set just done. A row never starts
  * with an RPE or note, and starts normal unless a warm-up.
  */
-export function pendingSetDrafts(
-  exercise: SessionExercise,
-  weightUnit: UnitPreference,
-  typed: (SetDraft | undefined)[],
-  count: number,
-): SetDraft[] {
+export function pendingSetDrafts(exercise: SessionExercise, weightUnit: UnitPreference, rows: RowsToDo): SetDraft[] {
+  const count = pendingSetCount(exercise, rows);
+  const { typed } = rows;
   // Last time is in the User's Unit preference, the table's unit.
   const warmups = warmupsToDo(exercise);
   const drafts: SetDraft[] = warmups

@@ -1,7 +1,6 @@
 // Workout entity: Session types, formatting and API bindings
 export {
   emptySetDraft,
-  addedAfterLogging,
   countOf,
   currentTarget,
   formatClockTime,
@@ -22,7 +21,6 @@ export {
   newRecords,
   pendingSetDrafts,
   parseReps,
-  pendingSetCount,
   parseSetDraft,
   parseWeight,
   repsInput,
@@ -58,7 +56,11 @@ export {
   type SetDraft,
   type SetType,
   type SupersetProgress,
-  typedAfterLogging,
+  rowsAfterLogging,
+  type RowsToDo,
+  untouchedRows,
+  withRowAdded,
+  withTyped,
   weightInput,
   withLastTime,
   withoutExercise,
