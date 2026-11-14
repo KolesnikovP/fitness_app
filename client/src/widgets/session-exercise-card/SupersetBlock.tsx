@@ -13,13 +13,21 @@ type SupersetBlockProps = {
   exercises: SessionExercise[];
   onChange: (session: Session) => void;
   onDeleteSet: (setId: string) => void;
+  onRemove: (sessionExerciseId: string) => void;
 };
 
 /**
  * A Superset in the workout in progress: its exercises back to back, and
  * what's next, with rest only once every exercise has had its Set.
  */
-export function SupersetBlock({ sessionId, supersetId, exercises, onChange, onDeleteSet }: SupersetBlockProps) {
+export function SupersetBlock({
+  sessionId,
+  supersetId,
+  exercises,
+  onChange,
+  onDeleteSet,
+  onRemove,
+}: SupersetBlockProps) {
   const styles = useStyles();
   const progress = supersetProgress(exercises);
   const started = exercises.some((e) => e.sets.length > 0);
@@ -39,6 +47,7 @@ export function SupersetBlock({ sessionId, supersetId, exercises, onChange, onDe
           sessionExercise={sessionExercise}
           onChange={onChange}
           onDeleteSet={onDeleteSet}
+          onRemove={onRemove}
         />
       ))}
       <UngroupSupersetButton sessionId={sessionId} supersetId={supersetId} onUngrouped={onChange} />

@@ -61,6 +61,7 @@ export {
   typedAfterLogging,
   weightInput,
   withLastTime,
+  withoutExercise,
   withoutSet,
 } from './model';
 export {
@@ -76,6 +77,7 @@ export {
   getExerciseRecords,
   getSession,
   logSet,
+  removeSessionExercise,
   renameSession,
   saveSessionAsRoutine,
   setExerciseNote,

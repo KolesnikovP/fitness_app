@@ -7,3 +7,11 @@ export async function openSwapSheet(name: string) {
     within(await screen.findByLabelText(`${name} options sheet`)).getByRole('button', { name: 'Replace exercise' }),
   );
 }
+
+/** Chooses Remove exercise in a Session exercise's ⋯ menu. */
+export async function removeExercise(name: string) {
+  await fireEvent.press(screen.getByRole('button', { name: `${name} options` }));
+  await fireEvent.press(
+    within(await screen.findByLabelText(`${name} options sheet`)).getByRole('button', { name: 'Remove exercise' }),
+  );
+}

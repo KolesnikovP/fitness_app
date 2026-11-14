@@ -108,6 +108,26 @@ func (q *Queries) DeleteSession(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const deleteSessionExercise = `-- name: DeleteSessionExercise :execrows
+DELETE FROM session_exercises
+WHERE id = $1 AND session_id = $2
+`
+
+type DeleteSessionExerciseParams struct {
+	ID        uuid.UUID
+	SessionID uuid.UUID
+}
+
+// Deletes a session exercise, provided it belongs to the session. Its sets go
+// with it.
+func (q *Queries) DeleteSessionExercise(ctx context.Context, arg DeleteSessionExerciseParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteSessionExercise, arg.ID, arg.SessionID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteSet = `-- name: DeleteSet :execrows
 DELETE FROM session_sets s
 USING session_exercises e

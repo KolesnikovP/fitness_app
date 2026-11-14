@@ -1427,3 +1427,106 @@ func objects(t *testing.T, body map[string]any, key string) []map[string]any {
 	}
 	return out
 }
+
+func TestRemoveExercise(t *testing.T) {
+	srv := testutil.NewServer(t)
+
+	t.Run("removes a session exercise and its sets, leaving the others in order", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		addExercise(t, srv, token, id, "Back Squat")
+		bench := addExercise(t, srv, token, id, "Bench Press")
+		addExercise(t, srv, token, id, "Plank")
+		logSet(t, srv, token, id, bench, 100, 5)
+		logSet(t, srv, token, id, bench, 100, 4)
+
+		res := testutil.Do(t, srv, http.MethodDelete, "/workouts/sessions/"+id+"/exercises/"+bench, token, nil)
+
+		if res.Status != http.StatusOK {
+			t.Fatalf("status = %d, want 200; body %v", res.Status, res.Body)
+		}
+		got := sessionExercises(t, res)
+		if len(got) != 2 || got[0]["name"] != "Back Squat" || got[1]["name"] != "Plank" {
+			t.Fatalf("exercises = %v, want Back Squat and Plank left", got)
+		}
+	})
+
+	t.Run("removing the only exercise leaves the session in progress and empty", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		bench := addExercise(t, srv, token, id, "Bench Press")
+		logSet(t, srv, token, id, bench, 100, 5)
+
+		res := testutil.Do(t, srv, http.MethodDelete, "/workouts/sessions/"+id+"/exercises/"+bench, token, nil)
+
+		if res.Status != http.StatusOK {
+			t.Fatalf("status = %d, want 200; body %v", res.Status, res.Body)
+		}
+		if got := currentExercises(t, srv, token); len(got) != 0 {
+			t.Fatalf("exercises = %v, want none", got)
+		}
+		finish := testutil.Do(t, srv, http.MethodPost, "/workouts/sessions/"+id+"/finish", token, nil)
+		if finish.Status != http.StatusBadRequest || finish.ErrorCode() != "session_empty" {
+			t.Fatalf("finish got %d %q, want 400 session_empty, its sets gone", finish.Status, finish.ErrorCode())
+		}
+	})
+
+	t.Run("removing one of a superset of three leaves the other two in it", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		a := addExercise(t, srv, token, id, "Bench Press")
+		b := addExercise(t, srv, token, id, "Barbell Row")
+		c := addExercise(t, srv, token, id, "Pull-up")
+		createSuperset(t, srv, token, id, a, b, c)
+
+		res := testutil.Do(t, srv, http.MethodDelete, "/workouts/sessions/"+id+"/exercises/"+b, token, nil)
+
+		got := sessionExercises(t, res)
+		if len(got) != 2 || got[0]["supersetId"] == nil || got[0]["supersetId"] != got[1]["supersetId"] {
+			t.Fatalf("exercises = %v, want Bench Press and Pull-up still in one superset", got)
+		}
+	})
+
+	t.Run("refuses an unknown exercise", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+
+		res := testutil.Do(t, srv, http.MethodDelete, "/workouts/sessions/"+id+"/exercises/"+uuid.NewString(), token, nil)
+
+		if res.Status != http.StatusNotFound || res.ErrorCode() != "session_exercise_not_found" {
+			t.Fatalf("got %d %q, want 404 session_exercise_not_found", res.Status, res.ErrorCode())
+		}
+	})
+
+	t.Run("never removes from another user's session", func(t *testing.T) {
+		_, _, owner := testutil.SignUp(t, srv)
+		ownerSession := startSession(t, srv, owner)
+		bench := addExercise(t, srv, owner, ownerSession, "Bench Press")
+		_, _, other := testutil.SignUp(t, srv)
+		otherSession := startSession(t, srv, other)
+
+		for _, session := range []string{ownerSession, otherSession} {
+			res := testutil.Do(t, srv, http.MethodDelete, "/workouts/sessions/"+session+"/exercises/"+bench, other, nil)
+			if res.Status != http.StatusNotFound {
+				t.Fatalf("via session %s: status = %d, want 404", session, res.Status)
+			}
+		}
+		if got := currentExercises(t, srv, owner); len(got) != 1 {
+			t.Fatalf("owner's exercises = %v, want theirs kept", got)
+		}
+	})
+
+	t.Run("refuses changes to a finished session", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		bench := addExercise(t, srv, token, id, "Bench Press")
+		logSet(t, srv, token, id, bench, 100, 5)
+		finishSession(t, srv, token, id)
+
+		res := testutil.Do(t, srv, http.MethodDelete, "/workouts/sessions/"+id+"/exercises/"+bench, token, nil)
+
+		if res.Status != http.StatusConflict || res.ErrorCode() != "session_finished" {
+			t.Fatalf("got %d %q, want 409 session_finished", res.Status, res.ErrorCode())
+		}
+	})
+}

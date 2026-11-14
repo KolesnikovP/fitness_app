@@ -195,6 +195,7 @@ func (s *Service) Routes(mux *http.ServeMux, accounts Accounts) {
 	mux.Handle("GET /workouts/totals", accounts.RequireAuth(http.HandlerFunc(h.totals)))
 	mux.Handle("POST /workouts/sessions/{id}/exercises", accounts.RequireAuth(http.HandlerFunc(h.addExercise)))
 	mux.Handle("PATCH /workouts/sessions/{id}/exercises/{sessionExerciseId}", accounts.RequireAuth(http.HandlerFunc(h.changeExercise)))
+	mux.Handle("DELETE /workouts/sessions/{id}/exercises/{sessionExerciseId}", accounts.RequireAuth(http.HandlerFunc(h.removeExercise)))
 	mux.Handle("POST /workouts/sessions/{id}/exercises/{sessionExerciseId}/sets", accounts.RequireAuth(http.HandlerFunc(h.logSet)))
 	mux.Handle("PATCH /workouts/sessions/{id}/sets/{setId}", accounts.RequireAuth(http.HandlerFunc(h.editSet)))
 	mux.Handle("DELETE /workouts/sessions/{id}/sets/{setId}", accounts.RequireAuth(http.HandlerFunc(h.deleteSet)))
@@ -659,6 +660,30 @@ func validSet(w http.ResponseWriter, r *http.Request) (setValues, bool) {
 		weight: *body.Weight, weightUnit: body.WeightUnit, reps: int32(*body.Reps), rpe: body.RPE, note: note,
 		setType: body.Type,
 	}, true
+}
+
+// removeExercise deletes a session exercise and its sets from the session in
+// progress. One in a Superset just leaves it.
+func (h handlers) removeExercise(w http.ResponseWriter, r *http.Request) {
+	sessionExerciseID, err := uuid.Parse(r.PathValue("sessionExerciseId"))
+	if err != nil {
+		writeSessionExerciseNotFound(w)
+		return
+	}
+
+	h.changeSession(w, r, http.StatusOK, func(q *store.Queries, sessionID uuid.UUID) error {
+		deleted, err := q.DeleteSessionExercise(r.Context(), store.DeleteSessionExerciseParams{
+			ID: sessionExerciseID, SessionID: sessionID,
+		})
+		if err != nil {
+			return fmt.Errorf("delete session exercise: %w", err)
+		}
+		if deleted == 0 {
+			writeSessionExerciseNotFound(w)
+			return errResponseWritten
+		}
+		return nil
+	})
 }
 
 func (h handlers) logSet(w http.ResponseWriter, r *http.Request) {

@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library';
 import { Alert } from 'react-native';
 
-import { openSwapSheet } from './support/exercise-menu';
+import { openSwapSheet, removeExercise } from './support/exercise-menu';
 import { fakeApi } from './support/fake-api';
 import { findHeaderTitle } from './support/native-header';
 import { secureStore } from './support/secure-store';
@@ -637,6 +637,174 @@ describe('freeform workout', () => {
     await screen.findByRole('header', { name: 'Workout' });
     expect(await screen.findByRole('button', { name: 'Start Workout' })).toBeVisible();
     expect(fakeApi.sessions(account.id)).toEqual([]);
+  });
+});
+
+/** The names of the exercise cards in the workout in progress, top to bottom. */
+function cardNames() {
+  return screen.getAllByLabelText(/ card$/).map((card) => card.props.accessibilityLabel.replace(/ card$/, ''));
+}
+
+/** Answers the next Alert by pressing its button labelled label. */
+function answerAlertWith(label: string) {
+  return jest.spyOn(Alert, 'alert').mockImplementationOnce((_title, _message, buttons) => {
+    buttons?.find((b) => b.text === label)?.onPress?.();
+  });
+}
+
+describe('removing an exercise', () => {
+  it('removes an exercise with nothing logged at once, with a moment to undo it', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
+    try {
+      const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+      const session = fakeApi.addSession(account.id);
+      fakeApi.addSet(fakeApi.addSessionExercise(session, 'Back Squat'), 140, 'kg', 5);
+      fakeApi.addSessionExercise(session, 'Bench Press');
+      fakeApi.addSessionExercise(session, 'Plank');
+      await resumeWorkout(account.id);
+      const alert = jest.spyOn(Alert, 'alert');
+
+      await removeExercise('Bench Press');
+
+      expect(alert).not.toHaveBeenCalled();
+      expect(cardNames()).toEqual(['Back Squat', 'Plank']);
+      expect(screen.getByText('Exercise removed.')).toBeVisible();
+
+      // Undo puts it back where it was.
+      await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
+      expect(cardNames()).toEqual(['Back Squat', 'Bench Press', 'Plank']);
+      expect(screen.queryByText('Exercise removed.')).toBeNull();
+
+      await removeExercise('Bench Press');
+      // Nothing is removed until the moment to undo has passed.
+      expect(fakeApi.sessions(account.id)[0].exercises).toHaveLength(3);
+      await act(async () => jest.advanceTimersByTime(5_000));
+
+      await waitFor(() => expect(fakeApi.sessions(account.id)[0].exercises).toHaveLength(2));
+      expect(screen.queryByText('Exercise removed.')).toBeNull();
+      expect(cardNames()).toEqual(['Back Squat', 'Plank']);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('asks before removing an exercise with logged sets, and its sets come back with it on undo', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    const bench = fakeApi.addSessionExercise(session, 'Bench Press');
+    fakeApi.addSet(bench, 100, 'kg', 5);
+    fakeApi.addSet(bench, 100, 'kg', 4);
+    fakeApi.addSessionExercise(session, 'Plank');
+    await resumeWorkout(account.id);
+
+    const keep = answerAlertWith('Keep it');
+    await removeExercise('Bench Press');
+
+    expect(keep).toHaveBeenCalledWith(
+      'Remove Bench Press?',
+      'Its 2 logged sets will be deleted too.',
+      expect.anything(),
+    );
+    expect(cardNames()).toEqual(['Bench Press', 'Plank']);
+    expect(loggedSets(exerciseCard('Bench Press'))).toEqual(['100 kg × 5', '100 kg × 4']);
+    expect(screen.queryByText('Exercise removed.')).toBeNull();
+
+    answerAlertWith('Remove');
+    await removeExercise('Bench Press');
+
+    expect(cardNames()).toEqual(['Plank']);
+    await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
+    expect(cardNames()).toEqual(['Bench Press', 'Plank']);
+    expect(loggedSets(exerciseCard('Bench Press'))).toEqual(['100 kg × 5', '100 kg × 4']);
+    expect(bench.sets).toHaveLength(2);
+  });
+
+  it('removes a pending exercise before finishing the workout', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    fakeApi.addSet(fakeApi.addSessionExercise(session, 'Back Squat'), 140, 'kg', 5);
+    fakeApi.addSet(fakeApi.addSessionExercise(session, 'Bench Press'), 100, 'kg', 5);
+    await resumeWorkout(account.id);
+
+    answerAlertWith('Remove');
+    await removeExercise('Bench Press');
+    await fireEvent.press(screen.getByRole('button', { name: 'Finish workout' }));
+
+    await findHeaderTitle('Workout finished');
+    const [saved] = fakeApi.sessions(account.id);
+    expect(saved.finishedAt).not.toBeNull();
+    expect(saved.exercises.map((e) => e.exerciseId)).toEqual([fakeApi.exerciseNamed('Back Squat').id]);
+  });
+
+  it("doesn't finish the workout when removing a pending exercise fails", async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    fakeApi.addSet(fakeApi.addSessionExercise(session, 'Back Squat'), 140, 'kg', 5);
+    const bench = fakeApi.addSessionExercise(session, 'Bench Press');
+    await resumeWorkout(account.id);
+
+    await removeExercise('Bench Press');
+    // Removed from another device meanwhile, so removing it here fails.
+    session.exercises = session.exercises.filter((e) => e !== bench);
+    await fireEvent.press(screen.getByRole('button', { name: 'Finish workout' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent("That exercise isn't in this workout.");
+    expect(screen.getByRole('button', { name: 'Finish workout' })).toBeEnabled();
+    expect(fakeApi.sessions(account.id)[0].finishedAt).toBeNull();
+  });
+
+  it('can undo only the last of a set deletion and an exercise removal', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    const squat = fakeApi.addSessionExercise(session, 'Back Squat');
+    fakeApi.addSet(squat, 140, 'kg', 5);
+    fakeApi.addSet(squat, 140, 'kg', 3);
+    fakeApi.addSessionExercise(session, 'Bench Press');
+    await resumeWorkout(account.id);
+
+    await fireEvent.press(exerciseCard('Back Squat').getByRole('button', { name: 'Edit set 1' }));
+    await fireEvent.press(exerciseCard('Back Squat').getByRole('button', { name: 'Delete set' }));
+    await removeExercise('Bench Press');
+
+    // Removing the exercise sent the set's deletion at once.
+    await waitFor(() => expect(squat.sets).toMatchObject([{ reps: 3 }]));
+    expect(screen.queryByText('Set deleted.')).toBeNull();
+    expect(screen.getByText('Exercise removed.')).toBeVisible();
+
+    await fireEvent.press(exerciseCard('Back Squat').getByRole('button', { name: 'Edit set 1' }));
+    await fireEvent.press(exerciseCard('Back Squat').getByRole('button', { name: 'Delete set' }));
+
+    // And deleting a set sends the exercise's removal.
+    await waitFor(() => expect(session.exercises).toHaveLength(1));
+    expect(screen.queryByText('Exercise removed.')).toBeNull();
+    expect(screen.getByText('Set deleted.')).toBeVisible();
+  });
+
+  it('leaves the workout in progress and empty once its only exercise is removed', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSet(fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat'), 140, 'kg', 5);
+    await resumeWorkout(account.id);
+
+    answerAlertWith('Remove');
+    await removeExercise('Back Squat');
+
+    expect(screen.queryAllByLabelText(/ card$/)).toEqual([]);
+    expect(screen.getByRole('button', { name: 'Finish workout' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add exercise' })).toBeVisible();
+  });
+
+  it('drops an exercise removed from a superset of three from the superset', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    const members = ['Bench Press', 'Deadlift', 'Lat Pulldown'].map((name) =>
+      fakeApi.addSessionExercise(session, name),
+    );
+    members.forEach((e) => (e.supersetId = 'superset-1'));
+    await resumeWorkout(account.id);
+
+    await removeExercise('Deadlift');
+
+    expect(screen.getByLabelText('Superset of Bench Press and Lat Pulldown')).toBeVisible();
   });
 });
 

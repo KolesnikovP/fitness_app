@@ -363,6 +363,11 @@ export function hasSets(session: Session): boolean {
   return session.exercises.some((e) => e.sets.length > 0);
 }
 
+/** The session as it looks once sessionExerciseId is removed, with its Sets. */
+export function withoutExercise(session: Session, sessionExerciseId: string): Session {
+  return { ...session, exercises: session.exercises.filter((e) => e.id !== sessionExerciseId) };
+}
+
 /** The session as it looks once setId is deleted. */
 export function withoutSet(session: Session, setId: string): Session {
   return {

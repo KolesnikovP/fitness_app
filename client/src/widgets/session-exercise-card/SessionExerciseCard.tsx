@@ -12,6 +12,7 @@ type SessionExerciseCardProps = {
   sessionExercise: SessionExercise;
   onChange: (session: Session) => void;
   onDeleteSet: (setId: string) => void;
+  onRemove: (sessionExerciseId: string) => void;
 };
 
 /**
@@ -19,7 +20,13 @@ type SessionExerciseCardProps = {
  * anything, and what it was Swapped from; a ⋯ menu of what can be done with
  * it; its Sets as a table, logged and still to do; and a note.
  */
-export function SessionExerciseCard({ sessionId, sessionExercise, onChange, onDeleteSet }: SessionExerciseCardProps) {
+export function SessionExerciseCard({
+  sessionId,
+  sessionExercise,
+  onChange,
+  onDeleteSet,
+  onRemove,
+}: SessionExerciseCardProps) {
   const styles = useStyles();
   const target = currentTarget(sessionExercise);
   const swappedAway = swappedFrom(sessionExercise);
@@ -33,7 +40,12 @@ export function SessionExerciseCard({ sessionId, sessionExercise, onChange, onDe
         </View>
         {/* Where the exercise's picture will go. */}
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.picture} />
-        <ExerciseMenu sessionId={sessionId} sessionExercise={sessionExercise} onSwapped={onChange} />
+        <ExerciseMenu
+          sessionId={sessionId}
+          sessionExercise={sessionExercise}
+          onSwapped={onChange}
+          onRemove={() => onRemove(sessionExercise.id)}
+        />
       </View>
       {target ? (
         <View style={styles.target}>

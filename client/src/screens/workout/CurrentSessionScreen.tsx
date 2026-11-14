@@ -12,15 +12,17 @@ import {
   NewRecordBanner,
   newRecords,
   sessionBlocks,
+  withoutExercise,
   withoutSet,
   type PersonalRecord,
   type Session,
 } from '@/entities/workout';
-import { SetDeletedBar, usePendingSetDeletion } from '@/features/delete-set';
+import { usePendingSetDeletion } from '@/features/delete-set';
+import { usePendingExerciseRemoval } from '@/features/remove-exercise';
 import { RestTimer } from '@/features/rest-timer';
 import { CreateSupersetForm } from '@/features/superset';
 import { errorMessage } from '@/shared/api';
-import { Button, makeStyles, Screen, Spinner } from '@/shared/ui';
+import { Button, makeStyles, Screen, Spinner, UndoBar } from '@/shared/ui';
 import { SessionExerciseCard, SupersetBlock } from '@/widgets/session-exercise-card';
 
 /**
@@ -36,6 +38,7 @@ export function CurrentSessionScreen() {
   const [finishing, setFinishing] = useState(false);
   const [groupingSuperset, setGroupingSuperset] = useState(false);
   const deletion = usePendingSetDeletion(token, session?.id ?? null, setSession, setError);
+  const removal = usePendingExerciseRemoval(token, session?.id ?? null, setSession, setError);
   // Records a Set just set, shown until dismissed or for a few seconds.
   const [justSet, setJustSet] = useState<PersonalRecord[]>([]);
 
@@ -93,8 +96,12 @@ export function CurrentSessionScreen() {
     setError(null);
     setFinishing(true);
     try {
-      // A Set deleted just now goes before the workout is finished.
-      await deletion.flush();
+      // A Set deleted or an exercise removed just now goes before the workout
+      // is finished; if it can't, the workout isn't finished either.
+      if (!(await deletion.flush()) || !(await removal.flush())) {
+        setFinishing(false);
+        return;
+      }
       const finished = await finishSession(token, session.id);
       // A Freeform session can be saved as a Routine; any can have set Personal records.
       const freeform = session.routineId === null;
@@ -131,8 +138,22 @@ export function CurrentSessionScreen() {
     ]);
   }
 
-  // A Set pending deletion is already gone, as far as the User can tell.
-  const shown = deletion.pendingSetId ? withoutSet(session, deletion.pendingSetId) : session;
+  // One thing can be undone at a time: deleting a Set sends an exercise's
+  // pending removal, and removing an exercise sends a Set's pending deletion.
+  function deleteSet(setId: string) {
+    void removal.flush();
+    deletion.remove(setId);
+  }
+  function removeExercise(sessionExerciseId: string) {
+    void deletion.flush();
+    removal.remove(sessionExerciseId);
+  }
+
+  // A Set pending deletion or an exercise pending removal is already gone, as
+  // far as the User can tell.
+  let shown = session;
+  if (deletion.pendingSetId) shown = withoutSet(shown, deletion.pendingSetId);
+  if (removal.pendingExerciseId) shown = withoutExercise(shown, removal.pendingExerciseId);
   const canFinish = hasSets(shown);
   const ungrouped = shown.exercises.filter((e) => e.supersetId === null);
   const plannedRests = shown.exercises.flatMap((e) => (e.target?.restSeconds ? [e.target.restSeconds] : []));
@@ -141,10 +162,11 @@ export function CurrentSessionScreen() {
     <Screen
       headerTitle="Current workout"
       footer={
-        justSet.length > 0 || deletion.pendingSetId ? (
+        justSet.length > 0 || deletion.pendingSetId || removal.pendingExerciseId ? (
           <>
             {justSet.length > 0 ? <NewRecordBanner records={justSet} onDismiss={() => setJustSet([])} /> : null}
-            {deletion.pendingSetId ? <SetDeletedBar onUndo={deletion.undo} /> : null}
+            {deletion.pendingSetId ? <UndoBar message="Set deleted." onUndo={deletion.undo} /> : null}
+            {removal.pendingExerciseId ? <UndoBar message="Exercise removed." onUndo={removal.undo} /> : null}
           </>
         ) : null
       }
@@ -158,7 +180,8 @@ export function CurrentSessionScreen() {
             supersetId={block.supersetId}
             exercises={block.exercises}
             onChange={changed}
-            onDeleteSet={deletion.remove}
+            onDeleteSet={deleteSet}
+            onRemove={removeExercise}
           />
         ) : (
           <SessionExerciseCard
@@ -166,7 +189,8 @@ export function CurrentSessionScreen() {
             sessionId={session.id}
             sessionExercise={block.exercise}
             onChange={changed}
-            onDeleteSet={deletion.remove}
+            onDeleteSet={deleteSet}
+            onRemove={removeExercise}
           />
         ),
       )}
