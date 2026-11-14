@@ -5,7 +5,8 @@
 # another session can read the log. Reload the app from anywhere with
 # `npm run reload`.
 #
-# Run it with `npm run dev`; extra arguments go to `expo start`.
+# Run it with `npm run dev`; extra arguments go to `expo start`. Run without a
+# terminal (an agent's background job), it logs the same way but takes no keys.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -22,6 +23,13 @@ if [ -n "$holders" ]; then
     sleep 0.5
   done
   lsof -t -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null && kill -9 $holders 2>/dev/null
+fi
+
+# Run in the background (no terminal on stdin), script(1) would stop Metro as
+# soon as stdin closes; Expo runs without its keys instead, logging through tee.
+if [ ! -t 0 ]; then
+  npx expo start --port "$PORT" "$@" </dev/null 2>&1 | tee "$LOG"
+  exit
 fi
 
 # script(1) gives Expo a terminal, so its keys still work, and copies what it

@@ -8,8 +8,16 @@
 //   API_URL=http://localhost:8090 npm run sim-seed
 //
 // Logs the simulator out of whatever account it was in. Needs the API
-// (backend: make dev) and Metro (npm run dev).
+// (backend: make dev), and what scripts/sim-preflight.sh checks: a booted
+// simulator with Expo Go, and Metro (npm run dev).
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+try {
+  execFileSync(fileURLToPath(new URL('./sim-preflight.sh', import.meta.url)), { stdio: 'inherit' });
+} catch {
+  process.exit(1);
+}
 
 const api = process.env.API_URL ?? 'http://localhost:8080';
 const metro = `exp://127.0.0.1:${process.env.PORT ?? '8081'}`;
