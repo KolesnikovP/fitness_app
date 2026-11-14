@@ -92,8 +92,8 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
         <Text style={[setColumns.rpe, styles.heading]}>RPE</Text>
         <View style={setColumns.done} />
       </View>
-      {runs.map((run, r) => (
-        <View key={`run-${r}`} style={styles.table}>
+      {runs.map((run) => (
+        <View key={run.sets[0].set.id} style={styles.table}>
           {labelled ? <RunLabel name={run.name} /> : null}
           {run.sets.map(({ set, number, mark }) =>
             set.id === editingSetId ? (

@@ -106,6 +106,10 @@ module.exports = defineConfig([
   { files: ['jest.setup.ts'], rules: { '@typescript-eslint/no-require-imports': 'off' } },
   { files: ['scripts/**', 'eslint.config.js'], languageOptions: { globals: globals.node } },
   { files: ['src/**'], rules: { 'import/no-restricted-paths': ['error', { zones: layerZones }] } },
+  // A list keyed by position hands a removed row's component, and its state,
+  // to the row below. A list that never reorders or loses an item may still
+  // key by index, with a disable comment saying so.
+  { files: ['src/**'], rules: { 'react/no-array-index-key': 'error' } },
   {
     files: ['src/**'],
     rules: {

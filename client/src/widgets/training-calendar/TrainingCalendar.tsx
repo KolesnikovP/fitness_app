@@ -59,20 +59,26 @@ export function TrainingCalendar({ finishedAt, now = new Date() }: { finishedAt:
       </View>
       <View style={styles.week}>
         {WEEKDAYS.map((d, i) => (
+          // The weekday headings are fixed, and some share a letter.
+          // eslint-disable-next-line react/no-array-index-key
           <Text key={i} style={[styles.cell, styles.weekday]}>
             {d}
           </Text>
         ))}
       </View>
       {monthWeeks(shown.getFullYear(), shown.getMonth()).map((week, w) => (
+        // The grid's weeks and cells are keyed by place in it.
+        // eslint-disable-next-line react/no-array-index-key
         <View key={w} style={styles.week}>
           {week.map((day, i) => {
+            // eslint-disable-next-line react/no-array-index-key
             if (!day) return <View key={i} style={styles.cell} />;
             const key = dayKey(day);
             const done = trained.has(key);
             const label = day.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
             return (
               <View
+                // eslint-disable-next-line react/no-array-index-key
                 key={i}
                 accessibilityLabel={done ? `${label}, trained` : label}
                 style={[styles.cell, done && styles.trained, key === today && !done && styles.today]}

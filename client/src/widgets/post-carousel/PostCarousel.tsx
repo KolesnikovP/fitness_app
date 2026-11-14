@@ -114,6 +114,8 @@ export function PostCarousel({ post, onEdit, onCopy }: PostCarouselProps) {
       >
         {images.map((image, i) => (
           <View
+            // A Post's images don't change while it's shown.
+            // eslint-disable-next-line react/no-array-index-key
             key={i}
             // collapsable={false} keeps the view on Android, so it can be captured.
             collapsable={false}
@@ -147,6 +149,8 @@ export function PostCarousel({ post, onEdit, onCopy }: PostCarouselProps) {
           style={styles.dots}
         >
           {images.map((_, i) => (
+            // A dot is its image's place.
+            // eslint-disable-next-line react/no-array-index-key
             <View key={i} style={[styles.dot, i === shownIndex && styles.dotOn]} />
           ))}
         </View>
