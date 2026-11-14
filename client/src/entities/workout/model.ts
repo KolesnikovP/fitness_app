@@ -134,15 +134,21 @@ export type LastTimeSet = {
  * warm-up 1, set 1 with its set 1. A drop Set has no place, so lines up with
  * none. Places count only the Sets of the Exercise being done now, as Last
  * time is its Sets: a logged Set of another, from before a Swap, takes no
- * place and lines up with none.
+ * place and lines up with none. Last time's warm-ups whose rows the User
+ * removed take no place either, so the warm-ups after keep theirs.
  */
-export function lastTimeAtPlaces(exercise: SessionExercise, pendingTypes: SetType[]): (LastTimeSet | undefined)[] {
-  const warmups = exercise.lastTime.filter((s) => s.type === 'warmup');
+export function lastTimeAtPlaces(
+  exercise: SessionExercise,
+  pendingTypes: SetType[],
+  rows: RowsToDo,
+): (LastTimeSet | undefined)[] {
+  const removed = removedWarmupPlaces(exercise, rows);
+  const warmups = exercise.lastTime.filter((s) => s.type === 'warmup').filter((_, place) => !removed.includes(place));
   const numbered = exercise.lastTime.filter((s) => isNumbered(s.type));
-  const rows = [...exercise.sets, ...pendingTypes.map((type) => ({ type, exerciseId: exercise.exerciseId }))];
+  const sets = [...exercise.sets, ...pendingTypes.map((type) => ({ type, exerciseId: exercise.exerciseId }))];
   let warmup = 0;
   let number = 0;
-  return rows.map(({ type, exerciseId }) => {
+  return sets.map(({ type, exerciseId }) => {
     if (exerciseId !== exercise.exerciseId) return undefined;
     if (type === 'warmup') return warmups[warmup++];
     return isNumbered(type) ? numbered[number++] : undefined;
@@ -150,16 +156,33 @@ export function lastTimeAtPlaces(exercise: SessionExercise, pendingTypes: SetTyp
 }
 
 /**
- * The warm-ups a Session exercise still has rows for: last time's warm-ups
- * before its first numbered Set, in order, less those already logged. Only
- * while it has logged nothing but warm-ups of the Exercise being done now, so
- * a working Set, or a Swap after a Set is logged, leaves none.
+ * The warm-ups a Session exercise still has rows for, as their places among
+ * Last time's warm-ups: those before its first numbered Set, in order, less
+ * those whose rows the User removed and those already logged. Only while it
+ * has logged nothing but warm-ups of the Exercise being done now, so a
+ * working Set, or a Swap after a Set is logged, leaves none.
  */
-function warmupsToDo(exercise: SessionExercise): LastTimeSet[] {
+function warmupPlacesToDo(exercise: SessionExercise, rows: RowsToDo): number[] {
   if (exercise.sets.some((s) => s.type !== 'warmup' || s.exerciseId !== exercise.exerciseId)) return [];
   const firstNumbered = exercise.lastTime.findIndex((s) => isNumbered(s.type));
   const before = firstNumbered === -1 ? exercise.lastTime : exercise.lastTime.slice(0, firstNumbered);
-  return before.filter((s) => s.type === 'warmup').slice(exercise.sets.length);
+  const removed = removedWarmupPlaces(exercise, rows);
+  return before
+    .filter((s) => s.type === 'warmup')
+    .map((_, place) => place)
+    .filter((place) => !removed.includes(place))
+    .slice(exercise.sets.length);
+}
+
+/** The warm-ups a Session exercise still has rows for (see warmupPlacesToDo). */
+function warmupsToDo(exercise: SessionExercise, rows: RowsToDo): LastTimeSet[] {
+  const warmups = exercise.lastTime.filter((s) => s.type === 'warmup');
+  return warmupPlacesToDo(exercise, rows).map((place) => warmups[place]);
+}
+
+/** The places among Last time's warm-ups of the Exercise being done now whose rows the User removed. */
+function removedWarmupPlaces(exercise: SessionExercise, rows: RowsToDo): number[] {
+  return rows.removedWarmups.filter((w) => w.exerciseId === exercise.exerciseId).map((w) => w.place);
 }
 
 /** "60 × 10": last time's Set as its cell in the set table shows it, under the table's unit. */
@@ -457,26 +480,35 @@ export function setDraftFromTarget(target: SessionTarget | null, weightUnit: Uni
 }
 
 /**
- * How many numbered Sets a Session exercise has left to log: those its Target
- * plans, or with no Target just the first. Warm-ups and drop Sets logged
- * leave it unchanged. Below 0 once more are logged than planned.
+ * How many numbered Sets a Session exercise has rows left for: those its
+ * Target plans, or with no Target just the first, less those the User
+ * removed. Warm-ups and drop Sets logged leave it unchanged. Below 0 once
+ * more are logged than planned.
  */
-function numberedSetsLeft(exercise: SessionExercise): number {
+function numberedSetsLeft(exercise: SessionExercise, rows: RowsToDo): number {
   const planned = exercise.target ? exercise.target.sets : 1;
-  return planned - exercise.sets.filter((s) => isNumbered(s.type)).length;
+  return planned - rows.removedPlanned - exercise.sets.filter((s) => isNumbered(s.type)).length;
 }
 
 /**
  * What the User did to a Session exercise's rows still to do, beyond where
  * they start: added is how many rows they added with + Add set and haven't
- * used up, typed is what they typed in each row, by position (a row they
+ * used up, removedPlanned how many of the numbered rows planned they
+ * removed, removedWarmups the warm-ups from Last time whose rows they
+ * removed, by Exercise and place among its Last time's warm-ups (so a Swap
+ * doesn't carry them to another Exercise's), and typed what they typed in each row, by position (a row they
  * haven't touched follows Last time, the row above, or the Target; see
  * pendingSetDrafts).
  */
-export type RowsToDo = { added: number; typed: (SetDraft | undefined)[] };
+export type RowsToDo = {
+  added: number;
+  removedPlanned: number;
+  removedWarmups: { exerciseId: string; place: number }[];
+  typed: (SetDraft | undefined)[];
+};
 
 /** Rows still to do as they start, untouched. */
-export const untouchedRows: RowsToDo = { added: 0, typed: [] };
+export const untouchedRows: RowsToDo = { added: 0, removedPlanned: 0, removedWarmups: [], typed: [] };
 
 /**
  * How many rows a Session exercise shows for Sets still to log: one for each
@@ -485,7 +517,25 @@ export const untouchedRows: RowsToDo = { added: 0, typed: [] };
  * added.
  */
 function pendingSetCount(exercise: SessionExercise, rows: RowsToDo): number {
-  return warmupsToDo(exercise).length + Math.max(numberedSetsLeft(exercise), 0) + rows.added;
+  return warmupsToDo(exercise, rows).length + Math.max(numberedSetsLeft(exercise, rows), 0) + rows.added;
+}
+
+/**
+ * The rows of a Session exercise once the row at index row is removed. A
+ * warm-up row from Last time takes that warm-up with it; another row takes
+ * an added row if there is one, else a planned one. Either stays gone as
+ * later Sets are logged. The rows below move up with what was typed in them.
+ */
+export function rowsAfterRemoving(exercise: SessionExercise, rows: RowsToDo, row: number): RowsToDo {
+  const typed = rows.typed.filter((_, i) => i !== row);
+  const warmupPlaces = warmupPlacesToDo(exercise, rows);
+  if (row < warmupPlaces.length) {
+    const removed = { exerciseId: exercise.exerciseId, place: warmupPlaces[row] };
+    return { ...rows, removedWarmups: [...rows.removedWarmups, removed], typed };
+  }
+  return rows.added > 0
+    ? { ...rows, added: rows.added - 1, typed }
+    : { ...rows, removedPlanned: rows.removedPlanned + 1, typed };
 }
 
 /** The rows with one more added with + Add set. */
@@ -513,12 +563,12 @@ export function rowsAfterLogging(
   rows: RowsToDo,
   row: number,
 ): RowsToDo {
-  const warmupRowsBefore = warmupsToDo(before).length;
+  const warmupRowsBefore = warmupsToDo(before, rows).length;
   const loggedWarmupRow = row < warmupRowsBefore;
-  const added = loggedWarmupRow || numberedSetsLeft(before) > 0 ? rows.added : Math.max(rows.added - 1, 0);
+  const added = loggedWarmupRow || numberedSetsLeft(before, rows) > 0 ? rows.added : Math.max(rows.added - 1, 0);
   // Warm-up rows gone that weren't the row logged: those a working Set left behind.
-  const leftBehind = warmupRowsBefore - (loggedWarmupRow ? 1 : 0) - warmupsToDo(after).length;
-  return { added, typed: rows.typed.filter((_, i) => i !== row).slice(Math.max(leftBehind, 0)) };
+  const leftBehind = warmupRowsBefore - (loggedWarmupRow ? 1 : 0) - warmupsToDo(after, rows).length;
+  return { ...rows, added, typed: rows.typed.filter((_, i) => i !== row).slice(Math.max(leftBehind, 0)) };
 }
 
 /**
@@ -549,14 +599,14 @@ export function pendingSetDrafts(exercise: SessionExercise, weightUnit: UnitPref
   const count = pendingSetCount(exercise, rows);
   const { typed } = rows;
   // Last time is in the User's Unit preference, the table's unit.
-  const warmups = warmupsToDo(exercise);
+  const warmups = warmupsToDo(exercise, rows);
   const drafts: SetDraft[] = warmups
     .slice(0, count)
     .map((set, i) => typed[i] ?? { ...emptySetDraft, ...weightAndReps(set), type: 'warmup' });
   for (let i = drafts.length; i < count; i++) {
     const workingAbove = drafts.findLast((d) => d.type !== 'warmup');
     drafts.push(
-      typed[i] ?? (workingAbove ? fromAbove(workingAbove) : firstNumberedDraft(exercise, weightUnit, drafts)),
+      typed[i] ?? (workingAbove ? fromAbove(workingAbove) : firstNumberedDraft(exercise, weightUnit, rows, drafts)),
     );
   }
   return drafts;
@@ -572,9 +622,14 @@ function fromAbove(above: SetDraft): SetDraft {
  * rows above it: as the last numbered Set logged, else as last time's
  * numbered Set at its place, else at the Target. A warm-up never sets it.
  */
-function firstNumberedDraft(exercise: SessionExercise, weightUnit: UnitPreference, above: SetDraft[]): SetDraft {
+function firstNumberedDraft(
+  exercise: SessionExercise,
+  weightUnit: UnitPreference,
+  rows: RowsToDo,
+  above: SetDraft[],
+): SetDraft {
   const logged = lastNumberedSet(exercise, weightUnit);
-  const atPlace = lastTimeAtPlaces(exercise, [...above.map((d) => d.type), 'normal']).at(-1);
+  const atPlace = lastTimeAtPlaces(exercise, [...above.map((d) => d.type), 'normal'], rows).at(-1);
   const start = logged ?? atPlace;
   return start
     ? { ...emptySetDraft, ...weightAndReps(start) }

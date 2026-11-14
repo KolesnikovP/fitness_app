@@ -16,6 +16,7 @@ import {
   type SessionExercise,
   type SessionSet,
   rowsAfterLogging,
+  rowsAfterRemoving,
   type RowsToDo,
   untouchedRows,
   withRowAdded,
@@ -62,7 +63,7 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
   const pending = pendingDrafts.length;
   const pendingTypes = pendingDrafts.map((d) => d.type);
   const marks = setMarks([...logged.map((s) => s.type), ...pendingTypes]);
-  const lastTime = lastTimeAtPlaces(sessionExercise, pendingTypes);
+  const lastTime = lastTimeAtPlaces(sessionExercise, pendingTypes, rows);
 
   function onLogged(index: number, session: Session) {
     const after = session.exercises.find((e) => e.id === sessionExercise.id) ?? sessionExercise;
@@ -119,18 +120,23 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
       ))}
       {pendingLabel && pending > 0 ? <RunLabel name={sessionExercise.name} /> : null}
       {Array.from({ length: pending }, (_, i) => (
-        <PendingSetRow
+        <SwipeToDelete
           key={`pending-${i}`}
-          sessionId={sessionId}
-          sessionExerciseId={sessionExercise.id}
-          number={logged.length + i + 1}
-          mark={marks[logged.length + i]}
-          draft={pendingDrafts[i]}
-          lastTime={lastTime[logged.length + i]}
-          onChange={(draft) => setRows((current) => withTyped(current, i, draft))}
-          weightUnit={unit}
-          onLogged={(session) => onLogged(i, session)}
-        />
+          deleteLabel={`Delete set ${logged.length + i + 1}`}
+          onDelete={() => setRows((current) => rowsAfterRemoving(sessionExercise, current, i))}
+        >
+          <PendingSetRow
+            sessionId={sessionId}
+            sessionExerciseId={sessionExercise.id}
+            number={logged.length + i + 1}
+            mark={marks[logged.length + i]}
+            draft={pendingDrafts[i]}
+            lastTime={lastTime[logged.length + i]}
+            onChange={(draft) => setRows((current) => withTyped(current, i, draft))}
+            weightUnit={unit}
+            onLogged={(session) => onLogged(i, session)}
+          />
+        </SwipeToDelete>
       ))}
       <Button label="+ Add set" variant="link" onPress={() => setRows(withRowAdded)} />
     </View>

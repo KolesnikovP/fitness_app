@@ -57,6 +57,7 @@ export {
   type SetType,
   type SupersetProgress,
   rowsAfterLogging,
+  rowsAfterRemoving,
   type RowsToDo,
   untouchedRows,
   withRowAdded,
