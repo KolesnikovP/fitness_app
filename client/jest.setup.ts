@@ -19,6 +19,12 @@ jest.mock('expo-clipboard', () => require('./__tests__/support/sharing').clipboa
 // nothing here, and tests read a chart through its accessible description.
 jest.mock('@shopify/react-native-skia', () => ({ matchFont: () => null }));
 jest.mock('victory-native', () => ({ CartesianChart: () => null, Line: () => null, Scatter: () => null }));
+// A swipeable row's pan runs on Reanimated's UI thread, which Jest doesn't
+// have; tests swipe a row open with swipeLeft.
+jest.mock(
+  'react-native-gesture-handler/ReanimatedSwipeable',
+  () => require('./__tests__/support/swipeable').swipeableModule,
+);
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {

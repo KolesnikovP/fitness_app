@@ -23,7 +23,7 @@ import {
 } from '@/entities/workout';
 import { EditSetForm, LoggedSetTypeSelect } from '@/features/edit-set';
 import { PendingSetRow } from '@/features/log-set';
-import { Button, makeStyles, spacing } from '@/shared/ui';
+import { Button, makeStyles, spacing, SwipeToDelete } from '@/shared/ui';
 
 type SetTableProps = {
   sessionId: string;
@@ -35,8 +35,9 @@ type SetTableProps = {
 /**
  * A Session exercise's Sets as a table, a column each for Last time's Set at
  * the same place, weight, reps and RPE: the logged ones (tap one to correct
- * or delete it), then a row for each Set still to do, ready from Last time or
- * the row above, else at the Target (see pendingSetDrafts), with a box to
+ * or delete it, or swipe it left to delete it), then a row for each Set
+ * still to do, ready from Last time or the row above, else at the Target
+ * (see pendingSetDrafts), with a box to
  * tick to log it. Each row starts with the Set's mark, its number or its
  * type's letter, tapped to change its Set type. "Add set" adds another row.
  * Once a swap means the Sets were done with more than one Exercise, each run
@@ -112,17 +113,18 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
                 onCancel={() => setEditingSetId(null)}
               />
             ) : (
-              <LoggedSetRow
-                key={set.id}
-                sessionId={sessionId}
-                set={set}
-                number={number}
-                mark={mark}
-                unit={unit}
-                lastTime={lastTime[number - 1]}
-                onPress={() => setEditingSetId(set.id)}
-                onChange={onChange}
-              />
+              <SwipeToDelete key={set.id} label={`Delete set ${number}`} onDelete={() => onDeleteSet(set.id)}>
+                <LoggedSetRow
+                  sessionId={sessionId}
+                  set={set}
+                  number={number}
+                  mark={mark}
+                  unit={unit}
+                  lastTime={lastTime[number - 1]}
+                  onPress={() => setEditingSetId(set.id)}
+                  onChange={onChange}
+                />
+              </SwipeToDelete>
             ),
           )}
         </View>

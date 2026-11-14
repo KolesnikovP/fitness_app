@@ -8,6 +8,7 @@ import { findHeaderTitle } from './support/native-header';
 import { secureStore } from './support/secure-store';
 import type { FakeSetType } from './support/fake-api';
 import { chooseSetType, loggedSets, readouts, rowsToDo } from './support/set-table';
+import { swipeLeft } from './support/swipeable';
 
 /** Launches the app signed in as an onboarded kg user, on the Workout tab. */
 async function openWorkoutTab() {
@@ -489,6 +490,84 @@ describe('freeform workout', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it('deletes a set by swiping its row left, with a moment to undo it', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
+    try {
+      const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+      const squat = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
+      fakeApi.addSet(squat, 140, 'kg', 5);
+      fakeApi.addSet(squat, 140, 'kg', 3);
+      await resumeWorkout(account.id);
+      const card = exerciseCard('Back Squat');
+
+      // Delete is under the row until it's swiped.
+      expect(card.queryByRole('button', { name: 'Delete set 1' })).toBeNull();
+      await swipeLeft(card.getByRole('button', { name: 'Edit set 1' }));
+      await fireEvent.press(card.getByRole('button', { name: 'Delete set 1' }));
+
+      expect(loggedSets(card)).toEqual(['140 kg × 3']);
+      expect(screen.getByText('Set deleted.')).toBeVisible();
+
+      await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
+      // It comes back as it was, with Delete hidden again.
+      expect(loggedSets(card)).toEqual(['140 kg × 5', '140 kg × 3']);
+      expect(card.queryByRole('button', { name: 'Delete set 1' })).toBeNull();
+
+      await swipeLeft(card.getByRole('button', { name: 'Edit set 2' }));
+      await fireEvent.press(card.getByRole('button', { name: 'Delete set 2' }));
+      expect(squat.sets).toHaveLength(2);
+      await act(async () => jest.advanceTimersByTime(5_000));
+
+      await waitFor(() => expect(squat.sets).toHaveLength(1));
+      expect(squat.sets[0]).toMatchObject({ reps: 5 });
+      expect(loggedSets(card)).toEqual(['140 kg × 5']);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("swipes to delete a set in a superset's card, and one done with another exercise before a swap", async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    const bench = fakeApi.addSessionExercise(session, 'Bench Press');
+    const pulldown = fakeApi.addSessionExercise(session, 'Lat Pulldown');
+    bench.supersetId = 'superset-1';
+    pulldown.supersetId = 'superset-1';
+    fakeApi.addSet(pulldown, 60, 'kg', 10);
+    fakeApi.addSet(pulldown, 60, 'kg', 8);
+    // Bench Press's first Set was done before it was swapped to dumbbells.
+    fakeApi.addSet(bench, 80, 'kg', 8);
+    bench.exerciseId = fakeApi.exerciseNamed('Dumbbell Bench Press').id;
+    fakeApi.addSet(bench, 30, 'kg', 10);
+    await resumeWorkout(account.id);
+    const superset = within(screen.getByLabelText('Superset of Dumbbell Bench Press and Lat Pulldown'));
+
+    const pulldownCard = within(superset.getByLabelText('Lat Pulldown card'));
+    await swipeLeft(pulldownCard.getByRole('button', { name: 'Edit set 2' }));
+    await fireEvent.press(pulldownCard.getByRole('button', { name: 'Delete set 2' }));
+    expect(loggedSets(pulldownCard)).toEqual(['60 kg × 10']);
+
+    const benchCard = within(superset.getByLabelText('Dumbbell Bench Press card'));
+    await swipeLeft(benchCard.getByRole('button', { name: 'Edit set 1' }));
+    await fireEvent.press(benchCard.getByRole('button', { name: 'Delete set 1' }));
+    expect(loggedSets(benchCard)).toEqual(['30 kg × 10']);
+
+    // Deleting another Set sends the one before it.
+    await waitFor(() => expect(pulldown.sets).toMatchObject([{ reps: 10 }]));
+  });
+
+  it("doesn't swipe the set being edited", async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSet(fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat'), 140, 'kg', 5);
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Back Squat');
+
+    await fireEvent.press(card.getByRole('button', { name: 'Edit set 1' }));
+    await swipeLeft(within(card.getByLabelText('Editing set 1')).getByLabelText('Reps'));
+
+    expect(card.queryByRole('button', { name: 'Delete set 1' })).toBeNull();
   });
 
   it('deletes a pending set before finishing the workout', async () => {
