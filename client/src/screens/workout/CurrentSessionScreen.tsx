@@ -96,9 +96,12 @@ export function CurrentSessionScreen() {
     setError(null);
     setFinishing(true);
     try {
-      // A Set deleted or an exercise removed just now goes before the workout is finished.
-      await deletion.flush();
-      await removal.flush();
+      // A Set deleted or an exercise removed just now goes before the workout
+      // is finished; if it can't, the workout isn't finished either.
+      if (!(await deletion.flush()) || !(await removal.flush())) {
+        setFinishing(false);
+        return;
+      }
       const finished = await finishSession(token, session.id);
       // A Freeform session can be saved as a Routine; any can have set Personal records.
       const freeform = session.routineId === null;

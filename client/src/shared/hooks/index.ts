@@ -1,3 +1,3 @@
 // Custom hooks: useTheme, useFetch, etc.
 export { useDebouncedValue } from './useDebouncedValue';
-export { UNDO_MS, usePendingDeletion } from './usePendingDeletion';
+export { usePendingDeletion } from './usePendingDeletion';

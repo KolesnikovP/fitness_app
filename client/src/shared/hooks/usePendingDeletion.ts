@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 /** How long the User has to undo a deletion. */
-export const UNDO_MS = 5_000;
+const UNDO_MS = 5_000;
 
 type Pending = { id: string; timer: ReturnType<typeof setTimeout> };
 
@@ -9,7 +9,8 @@ type Pending = { id: string; timer: ReturnType<typeof setTimeout> };
  * Deletes something after a moment to undo it. Until then it's only pending:
  * the caller hides it, and nothing has been sent. Deleting another, leaving
  * the screen or calling flush sends the pending one at once. request may
- * return undefined when it can't be sent, such as once signed out.
+ * return undefined when it can't be sent, such as once signed out. flush
+ * resolves to false if sending failed, after reporting it to onError.
  */
 export function usePendingDeletion<R>(
   request: (id: string) => Promise<R> | undefined,
@@ -24,17 +25,19 @@ export function usePendingDeletion<R>(
     latest.current = { request, onDeleted, onError };
   });
 
-  const flush = useCallback(async () => {
+  const flush = useCallback(async (): Promise<boolean> => {
     const current = pending.current;
-    if (!current) return;
+    if (!current) return true;
     const sent = latest.current.request(current.id);
-    if (!sent) return;
+    if (!sent) return true;
     clearTimeout(current.timer);
     pending.current = null;
     try {
       latest.current.onDeleted(await sent);
+      return true;
     } catch (e) {
       latest.current.onError(e);
+      return false;
     } finally {
       setPendingId((id) => (id === current.id ? null : id));
     }
