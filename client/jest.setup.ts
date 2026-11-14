@@ -26,6 +26,17 @@ jest.mock(
   () => require('./__tests__/support/swipeable').swipeableModule,
 );
 
+// React warns, without failing, when act() calls overlap or a state update
+// lands outside act; the test at fault passes and later tests fail for no
+// reason they show. Each such warning fails the test it was logged in.
+const actWarnings: string[] = [];
+const consoleError = console.error;
+console.error = (...args: unknown[]) => {
+  const message = args.map(String).join(' ');
+  if (/overlapping act\(\) calls|not wrapped in act\(/.test(message)) actWarnings.push(message);
+  consoleError(...args);
+};
+
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
@@ -36,5 +47,8 @@ afterEach(() => {
   sharing.reset();
   // A spy, such as one answering an Alert, ends with its test.
   jest.restoreAllMocks();
+  // Last, so the test's own clean-up still runs.
+  const warnings = actWarnings.splice(0);
+  if (warnings.length > 0) throw new Error(`React warned about act():\n${warnings.join('\n')}`);
 });
 afterAll(() => server.close());

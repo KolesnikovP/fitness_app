@@ -99,6 +99,8 @@ function HowTo({ exercise, token, onUploaded }: HowToProps) {
           <Text style={styles.muted}>No instructions yet.</Text>
         ) : (
           exercise.instructions.map((step, i) => (
+            // A step is its place: the steps never reorder on this screen.
+            // eslint-disable-next-line react/no-array-index-key
             <View key={i} style={styles.step}>
               <Text style={styles.stepNumber}>{i + 1}.</Text>
               <Text style={styles.stepText}>{step}</Text>

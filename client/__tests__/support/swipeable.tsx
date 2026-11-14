@@ -37,7 +37,12 @@ function FakeSwipeable({ ref, renderRightActions, children }: FakeSwipeableProps
 
 export const swipeableModule = { __esModule: true, default: FakeSwipeable };
 
-/** Swipes left the row that element is in, showing what's under it, such as its Delete button. */
+/**
+ * Swipes left the row that element is in, showing what's under it, such as
+ * its Delete button. The element must be enabled: on a disabled one, such as
+ * a row's Log box before it holds a valid Set, nothing happens, so swipe a
+ * row by one of its fields.
+ */
 export async function swipeLeft(element: Parameters<typeof fireEvent>[0]) {
   await fireEvent(element, 'swipeLeft');
 }
