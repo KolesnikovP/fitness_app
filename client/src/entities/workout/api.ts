@@ -77,6 +77,11 @@ export function swapSessionExercise(token: string, sessionId: string, sessionExe
   });
 }
 
+/** Removes a Session exercise and its logged Sets from the Session in progress. */
+export function removeSessionExercise(token: string, sessionId: string, sessionExerciseId: string): Promise<Session> {
+  return apiRequest<Session>(path(sessionId, 'exercises', sessionExerciseId), { method: 'DELETE', token });
+}
+
 /** A Set to log. rpe is null when left blank. */
 export type NewSet = {
   weight: number;

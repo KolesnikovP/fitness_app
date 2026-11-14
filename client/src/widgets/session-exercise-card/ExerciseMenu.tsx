@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 
 import type { Session, SessionExercise } from '@/entities/workout';
+import { confirmExerciseRemoval } from '@/features/remove-exercise';
 import { canSwap, SwapSheet } from '@/features/swap-exercise';
 import { makeStyles, spacing } from '@/shared/ui';
 
@@ -9,13 +10,15 @@ type ExerciseMenuProps = {
   sessionId: string;
   sessionExercise: SessionExercise;
   onSwapped: (session: Session) => void;
+  onRemove: () => void;
 };
 
 /**
  * A ⋯ button for a Session exercise, opening a sheet of what can be done
- * with it: Replace exercise, for one with Substitutes, opens the Swap sheet.
+ * with it: Replace exercise, for one with Substitutes, opens the Swap sheet;
+ * Remove exercise removes it, asking first if it has logged Sets.
  */
-export function ExerciseMenu({ sessionId, sessionExercise, onSwapped }: ExerciseMenuProps) {
+export function ExerciseMenu({ sessionId, sessionExercise, onSwapped, onRemove }: ExerciseMenuProps) {
   const styles = useStyles();
   const [open, setOpen] = useState(false);
   const [swapSheetOpen, setSwapSheetOpen] = useState(false);
@@ -24,6 +27,14 @@ export function ExerciseMenu({ sessionId, sessionExercise, onSwapped }: Exercise
   function openSwapSheet() {
     setOpen(false);
     setSwapSheetOpen(true);
+  }
+
+  // The sheet stays up under the question, since an alert can't open as a
+  // sheet closes on iOS.
+  async function remove() {
+    const confirmed = await confirmExerciseRemoval(sessionExercise);
+    setOpen(false);
+    if (confirmed) onRemove();
   }
 
   return (
@@ -54,6 +65,15 @@ export function ExerciseMenu({ sessionId, sessionExercise, onSwapped }: Exercise
               <Text style={styles.optionLabel}>Replace exercise</Text>
             </Pressable>
           ) : null}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Remove exercise"
+            onPress={remove}
+            style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}
+          >
+            <Text style={[styles.optionIcon, styles.danger]}>✕</Text>
+            <Text style={[styles.optionLabel, styles.danger]}>Remove exercise</Text>
+          </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Cancel"
@@ -100,6 +120,7 @@ const useStyles = makeStyles((colors) => ({
   optionPressed: { backgroundColor: colors.card },
   optionIcon: { width: 24, fontSize: 20, textAlign: 'center', color: colors.text },
   optionLabel: { fontSize: 17, fontWeight: '600', color: colors.text },
+  danger: { color: colors.danger },
   cancel: { minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: spacing.xs },
   cancelText: { fontSize: 17, fontWeight: '600', color: colors.muted },
 }));

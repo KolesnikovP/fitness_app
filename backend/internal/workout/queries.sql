@@ -131,6 +131,12 @@ UPDATE session_exercises
 SET superset_id = sqlc.arg(superset_id)
 WHERE session_id = sqlc.arg(session_id) AND id = ANY(sqlc.arg(ids)::uuid[]);
 
+-- name: DeleteSessionExercise :execrows
+-- Deletes a session exercise, provided it belongs to the session. Its sets go
+-- with it.
+DELETE FROM session_exercises
+WHERE id = $1 AND session_id = $2;
+
 -- name: UngroupSuperset :execrows
 UPDATE session_exercises
 SET superset_id = NULL

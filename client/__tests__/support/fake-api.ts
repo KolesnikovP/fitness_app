@@ -1103,6 +1103,16 @@ const handlers = [
     return HttpResponse.json(sessionJson(session));
   }),
 
+  http.delete('*/workouts/sessions/:id/exercises/:sessionExerciseId', ({ request, params }) => {
+    const account = caller(request);
+    if (!account) return unauthorized();
+    const { session, response } = sessionInProgress(account, params.id);
+    if (!session) return response;
+    if (!session.exercises.some((e) => e.id === params.sessionExerciseId)) return sessionExerciseNotFound();
+    session.exercises = session.exercises.filter((e) => e.id !== params.sessionExerciseId);
+    return HttpResponse.json(sessionJson(session));
+  }),
+
   http.post('*/workouts/sessions/:id/exercises/:sessionExerciseId/sets', async ({ request, params }) => {
     const account = caller(request);
     if (!account) return unauthorized();

@@ -1,2 +1,1 @@
-export { SetDeletedBar } from './SetDeletedBar';
-export { UNDO_MS, usePendingSetDeletion } from './usePendingSetDeletion';
+export { usePendingSetDeletion } from './usePendingSetDeletion';

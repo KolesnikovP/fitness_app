@@ -28,5 +28,7 @@ afterEach(() => {
   imagePicker.nextPick = null;
   imagePicker.lastOptions = null;
   sharing.reset();
+  // A spy, such as one answering an Alert, ends with its test.
+  jest.restoreAllMocks();
 });
 afterAll(() => server.close());

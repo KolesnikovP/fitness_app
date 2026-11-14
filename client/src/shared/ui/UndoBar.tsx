@@ -1,13 +1,15 @@
 import { Text, View } from 'react-native';
 
-import { Button, makeStyles, spacing } from '@/shared/ui';
+import { Button } from './Button';
+import { makeStyles } from './ThemeProvider';
+import { spacing } from './theme';
 
-/** Says a Set was deleted, with a button to undo it. */
-export function SetDeletedBar({ onUndo }: { onUndo: () => void }) {
+/** Says what was just deleted, such as "Set deleted.", with a button to undo it. */
+export function UndoBar({ message, onUndo }: { message: string; onUndo: () => void }) {
   const styles = useStyles();
   return (
     <View accessibilityLiveRegion="polite" style={styles.bar}>
-      <Text style={styles.text}>Set deleted.</Text>
+      <Text style={styles.text}>{message}</Text>
       <Button label="Undo" variant="link" onPress={onUndo} />
     </View>
   );

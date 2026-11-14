@@ -6,6 +6,7 @@ export { SegmentedControl } from './SegmentedControl';
 export { Select, type SelectOption } from './Select';
 export { Spinner } from './Spinner';
 export { TextField } from './TextField';
+export { UndoBar } from './UndoBar';
 export { useThemedStackOptions } from './useThemedStackOptions';
 export { darkColors, lightColors, spacing, type Colors } from './theme';
 export { makeStyles, ThemeProvider, useTheme, type ColorScheme, type ThemePreference } from './ThemeProvider';
