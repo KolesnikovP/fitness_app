@@ -8,7 +8,8 @@
 #
 # CPU near 100% on both readings means the app is frozen; `sample <pid> 3` then tells
 # a JS loop (hermes, JS thread) from a native layout loop (yoga, main thread).
-# Needs Metro on PORT (8081): `npm run dev`, which also logs to tmp/metro.log.
+# Needs a booted simulator with Expo Go and Metro on PORT (8081), checked first by
+# scripts/sim-preflight.sh; `npm run dev` starts Metro and logs to tmp/metro.log.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -20,11 +21,14 @@ LOG=tmp/metro.log
 SHOT=tmp/sim-check.png
 mkdir -p tmp
 
-if ! lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null; then
-  echo "sim-check: no Metro on port $PORT; start it with npm run dev" >&2
-  exit 1
-fi
-if ! pgrep -f "script .*$LOG" >/dev/null; then
+# Whether Metro is writing its log: npm run dev records it with script(1) at a
+# terminal, or with tee when run in the background.
+metro_logging() {
+  pgrep -f "script .*$LOG" >/dev/null || pgrep -f "tee $LOG" >/dev/null
+}
+
+./scripts/sim-preflight.sh || exit 1
+if ! metro_logging; then
   echo "sim-check: Metro isn't writing $LOG; restart it with npm run dev to get its log" >&2
 fi
 
@@ -33,7 +37,7 @@ logged=$(wc -l <"$LOG" 2>/dev/null || echo 0)
 xcrun simctl openurl booted "$APP"
 # A cold start waits for Metro to bundle, 15s or more after a code change: wait
 # for Metro to log the bundle, then for the app to start. Without the log, guess.
-if [ -f "$LOG" ] && pgrep -f "script .*$LOG" >/dev/null; then
+if [ -f "$LOG" ] && metro_logging; then
   waited=0
   until tail -n +"$((logged + 1))" "$LOG" | grep -q "Bundled" || [ "$waited" -ge 90 ]; do
     sleep 1
@@ -60,6 +64,11 @@ sleep 3
 second=$(ps -o pcpu= -p "$pid")
 echo "sim-check: $ROUTE, Expo Go (pid $pid) CPU $first% then $second%"
 
-xcrun simctl io booted screenshot "$SHOT" >/dev/null 2>&1
+# Remove the last one first, so a failed capture can't pass off an old screenshot as this one.
+rm -f "$SHOT"
+if ! err=$(xcrun simctl io booted screenshot "$SHOT" 2>&1) || [ ! -s "$SHOT" ]; then
+  echo "sim-check: the screenshot failed: $err" >&2
+  exit 1
+fi
 sips -Z 900 "$SHOT" >/dev/null
 echo "sim-check: screenshot in $SHOT"

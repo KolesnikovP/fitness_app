@@ -17,11 +17,11 @@ Infer the repo from `git remote -v`; `gh` does this automatically when run insid
 
 ## The next ticket
 
-The next ticket is the lowest-numbered open `ready-for-agent` issue that has no open blockers and no open PR. #1 is the v1 PRD, not a ticket, so skip it. This lists the candidates in order:
+The next ticket is the lowest-numbered open `ready-for-agent` issue that has no open blockers, no open PR and no sub-issues. #1 is the v1 PRD, not a ticket, so skip it; so is a parent issue with sub-issues, such as #73: its sub-issues are the tickets. This lists the candidates in order:
 
 ```sh
 for n in $(gh issue list --state open --label ready-for-agent --json number --jq 'sort_by(.number) | .[].number'); do
-  gh api repos/KolesnikovP/fitness_app/issues/$n --jq 'select(.number != 1 and .issue_dependencies_summary.blocked_by == 0) | "\(.number) \(.title)"'
+  gh api repos/KolesnikovP/fitness_app/issues/$n --jq 'select(.number != 1 and .sub_issues_summary.total == 0 and .issue_dependencies_summary.blocked_by == 0) | "\(.number) \(.title)"'
 done
 gh pr list --state open --json number,title,headRefName
 ```
