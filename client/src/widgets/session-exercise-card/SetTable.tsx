@@ -3,12 +3,10 @@ import { Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import {
-  addedAfterLogging,
   formatSetWithTier,
   LastTimeCell,
   lastTimeAtPlaces,
   type LastTimeSet,
-  pendingSetCount,
   pendingSetDrafts,
   RecordTierMedal,
   setColumns,
@@ -17,8 +15,13 @@ import {
   type Session,
   type SessionExercise,
   type SessionSet,
-  type SetDraft,
-  typedAfterLogging,
+  rowsAfterLogging,
+  rowKeys,
+  rowsAfterRemoving,
+  type RowsToDo,
+  untouchedRows,
+  withRowAdded,
+  withRowTyped,
   useRecordTierColours,
 } from '@/entities/workout';
 import { EditSetForm, LoggedSetTypeSelect } from '@/features/edit-set';
@@ -49,11 +52,7 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
   const { state } = useAuth();
   const unit = state.status === 'signedIn' ? (state.me.unitPreference ?? 'kg') : 'kg';
   const [editingSetId, setEditingSetId] = useState<string | null>(null);
-  // Rows the User added beyond the Target, and what they've typed in each
-  // row still to do, by position; a row they haven't touched follows the
-  // Last time, the row above, or the Target (see pendingSetDrafts).
-  const [added, setAdded] = useState(0);
-  const [drafts, setDrafts] = useState<(SetDraft | undefined)[]>([]);
+  const [rows, setRows] = useState<RowsToDo>(untouchedRows);
 
   const logged = sessionExercise.sets;
   const runs = setRuns(sessionExercise);
@@ -61,24 +60,17 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
   // Rows still to do are for the Exercise being done now; they start a new
   // run when the last Sets were done with another.
   const pendingLabel = labelled && runs.at(-1)?.exerciseId !== sessionExercise.exerciseId;
-  const pending = pendingSetCount(sessionExercise, added);
-  const pendingDrafts = pendingSetDrafts(sessionExercise, unit, drafts, pending);
+  const pendingDrafts = pendingSetDrafts(sessionExercise, unit, rows);
+  const pending = pendingDrafts.length;
+  const keys = rowKeys(sessionExercise, rows);
   const pendingTypes = pendingDrafts.map((d) => d.type);
   const marks = setMarks([...logged.map((s) => s.type), ...pendingTypes]);
-  const lastTime = lastTimeAtPlaces(sessionExercise, pendingTypes);
+  const lastTime = lastTimeAtPlaces(sessionExercise, pendingTypes, rows);
 
-  function changeDraft(index: number, draft: SetDraft) {
-    setDrafts((current) => {
-      const next = [...current];
-      next[index] = draft;
-      return next;
-    });
-  }
-
-  function onLogged(index: number, session: Session) {
+  // By key, not position: rows above may be removed while the Set is on its way.
+  function onLogged(key: number, session: Session) {
     const after = session.exercises.find((e) => e.id === sessionExercise.id) ?? sessionExercise;
-    setAdded((n) => addedAfterLogging(sessionExercise, n, index));
-    setDrafts((current) => typedAfterLogging(sessionExercise, after, current, index));
+    setRows((current) => rowsAfterLogging(sessionExercise, after, current, key));
     onChange(session);
   }
 
@@ -130,21 +122,26 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
         </View>
       ))}
       {pendingLabel && pending > 0 ? <RunLabel name={sessionExercise.name} /> : null}
-      {Array.from({ length: pending }, (_, i) => (
-        <PendingSetRow
-          key={`pending-${i}`}
-          sessionId={sessionId}
-          sessionExerciseId={sessionExercise.id}
-          number={logged.length + i + 1}
-          mark={marks[logged.length + i]}
-          draft={pendingDrafts[i]}
-          lastTime={lastTime[logged.length + i]}
-          onChange={(draft) => changeDraft(i, draft)}
-          weightUnit={unit}
-          onLogged={(session) => onLogged(i, session)}
-        />
+      {keys.map((key, i) => (
+        <SwipeToDelete
+          key={`pending-${key}`}
+          deleteLabel={`Delete set ${logged.length + i + 1}`}
+          onDelete={() => setRows((current) => rowsAfterRemoving(sessionExercise, current, key))}
+        >
+          <PendingSetRow
+            sessionId={sessionId}
+            sessionExerciseId={sessionExercise.id}
+            number={logged.length + i + 1}
+            mark={marks[logged.length + i]}
+            draft={pendingDrafts[i]}
+            lastTime={lastTime[logged.length + i]}
+            onChange={(draft) => setRows((current) => withRowTyped(current, i, draft))}
+            weightUnit={unit}
+            onLogged={(session) => onLogged(key, session)}
+          />
+        </SwipeToDelete>
       ))}
-      <Button label="+ Add set" variant="link" onPress={() => setAdded((n) => n + 1)} />
+      <Button label="+ Add set" variant="link" onPress={() => setRows(withRowAdded)} />
     </View>
   );
 }

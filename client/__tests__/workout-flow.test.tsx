@@ -1,13 +1,14 @@
 import { router } from 'expo-router';
 import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library';
+import { http, HttpResponse } from 'msw';
 import { Alert } from 'react-native';
 
 import { openSwapSheet, removeExercise } from './support/exercise-menu';
-import { fakeApi } from './support/fake-api';
+import { fakeApi, server } from './support/fake-api';
 import { findHeaderTitle } from './support/native-header';
 import { secureStore } from './support/secure-store';
 import type { FakeSetType } from './support/fake-api';
-import { chooseSetType, loggedSets, readouts, rowsToDo } from './support/set-table';
+import { chooseSetType, loggedSets, readouts, removeRow, repsToDo, rowsToDo } from './support/set-table';
 import { swipeLeft } from './support/swipeable';
 
 /** Launches the app signed in as an onboarded kg user, on the Workout tab. */
@@ -888,6 +889,95 @@ describe('last time', () => {
   });
 });
 
+describe('removing a row still to do', () => {
+  it('removes a planned row at once, and it stays gone after later sets are logged', async () => {
+    const alert = jest.spyOn(Alert, 'alert');
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const squat = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
+    squat.target = { sets: 4, reps: 5, weight: 100, weightUnit: 'kg', restSeconds: null, note: '' };
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Back Squat');
+    for (const [set, reps] of [
+      [1, '5'],
+      [2, '4'],
+      [3, '3'],
+      [4, '2'],
+    ] as const) {
+      await fireEvent.changeText(card.getByLabelText(`Set ${set} reps`), reps);
+    }
+
+    await removeRow(card, 2);
+    // No confirmation and no Undo bar: the row holds nothing that can't be typed again.
+    expect(alert).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
+    // What was typed stays with its row, and the rows renumber.
+    expect(repsToDo(card)).toEqual(['5', '3', '2']);
+    expect(card.getByRole('button', { name: 'Log set 3' })).toBeVisible();
+    expect(card.queryByRole('button', { name: 'Log set 4' })).toBeNull();
+
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
+    await waitFor(() => expect(loggedSets(card)).toEqual(['100 kg × 5']));
+    expect(repsToDo(card)).toEqual(['3', '2']);
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 2' }));
+    await waitFor(() => expect(loggedSets(card)).toHaveLength(2));
+    expect(repsToDo(card)).toEqual(['2']);
+    expect(squat.sets).toHaveLength(2);
+  });
+
+  it("keeps a row's own state with it when a row above it is removed", async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const squat = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
+    squat.target = { sets: 4, reps: 5, weight: 100, weightUnit: 'kg', restSeconds: null, note: '' };
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Back Squat');
+    for (const [set, reps] of [
+      [1, '5'],
+      [2, '4'],
+      [3, '3'],
+      [4, '2'],
+    ] as const) {
+      await fireEvent.changeText(card.getByLabelText(`Set ${set} reps`), reps);
+    }
+    server.use(
+      http.post(
+        '*/sets',
+        () => HttpResponse.json({ error: { code: 'unavailable', message: 'Try again later.' } }, { status: 503 }),
+        { once: true },
+      ),
+    );
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 3' }));
+    expect(card.getByRole('alert')).toHaveTextContent('Try again later.');
+
+    // Set 3's error moves up with it to set 2, so removing the last row leaves it.
+    await removeRow(card, 1);
+    await removeRow(card, 3);
+    expect(repsToDo(card)).toEqual(['4', '3']);
+    expect(card.getByRole('alert')).toHaveTextContent('Try again later.');
+    await removeRow(card, 2);
+    expect(card.queryByRole('alert')).toBeNull();
+  });
+
+  it('removes a row added with + Add set, and removing every row leaves only + Add set', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Deadlift');
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Deadlift');
+    await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '5');
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
+    await fireEvent.changeText(card.getByLabelText('Set 2 reps'), '3');
+
+    await removeRow(card, 2);
+    expect(repsToDo(card)).toEqual(['5']);
+    await removeRow(card, 1);
+    expect(rowsToDo(card)).toBe(0);
+    expect(card.getByRole('button', { name: '+ Add set' })).toBeVisible();
+
+    // A row added after starts afresh.
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
+    expect(repsToDo(card)).toEqual(['']);
+  });
+});
+
 describe('rows still to do with no Target', () => {
   it('shows one row until a set is logged, then only the rows added with + Add set', async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
@@ -1191,6 +1281,42 @@ describe('warm-ups from last time', () => {
     await waitFor(() => expect(loggedSets(card)).toEqual(['60 kg × 8, Warm-up', '80 kg × 3, Warm-up']));
     expect(rowsToDoHold(card)).toEqual(['1 100×5', '2 100×5', '3 100×5']);
     expect(lastTimeCells(card)).toEqual(['60 kg × 8', '80 kg × 3', '100 kg × 5', '102.5 kg × 5', '105 kg × 4']);
+  });
+
+  it('removes the warm-up row swiped, and the others keep their places and last time', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    benchedYesterday(account.id);
+    const bench = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
+    bench.target = { sets: 3, reps: 5, weight: 100, weightUnit: 'kg', restSeconds: null, note: '' };
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Bench Press');
+
+    await removeRow(card, 1);
+    expect(rowsToDoHold(card)).toEqual(['W 80×3', '1 100×5', '2 100×5', '3 100×5']);
+    expect(lastTimeCells(card)).toEqual(['80 kg × 3', '100 kg × 5', '102.5 kg × 5', '105 kg × 4']);
+
+    // Logging the warm-up left doesn't bring back the one removed.
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
+    await waitFor(() => expect(loggedSets(card)).toEqual(['80 kg × 3, Warm-up']));
+    expect(rowsToDoHold(card)).toEqual(['1 100×5', '2 100×5', '3 100×5']);
+    expect(lastTimeCells(card)).toEqual(['80 kg × 3', '100 kg × 5', '102.5 kg × 5', '105 kg × 4']);
+  });
+
+  it('leaves only + Add set once every row, warm-ups and planned, is removed', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    benchedYesterday(account.id);
+    const bench = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
+    bench.target = { sets: 3, reps: 5, weight: 100, weightUnit: 'kg', restSeconds: null, note: '' };
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Bench Press');
+    await fireEvent.changeText(card.getByLabelText('Set 3 reps'), '6');
+
+    // The last warm-up goes; what was typed in set 1 stays with it.
+    await removeRow(card, 2);
+    expect(rowsToDoHold(card)).toEqual(['W 60×8', '1 100×6', '2 100×6', '3 100×6']);
+    for (const n of [4, 3, 2, 1]) await removeRow(card, n);
+    expect(rowsToDo(card)).toBe(0);
+    expect(card.getByRole('button', { name: '+ Add set' })).toBeVisible();
   });
 
   it("swaps to the other Exercise's warm-ups before a set is logged, and brings in none after", async () => {
