@@ -1,5 +1,7 @@
 import { fireEvent, screen, within } from 'expo-router/testing-library';
 
+import { swipeLeft } from './swipeable';
+
 /**
  * The logged Sets in a card's set table, in order, as each row reads out to
  * a screen reader: "140 kg × 5", "140 kg × 5 @ RPE 8", then its Set type
@@ -31,4 +33,15 @@ export function rowsToDo(card: ReturnType<typeof within>): number {
 export async function chooseSetType(card: ReturnType<typeof within>, n: number, type: string) {
   await fireEvent.press(card.getByRole('button', { name: `Set ${n} type` }));
   await fireEvent.press(within(screen.getByLabelText(`Set ${n} type options`)).getByRole('radio', { name: type }));
+}
+
+/** The reps in each row still to do of a card's set table, in order. */
+export function repsToDo(card: ReturnType<typeof within>): string[] {
+  return card.getAllByLabelText(/^Set \d+ reps$/).map((field) => field.props.value);
+}
+
+/** Removes row n still to do of a card's set table by swiping it left and tapping Delete. */
+export async function removeRow(card: ReturnType<typeof within>, n: number) {
+  await swipeLeft(card.getByLabelText(`Set ${n} reps`));
+  await fireEvent.press(card.getByRole('button', { name: `Delete set ${n}` }));
 }

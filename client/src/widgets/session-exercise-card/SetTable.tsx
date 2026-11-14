@@ -16,11 +16,12 @@ import {
   type SessionExercise,
   type SessionSet,
   rowsAfterLogging,
+  rowKeys,
   rowsAfterRemoving,
   type RowsToDo,
   untouchedRows,
   withRowAdded,
-  withTyped,
+  withRowTyped,
   useRecordTierColours,
 } from '@/entities/workout';
 import { EditSetForm, LoggedSetTypeSelect } from '@/features/edit-set';
@@ -61,13 +62,15 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
   const pendingLabel = labelled && runs.at(-1)?.exerciseId !== sessionExercise.exerciseId;
   const pendingDrafts = pendingSetDrafts(sessionExercise, unit, rows);
   const pending = pendingDrafts.length;
+  const keys = rowKeys(sessionExercise, rows);
   const pendingTypes = pendingDrafts.map((d) => d.type);
   const marks = setMarks([...logged.map((s) => s.type), ...pendingTypes]);
   const lastTime = lastTimeAtPlaces(sessionExercise, pendingTypes, rows);
 
-  function onLogged(index: number, session: Session) {
+  // By key, not position: rows above may be removed while the Set is on its way.
+  function onLogged(key: number, session: Session) {
     const after = session.exercises.find((e) => e.id === sessionExercise.id) ?? sessionExercise;
-    setRows((current) => rowsAfterLogging(sessionExercise, after, current, index));
+    setRows((current) => rowsAfterLogging(sessionExercise, after, current, key));
     onChange(session);
   }
 
@@ -119,11 +122,11 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
         </View>
       ))}
       {pendingLabel && pending > 0 ? <RunLabel name={sessionExercise.name} /> : null}
-      {Array.from({ length: pending }, (_, i) => (
+      {keys.map((key, i) => (
         <SwipeToDelete
-          key={`pending-${i}`}
+          key={`pending-${key}`}
           deleteLabel={`Delete set ${logged.length + i + 1}`}
-          onDelete={() => setRows((current) => rowsAfterRemoving(sessionExercise, current, i))}
+          onDelete={() => setRows((current) => rowsAfterRemoving(sessionExercise, current, key))}
         >
           <PendingSetRow
             sessionId={sessionId}
@@ -132,9 +135,9 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
             mark={marks[logged.length + i]}
             draft={pendingDrafts[i]}
             lastTime={lastTime[logged.length + i]}
-            onChange={(draft) => setRows((current) => withTyped(current, i, draft))}
+            onChange={(draft) => setRows((current) => withRowTyped(current, i, draft))}
             weightUnit={unit}
-            onLogged={(session) => onLogged(i, session)}
+            onLogged={(session) => onLogged(key, session)}
           />
         </SwipeToDelete>
       ))}
