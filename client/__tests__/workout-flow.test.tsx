@@ -65,7 +65,9 @@ describe('freeform workout', () => {
     await waitFor(() => expect(loggedSets(card)).toEqual(['32.5 kg × 10']));
     // Done with one exercise, the sets need no label.
     expect(within(card.getByLabelText('Sets')).queryAllByRole('header')).toEqual([]);
-    // A row is ready for the next set, repeating the set just done.
+    // With no Target, no row is left; one added repeats the set just done.
+    expect(rowsToDo(card)).toBe(0);
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
     expect(card.getByLabelText('Set 2 weight (kg)')).toHaveDisplayValue('32.5');
     expect(card.getByLabelText('Set 2 reps')).toHaveDisplayValue('10');
 
@@ -233,6 +235,7 @@ describe('freeform workout', () => {
     await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
 
     await waitFor(() => expect(loggedSets(card)).toEqual(['140 kg × 5 @ RPE 6']));
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
     // The next set's RPE starts blank; left unset, the set has none.
     expect(within(card.getByRole('button', { name: 'Set 2 RPE' })).getByText('–')).toBeVisible();
     await fireEvent.changeText(card.getByLabelText('Set 2 reps'), '4');
@@ -280,17 +283,20 @@ describe('freeform workout', () => {
     await fireEvent.press(card.getByRole('button', { name: 'Log set 2' }));
     await waitFor(() => expect(loggedSets(card)).toHaveLength(2));
 
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
     await chooseSetType(card, 3, 'Drop');
     expect(within(typeOf(3)).getByText('D')).toBeVisible();
     await fireEvent.changeText(card.getByLabelText('Set 3 reps'), '8');
     await fireEvent.press(card.getByRole('button', { name: 'Log set 3' }));
     await waitFor(() => expect(loggedSets(card)).toHaveLength(3));
 
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
     // A failure set counts, though it shows F: the normal set after it is the third.
     await chooseSetType(card, 4, 'Failure');
     await fireEvent.changeText(card.getByLabelText('Set 4 reps'), '4');
     await fireEvent.press(card.getByRole('button', { name: 'Log set 4' }));
     await waitFor(() => expect(loggedSets(card)).toHaveLength(4));
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
     expect(['W', '1', 'D', 'F', '3'].map((mark, i) => within(typeOf(i + 1)).getByText(mark))).toHaveLength(5);
 
     expect(fakeApi.sessions(account.id)[0].exercises[0].sets.map((set) => set.type)).toEqual([
@@ -592,7 +598,8 @@ describe('last time', () => {
     // Last time's set 1 again ties the best before: silver.
     await waitFor(() => expect(loggedSets(card)).toEqual(['60 kg × 10, Silver']));
 
-    // The logged set keeps its Last time; the next row repeats the set just done.
+    // The logged set keeps its Last time; a row added repeats the set just done.
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
     expect(lastTimeCells(card)).toEqual(['60 kg × 10 @ RPE 7', '62.5 kg × 8']);
     expect(card.getByLabelText('Set 2 weight (kg)')).toHaveDisplayValue('60');
     expect(card.getByLabelText('Set 2 reps')).toHaveDisplayValue('10');
@@ -605,7 +612,7 @@ describe('last time', () => {
     expect(card.getByLabelText('Set 2 reps')).toHaveDisplayValue('8');
     expect(within(card.getByRole('button', { name: 'Set 2 RPE' })).getByText('9')).toBeVisible();
 
-    // A row added after follows the row above, and last time had no set there.
+    // Another row added follows the row above, and last time had no set there.
     await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
     expect(lastTimeCells(card)).toEqual(['60 kg × 10 @ RPE 7', '62.5 kg × 8', 'None']);
     expect(card.getByLabelText('Set 3 weight (kg)')).toHaveDisplayValue('62.5');
@@ -631,6 +638,58 @@ describe('last time', () => {
       expect(card.getByLabelText(`Set ${set} weight (lb)`)).toHaveDisplayValue('220.5');
       expect(card.getByLabelText(`Set ${set} reps`)).toHaveDisplayValue('6');
     }
+  });
+});
+
+describe('rows still to do with no Target', () => {
+  it('shows one row until a set is logged, then only the rows added with + Add set', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Deadlift');
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Deadlift');
+    expect(rowsToDo(card)).toBe(1);
+
+    await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '140');
+    await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '3');
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
+    await waitFor(() => expect(loggedSets(card)).toEqual(['140 kg × 3']));
+    expect(rowsToDo(card)).toBe(0);
+
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
+    expect(rowsToDo(card)).toBe(2);
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 2' }));
+    await waitFor(() => expect(loggedSets(card)).toHaveLength(2));
+    expect(rowsToDo(card)).toBe(1);
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 3' }));
+    await waitFor(() => expect(loggedSets(card)).toHaveLength(3));
+    expect(rowsToDo(card)).toBe(0);
+  });
+
+  it('keeps the row for the first set once a warm-up is logged', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Deadlift');
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Deadlift');
+
+    await chooseSetType(card, 1, 'Warm-up');
+    await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '60');
+    await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '5');
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
+    await waitFor(() => expect(loggedSets(card)).toEqual(['60 kg × 5, Warm-up']));
+    expect(rowsToDo(card)).toBe(1);
+    expect(card.getByRole('button', { name: 'Log set 2' })).toBeVisible();
+  });
+
+  it('shows no row on resuming once a set is logged', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSet(fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Deadlift'), 140, 'kg', 3);
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Deadlift');
+
+    expect(loggedSets(card)).toEqual(['140 kg × 3']);
+    expect(rowsToDo(card)).toBe(0);
+    expect(card.getByRole('button', { name: '+ Add set' })).toBeVisible();
   });
 });
 
@@ -731,6 +790,7 @@ describe('rows still to do without last time', () => {
     await fireEvent.press(card.getByRole('button', { name: 'Log set 2' }));
     await waitFor(() => expect(loggedSets(card)).toEqual(['60 kg × 8, Warm-up', '100 kg × 5']));
 
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
     await chooseSetType(card, 3, 'Warm-up');
     await fireEvent.changeText(card.getByLabelText('Set 3 weight (kg)'), '70');
     await fireEvent.changeText(card.getByLabelText('Set 3 reps'), '3');
@@ -920,6 +980,18 @@ describe('warm-ups from last time', () => {
     await waitFor(() => expect(loggedSets(card)).toEqual(['60 kg × 8, Warm-up']));
     card = await swap('Bench Press', 'Dumbbell Bench Press');
     expect(rowsToDoHold(card)).toEqual(['1 30×10', '2 30×10', '3 30×10']);
+  });
+
+  it("keeps a freeform exercise's row for its first set once last time's warm-up is logged", async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    benchedYesterday(account.id);
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
+    await resumeWorkout(account.id);
+    const card = exerciseCard('Bench Press');
+
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
+    await waitFor(() => expect(loggedSets(card)).toEqual(['60 kg × 8, Warm-up']));
+    expect(rowsToDoHold(card)).toEqual(['W 80×3', '1 100×5']);
   });
 
   it('gives a freeform exercise its warm-ups too, and a row marked a warm-up by hand takes a warm-up place', async () => {
