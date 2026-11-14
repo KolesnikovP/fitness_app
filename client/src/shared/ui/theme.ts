@@ -26,6 +26,8 @@ export type Colors = {
   /** Selected or pressed rows and options. */
   primarySubtle: string;
   danger: string;
+  /** Text on a danger fill, such as a swiped row's Delete button. */
+  dangerText: string;
   /** The D that marks a drop Set; W and F take link and danger. */
   dropSet: string;
   /** Done: a logged set and its tick. */
@@ -63,6 +65,7 @@ export const lightColors: Colors = {
   primaryText: '#FBFAF7',
   primarySubtle: '#F6E7D3',
   danger: BRICK,
+  dangerText: '#FFFFFF', // 5.3:1 on brick
   dropSet: '#3F6E9E',
   success: SAGE,
   successSubtle: '#E5ECE2',
@@ -94,6 +97,7 @@ export const darkColors: Colors = {
   primaryText: CHARCOAL,
   primarySubtle: '#3A2E21',
   danger: '#C9675B', // brick lifted so it reads on charcoal; #AC5045 is 2.9:1 here
+  dangerText: CHARCOAL, // 4.5:1 on the lifted brick; white is only 3.8:1
   dropSet: '#8FB3D9',
   success: SAGE,
   successSubtle: '#263027',
