@@ -37,12 +37,12 @@ type SetTableProps = {
  * the same place, weight, reps and RPE: the logged ones (tap one to correct
  * or delete it, or swipe it left to delete it), then a row for each Set
  * still to do, ready from Last time or the row above, else at the Target
- * (see pendingSetDrafts), with a box to
- * tick to log it. Each row starts with the Set's mark, its number or its
- * type's letter, tapped to change its Set type. "Add set" adds another row.
- * Once a swap means the Sets were done with more than one Exercise, each run
- * of them is labelled with its Exercise, and so are the rows still to do. A logged Set with a Record tier is filled in its
- * colour and shows its medal.
+ * (see pendingSetDrafts), with a box to tick to log it. Each row starts with
+ * the Set's mark, its number or its type's letter, tapped to change its Set
+ * type. "Add set" adds another row. Once a swap means the Sets were done with
+ * more than one Exercise, each run of them is labelled with its Exercise, and
+ * so are the rows still to do. A logged Set with a Record tier is filled in
+ * its colour and shows its medal.
  */
 export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: SetTableProps) {
   const styles = useStyles();
@@ -113,7 +113,7 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
                 onCancel={() => setEditingSetId(null)}
               />
             ) : (
-              <SwipeToDelete key={set.id} label={`Delete set ${number}`} onDelete={() => onDeleteSet(set.id)}>
+              <SwipeToDelete key={set.id} deleteLabel={`Delete set ${number}`} onDelete={() => onDeleteSet(set.id)}>
                 <LoggedSetRow
                   sessionId={sessionId}
                   set={set}

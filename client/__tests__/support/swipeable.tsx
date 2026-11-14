@@ -6,7 +6,6 @@ type Methods = { close: () => void; openLeft: () => void; openRight: () => void;
 
 type FakeSwipeableProps = {
   ref?: Ref<Methods>;
-  enabled?: boolean;
   renderRightActions?: (progress: unknown, translation: unknown, methods: Methods) => ReactNode;
   children?: ReactNode;
 };
@@ -17,7 +16,7 @@ type FakeSwipeableProps = {
  * swipeLeft; until then its right actions aren't on screen, as on a phone
  * they're hidden under the row.
  */
-function FakeSwipeable({ ref, enabled, renderRightActions, children }: FakeSwipeableProps) {
+function FakeSwipeable({ ref, renderRightActions, children }: FakeSwipeableProps) {
   const [open, setOpen] = useState(false);
   const methods: Methods = {
     close: () => setOpen(false),
@@ -27,9 +26,9 @@ function FakeSwipeable({ ref, enabled, renderRightActions, children }: FakeSwipe
   };
   useImperativeHandle(ref, () => methods);
   // Not a real View prop: swipeLeft fires it, and it bubbles up from any element in the row.
-  const swipe = { onSwipeLeft: () => enabled !== false && setOpen(true) } as object;
+  const swipeHandler = { onSwipeLeft: () => setOpen(true) } as object;
   return (
-    <View {...swipe}>
+    <View {...swipeHandler}>
       {children}
       {open ? renderRightActions?.({ value: 1 }, { value: 0 }, methods) : null}
     </View>

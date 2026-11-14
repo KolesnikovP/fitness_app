@@ -6,7 +6,7 @@ import { makeStyles } from './ThemeProvider';
 
 type SwipeToDeleteProps = {
   /** What a screen reader calls the Delete button, such as "Delete set 2". */
-  label: string;
+  deleteLabel: string;
   onDelete: () => void;
   children: ReactNode;
 };
@@ -15,7 +15,7 @@ type SwipeToDeleteProps = {
  * A row that, swiped left, shows a red Delete button behind it. Chosen by
  * prototype (branch prototype/delete-set-rows, variant A).
  */
-export function SwipeToDelete({ label, onDelete, children }: SwipeToDeleteProps) {
+export function SwipeToDelete({ deleteLabel, onDelete, children }: SwipeToDeleteProps) {
   const styles = useStyles();
   return (
     <ReanimatedSwipeable
@@ -26,7 +26,7 @@ export function SwipeToDelete({ label, onDelete, children }: SwipeToDeleteProps)
       renderRightActions={(_progress, _translation, swipeable) => (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={label}
+          accessibilityLabel={deleteLabel}
           onPress={() => {
             swipeable.close();
             onDelete();
@@ -54,5 +54,5 @@ const useStyles = makeStyles((colors) => ({
     backgroundColor: colors.danger,
   },
   pressed: { opacity: 0.7 },
-  actionText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  actionText: { fontSize: 15, fontWeight: '700', color: colors.dangerText },
 }));
