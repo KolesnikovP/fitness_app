@@ -15,11 +15,11 @@ import {
   type Session,
   type SessionExercise,
   type SessionSet,
-  rowsAfterDeleting,
   rowsAfterLogging,
   rowKeys,
   rowsAfterRemoving,
   type RowsToDo,
+  withFirstRowUsed,
   withRowAdded,
   withRowTyped,
   useRecordTierColours,
@@ -78,9 +78,15 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet, ro
     onChange(session);
   }
 
+  // A logged Set deleted or changed can leave no numbered Set; the first
+  // row it used up stays used up (see withFirstRowUsed).
   function deleteSet(setId: string) {
-    onRowsChange((current) => rowsAfterDeleting(sessionExercise, current, setId));
+    onRowsChange((current) => withFirstRowUsed(sessionExercise, current));
     onDeleteSet(setId);
+  }
+  function setChanged(session: Session) {
+    onRowsChange((current) => withFirstRowUsed(sessionExercise, current));
+    onChange(session);
   }
 
   return (
@@ -105,7 +111,7 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet, ro
                 number={number}
                 onSaved={(session) => {
                   setEditingSetId(null);
-                  onChange(session);
+                  setChanged(session);
                 }}
                 onDelete={() => {
                   setEditingSetId(null);
@@ -123,7 +129,7 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet, ro
                   unit={unit}
                   lastTime={lastTime[number - 1]}
                   onPress={() => setEditingSetId(set.id)}
-                  onChange={onChange}
+                  onChange={setChanged}
                 />
               </SwipeToDelete>
             ),

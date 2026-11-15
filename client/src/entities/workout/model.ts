@@ -495,15 +495,25 @@ export function setDraftFromTarget(target: SessionTarget | null, weightUnit: Uni
 }
 
 /**
- * How many numbered Sets a Session exercise has rows left for: those its
- * Target plans, or with no Target just the first until a numbered Set of it
- * is deleted (see rowsAfterDeleting), less those the User removed. Warm-ups
- * and drop Sets logged leave it unchanged. Below 0 once more are logged than
- * planned.
+ * How many numbered Sets a Session exercise plans rows for: those its
+ * Target plans, or with no Target one, the first, until a numbered Set of it
+ * is logged (see firstRowUsed in RowsToDo).
+ */
+function plannedNumberedSets(exercise: SessionExercise, rows: RowsToDo): number {
+  if (exercise.target) return exercise.target.sets;
+  return rows.firstRowUsed ? 0 : 1;
+}
+
+/**
+ * How many numbered Sets a Session exercise has rows left for: those it
+ * plans (see plannedNumberedSets), less those the User removed and those
+ * logged. Warm-ups and drop Sets logged leave it unchanged. Below 0 once
+ * more are logged than planned.
  */
 function numberedSetsLeft(exercise: SessionExercise, rows: RowsToDo): number {
-  const planned = exercise.target ? exercise.target.sets : rows.firstRowUsed ? 0 : 1;
-  return planned - rows.removedPlanned - exercise.sets.filter((s) => isNumbered(s.type)).length;
+  return (
+    plannedNumberedSets(exercise, rows) - rows.removedPlanned - exercise.sets.filter((s) => isNumbered(s.type)).length
+  );
 }
 
 /**
@@ -516,8 +526,9 @@ function numberedSetsLeft(exercise: SessionExercise, rows: RowsToDo): number {
  * the others as rows above it go (see rowKeys), typed what they typed
  * in each row, by position (a row they haven't touched follows Last time,
  * the row above, or the Target; see pendingSetDrafts), and firstRowUsed
- * whether a Session exercise with no Target has used up the one row it
- * starts with, so it doesn't come back once its numbered Sets are deleted.
+ * whether a numbered Set has been logged, which uses up the one row a
+ * Session exercise with no Target starts with for good: deleting that Set,
+ * or making it a warm-up, doesn't bring the row back (see withFirstRowUsed).
  */
 export type RowsToDo = {
   added: number;
@@ -607,14 +618,13 @@ function without<T>(items: T[], index: number): T[] {
 }
 
 /**
- * The rows once the logged Set with id is deleted. A numbered Set of a
- * Session exercise with no Target used up the one row it starts with, so
- * deleting it doesn't bring that row back; the rows still to do stay as
- * they were.
+ * The rows with firstRowUsed (see RowsToDo) set if the Session exercise has
+ * a numbered Set logged. Taken before a logged Set is deleted or changed,
+ * so a Session resumed with Sets already logged keeps its first row used
+ * up too.
  */
-export function rowsAfterDeleting(exercise: SessionExercise, rows: RowsToDo, setId: string): RowsToDo {
-  const set = exercise.sets.find((s) => s.id === setId);
-  if (exercise.target || !set || !isNumbered(set.type)) return rows;
+export function withFirstRowUsed(exercise: SessionExercise, rows: RowsToDo): RowsToDo {
+  if (rows.firstRowUsed || !exercise.sets.some((s) => isNumbered(s.type))) return rows;
   return { ...rows, firstRowUsed: true };
 }
 
@@ -651,7 +661,7 @@ export function rowsAfterLogging(
   // Warm-up rows gone that weren't the row logged: those a working Set left behind.
   const leftBehind = Math.max(warmupRowsBefore - loggedWarmupRows - warmupsToDo(after, rows).length, 0);
   return {
-    ...kept,
+    ...withFirstRowUsed(after, kept),
     added,
     keys: without(kept.keys, row).slice(leftBehind),
     typed: without(rows.typed, row).slice(leftBehind),
