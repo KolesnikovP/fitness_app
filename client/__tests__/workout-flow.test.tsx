@@ -1411,16 +1411,27 @@ describe('one exercise at a time', () => {
     expect(screen.queryByLabelText('Back Squat card')).toBeNull();
   });
 
-  it('keeps what was typed in a row while another exercise is shown', async () => {
+  it('keeps its rows still to do, as typed, added and removed, while another exercise is shown', async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     const session = fakeApi.addSession(account.id);
-    fakeApi.addSessionExercise(session, 'Back Squat');
+    const squat = fakeApi.addSessionExercise(session, 'Back Squat');
+    squat.target = { sets: 3, reps: 5, weight: 100, weightUnit: 'kg', restSeconds: null, note: '' };
     fakeApi.addSessionExercise(session, 'Bench Press');
     await resumeWorkout(account.id);
 
-    await fireEvent.changeText((await exerciseCard('Back Squat')).getByLabelText('Set 1 weight (kg)'), '140');
+    let card = await exerciseCard('Back Squat');
+    await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '8');
+    await removeRow(card, 2);
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
+    // Each row after the first starts from the row above.
+    expect(repsToDo(card)).toEqual(['8', '8', '8', '8']);
+
     await showExercise('Bench Press');
-    expect((await exerciseCard('Back Squat')).getByLabelText('Set 1 weight (kg)')).toHaveDisplayValue('140');
+    card = await exerciseCard('Back Squat');
+
+    // Planned 3, one removed, two added: 4 rows, the first as typed.
+    expect(repsToDo(card)).toEqual(['8', '8', '8', '8']);
   });
 
   it('opens on the first exercise with a row still to do, ahead of ones whose Sets are done', async () => {

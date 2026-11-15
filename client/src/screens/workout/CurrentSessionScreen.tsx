@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
+import { Alert, Text } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import {
@@ -19,6 +19,7 @@ import {
   withoutSet,
   type PersonalRecord,
   type Session,
+  type SessionBlock,
 } from '@/entities/workout';
 import { usePendingSetDeletion } from '@/features/delete-set';
 import { usePendingExerciseRemoval } from '@/features/remove-exercise';
@@ -26,7 +27,7 @@ import { RestTimer } from '@/features/rest-timer';
 import { CreateSupersetForm } from '@/features/superset';
 import { errorMessage } from '@/shared/api';
 import { Button, makeStyles, Screen, Spinner, UndoBar } from '@/shared/ui';
-import { SessionExerciseCard, SupersetBlock } from '@/widgets/session-exercise-card';
+import { SessionExerciseCard, SupersetBlock, useRowsToDo } from '@/widgets/session-exercise-card';
 import { SessionExerciseStrip } from '@/widgets/session-exercise-strip';
 
 /**
@@ -48,6 +49,8 @@ export function CurrentSessionScreen() {
   const loadedIds = useRef<Set<string> | null>(null);
   const deletion = usePendingSetDeletion(token, session?.id ?? null, setSession, setError);
   const removal = usePendingExerciseRemoval(token, session?.id ?? null, setSession, setError);
+  // Kept here, so a Session exercise's rows still to do survive while another is shown.
+  const rowsToDo = useRowsToDo();
   // Records a Set just set, shown until dismissed or for a few seconds.
   const [justSet, setJustSet] = useState<PersonalRecord[]>([]);
 
@@ -199,6 +202,7 @@ export function CurrentSessionScreen() {
   const blocks = sessionBlocks(shown.exercises);
   const ordered = inBlockOrder(shown.exercises);
   const shownExercise = ordered.find((e) => e.id === shownId) ?? ordered[0] ?? null;
+  const shownBlock = blocks.find((block) => blockExercises(block).some((e) => e.id === shownExercise?.id));
   const plannedRests = shown.exercises.flatMap((e) => (e.target?.restSeconds ? [e.target.restSeconds] : []));
 
   return (
@@ -222,36 +226,19 @@ export function CurrentSessionScreen() {
         onShow={setShownId}
         onAdd={() => router.push({ pathname: '/workout/add-exercise', params: { sessionId: session.id } })}
       />
-      {/* Every Session exercise stays mounted, so its rows still to do keep what was typed in them. */}
-      {blocks.flatMap((block) =>
-        blockExercises(block).map((sessionExercise) => {
-          const card = (
-            <SessionExerciseCard
-              sessionId={session.id}
-              sessionExercise={sessionExercise}
-              onChange={changed}
-              onDeleteSet={deleteSet}
-              onRemove={removeExercise}
-            />
-          );
-          return (
-            <View key={sessionExercise.id} style={sessionExercise.id === shownExercise?.id ? undefined : styles.hidden}>
-              {block.kind === 'superset' ? (
-                <SupersetBlock
-                  sessionId={session.id}
-                  supersetId={block.supersetId}
-                  exercises={block.exercises}
-                  onChange={changed}
-                >
-                  {card}
-                </SupersetBlock>
-              ) : (
-                card
-              )}
-            </View>
-          );
-        }),
-      )}
+      {shownExercise ? (
+        <ShownExercise
+          key={shownExercise.id}
+          sessionId={session.id}
+          sessionExercise={shownExercise}
+          superset={shownBlock?.kind === 'superset' ? shownBlock : null}
+          onChange={changed}
+          onDeleteSet={deleteSet}
+          onRemove={removeExercise}
+          rows={rowsToDo.rowsOf(shownExercise)}
+          onRowsChange={(change) => rowsToDo.change(shownExercise, change)}
+        />
+      ) : null}
       {groupingSuperset ? (
         <CreateSupersetForm
           sessionId={session.id}
@@ -280,8 +267,27 @@ export function CurrentSessionScreen() {
 
 const RECORD_BANNER_MS = 6000;
 
+type ShownExerciseProps = ComponentProps<typeof SessionExerciseCard> & {
+  /** The Superset it's in, if any. */
+  superset: Extract<SessionBlock, { kind: 'superset' }> | null;
+};
+
+/** The Session exercise shown: its card, inside its Superset if it's in one. */
+function ShownExercise({ superset, ...card }: ShownExerciseProps) {
+  if (!superset) return <SessionExerciseCard {...card} />;
+  return (
+    <SupersetBlock
+      sessionId={card.sessionId}
+      supersetId={superset.supersetId}
+      exercises={superset.exercises}
+      onChange={card.onChange}
+    >
+      <SessionExerciseCard {...card} />
+    </SupersetBlock>
+  );
+}
+
 const useStyles = makeStyles((colors) => ({
   error: { color: colors.danger, fontSize: 15 },
   muted: { fontSize: 15, color: colors.muted },
-  hidden: { display: 'none' },
 }));

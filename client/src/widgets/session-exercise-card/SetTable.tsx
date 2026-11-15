@@ -19,7 +19,6 @@ import {
   rowKeys,
   rowsAfterRemoving,
   type RowsToDo,
-  untouchedRows,
   withRowAdded,
   withRowTyped,
   useRecordTierColours,
@@ -28,11 +27,16 @@ import { EditSetForm, LoggedSetTypeSelect } from '@/features/edit-set';
 import { PendingSetRow } from '@/features/log-set';
 import { Button, makeStyles, spacing, SwipeToDelete } from '@/shared/ui';
 
+import type { RowsChange } from './useRowsToDo';
+
 type SetTableProps = {
   sessionId: string;
   sessionExercise: SessionExercise;
   onChange: (session: Session) => void;
   onDeleteSet: (setId: string) => void;
+  /** What the User did to its rows still to do, kept by the screen (see useRowsToDo). */
+  rows: RowsToDo;
+  onRowsChange: (change: RowsChange) => void;
 };
 
 /**
@@ -47,12 +51,11 @@ type SetTableProps = {
  * so are the rows still to do. A logged Set with a Record tier is filled in
  * its colour and shows its medal.
  */
-export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: SetTableProps) {
+export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet, rows, onRowsChange }: SetTableProps) {
   const styles = useStyles();
   const { state } = useAuth();
   const unit = state.status === 'signedIn' ? (state.me.unitPreference ?? 'kg') : 'kg';
   const [editingSetId, setEditingSetId] = useState<string | null>(null);
-  const [rows, setRows] = useState<RowsToDo>(untouchedRows);
 
   const logged = sessionExercise.sets;
   const runs = setRuns(sessionExercise);
@@ -70,7 +73,7 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
   // By key, not position: rows above may be removed while the Set is on its way.
   function onLogged(key: number, session: Session) {
     const after = session.exercises.find((e) => e.id === sessionExercise.id) ?? sessionExercise;
-    setRows((current) => rowsAfterLogging(sessionExercise, after, current, key));
+    onRowsChange((current) => rowsAfterLogging(sessionExercise, after, current, key));
     onChange(session);
   }
 
@@ -126,7 +129,7 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
         <SwipeToDelete
           key={`pending-${key}`}
           deleteLabel={`Delete set ${logged.length + i + 1}`}
-          onDelete={() => setRows((current) => rowsAfterRemoving(sessionExercise, current, key))}
+          onDelete={() => onRowsChange((current) => rowsAfterRemoving(sessionExercise, current, key))}
         >
           <PendingSetRow
             sessionId={sessionId}
@@ -135,13 +138,13 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet }: 
             mark={marks[logged.length + i]}
             draft={pendingDrafts[i]}
             lastTime={lastTime[logged.length + i]}
-            onChange={(draft) => setRows((current) => withRowTyped(current, i, draft))}
+            onChange={(draft) => onRowsChange((current) => withRowTyped(current, i, draft))}
             weightUnit={unit}
             onLogged={(session) => onLogged(key, session)}
           />
         </SwipeToDelete>
       ))}
-      <Button label="+ Add set" variant="link" onPress={() => setRows(withRowAdded)} />
+      <Button label="+ Add set" variant="link" onPress={() => onRowsChange(withRowAdded)} />
     </View>
   );
 }

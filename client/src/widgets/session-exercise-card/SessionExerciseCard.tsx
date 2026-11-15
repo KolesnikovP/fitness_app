@@ -1,11 +1,19 @@
 import { Text, View } from 'react-native';
 
-import { currentTarget, formatTarget, swappedFrom, type Session, type SessionExercise } from '@/entities/workout';
+import {
+  currentTarget,
+  formatTarget,
+  swappedFrom,
+  type RowsToDo,
+  type Session,
+  type SessionExercise,
+} from '@/entities/workout';
 import { ExerciseNoteField } from '@/features/exercise-note';
 import { makeStyles, spacing } from '@/shared/ui';
 
 import { ExerciseMenu } from './ExerciseMenu';
 import { SetTable } from './SetTable';
+import type { RowsChange } from './useRowsToDo';
 
 type SessionExerciseCardProps = {
   sessionId: string;
@@ -13,6 +21,9 @@ type SessionExerciseCardProps = {
   onChange: (session: Session) => void;
   onDeleteSet: (setId: string) => void;
   onRemove: (sessionExerciseId: string) => void;
+  /** What the User did to its rows still to do, kept by the screen (see useRowsToDo). */
+  rows: RowsToDo;
+  onRowsChange: (change: RowsChange) => void;
 };
 
 /**
@@ -26,6 +37,8 @@ export function SessionExerciseCard({
   onChange,
   onDeleteSet,
   onRemove,
+  rows,
+  onRowsChange,
 }: SessionExerciseCardProps) {
   const styles = useStyles();
   const target = currentTarget(sessionExercise);
@@ -60,6 +73,8 @@ export function SessionExerciseCard({
         sessionExercise={sessionExercise}
         onChange={onChange}
         onDeleteSet={onDeleteSet}
+        rows={rows}
+        onRowsChange={onRowsChange}
       />
       <ExerciseNoteField sessionId={sessionId} sessionExercise={sessionExercise} onSaved={onChange} />
     </View>
