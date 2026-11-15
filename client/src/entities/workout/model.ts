@@ -222,6 +222,16 @@ export type SessionBlock =
   | { kind: 'exercise'; exercise: SessionExercise }
   | { kind: 'superset'; supersetId: string; exercises: SessionExercise[] };
 
+/** The Session exercises in a block, in order. */
+export function blockExercises(block: SessionBlock): SessionExercise[] {
+  return block.kind === 'superset' ? block.exercises : [block.exercise];
+}
+
+/** A Session's exercises in block order: a Superset's members together, where its first one is. */
+export function inBlockOrder(exercises: SessionExercise[]): SessionExercise[] {
+  return sessionBlocks(exercises).flatMap(blockExercises);
+}
+
 /**
  * A finished Session's stats, worked out by the API from its Sets. volume is
  * in volumeUnit, the User's Unit preference. exerciseCount is how many

@@ -16,11 +16,12 @@ export async function exerciseCard(name: string) {
   return within(screen.getByLabelText(`${name} card`));
 }
 
-/** The names on the strip's tiles, in order. */
-export function tileNames(): string[] {
-  return strip()
-    .getAllByRole('tab')
-    .map((tile) => tile.props.accessibilityLabel);
+/** A Session exercise's card, as exerciseCard returns it. */
+export type ExerciseCard = Awaited<ReturnType<typeof exerciseCard>>;
+
+/** The names on the strip's tiles, or on those within part of it, in order. */
+export function tileNames(within: ReturnType<typeof strip> = strip()): string[] {
+  return within.getAllByRole('tab').map((tile) => tile.props.accessibilityLabel);
 }
 
 /** The name on the tile shown. */

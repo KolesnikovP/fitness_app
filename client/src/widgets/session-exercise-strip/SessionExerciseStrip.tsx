@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { ExerciseMedia, getExercise } from '@/entities/exercise';
-import type { SessionBlock, SessionExercise } from '@/entities/workout';
+import { blockExercises, type SessionBlock, type SessionExercise } from '@/entities/workout';
 import { makeStyles, spacing } from '@/shared/ui';
 import { listNames } from '@/shared/utils';
 
@@ -26,7 +26,7 @@ export function SessionExerciseStrip({ token, blocks, shownId, onShow, onAdd }: 
   const styles = useStyles();
   const images = useExerciseImages(
     token,
-    blocks.flatMap((b) => (b.kind === 'superset' ? b.exercises : [b.exercise]).map((e) => e.exerciseId)),
+    blocks.flatMap((b) => blockExercises(b).map((e) => e.exerciseId)),
   );
   const scroll = useRef<ScrollView>(null);
   // Where each block sits in the strip, and each tile in its block.

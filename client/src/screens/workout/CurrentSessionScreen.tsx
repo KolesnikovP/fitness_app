@@ -7,9 +7,11 @@ import {
   discardSession,
   finishSession,
   formatClockTime,
+  blockExercises,
   getCurrentSession,
   hasRowsToDo,
   hasSets,
+  inBlockOrder,
   NewRecordBanner,
   newRecords,
   sessionBlocks,
@@ -17,7 +19,6 @@ import {
   withoutSet,
   type PersonalRecord,
   type Session,
-  type SessionExercise,
 } from '@/entities/workout';
 import { usePendingSetDeletion } from '@/features/delete-set';
 import { usePendingExerciseRemoval } from '@/features/remove-exercise';
@@ -41,7 +42,7 @@ export function CurrentSessionScreen() {
   const [error, setError] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [groupingSuperset, setGroupingSuperset] = useState(false);
-  // Which Session exercise is shown; see loaded, removeExercise and undoRemoval.
+  // Which Session exercise is shown; see takeLoaded, removeExercise and undoRemoval.
   const [shownId, setShownId] = useState<string | null>(null);
   // The Session exercises as last loaded, to tell one just added; null until the first load.
   const loadedIds = useRef<Set<string> | null>(null);
@@ -62,6 +63,8 @@ export function CurrentSessionScreen() {
       const records = newRecords(session, updated);
       if (records.length > 0) setJustSet(records);
     }
+    // A Session exercise this change brought, if any, isn't one to show on the next load.
+    if (loadedIds.current) loadedIds.current = new Set(updated.exercises.map((e) => e.id));
     setSession(updated);
   }
 
@@ -70,12 +73,12 @@ export function CurrentSessionScreen() {
    * exercise with a row still to do, else the first; after that, shows one
    * just added on the picker screen.
    */
-  const loaded = useCallback((found: Session) => {
+  const takeLoaded = useCallback((found: Session) => {
     const before = loadedIds.current;
     loadedIds.current = new Set(found.exercises.map((e) => e.id));
     if (!before) {
-      const pages = inPageOrder(found.exercises);
-      setShownId((pages.find(hasRowsToDo) ?? pages[0])?.id ?? null);
+      const ordered = inBlockOrder(found.exercises);
+      setShownId((ordered.find(hasRowsToDo) ?? ordered[0])?.id ?? null);
     } else {
       const added = found.exercises.filter((e) => !before.has(e.id)).at(-1);
       if (added) setShownId(added.id);
@@ -93,13 +96,13 @@ export function CurrentSessionScreen() {
           if (!current) return;
           // Finished or discarded elsewhere: nothing to show here.
           if (!found) router.back();
-          else loaded(found);
+          else takeLoaded(found);
         })
         .catch((e) => current && setError(errorMessage(e)));
       return () => {
         current = false;
       };
-    }, [token, loaded]),
+    }, [token, takeLoaded]),
   );
 
   if (!token) return null;
@@ -174,8 +177,8 @@ export function CurrentSessionScreen() {
   function removeExercise(sessionExerciseId: string) {
     void deletion.flush();
     if (sessionExerciseId === shownExercise?.id) {
-      const i = pages.findIndex((e) => e.id === sessionExerciseId);
-      setShownId((pages[i + 1] ?? pages[i - 1])?.id ?? null);
+      const i = ordered.findIndex((e) => e.id === sessionExerciseId);
+      setShownId((ordered[i + 1] ?? ordered[i - 1])?.id ?? null);
     }
     removal.remove(sessionExerciseId);
   }
@@ -194,8 +197,8 @@ export function CurrentSessionScreen() {
   const canFinish = hasSets(shown);
   const ungrouped = shown.exercises.filter((e) => e.supersetId === null);
   const blocks = sessionBlocks(shown.exercises);
-  const pages = inPageOrder(shown.exercises);
-  const shownExercise = pages.find((e) => e.id === shownId) ?? pages[0] ?? null;
+  const ordered = inBlockOrder(shown.exercises);
+  const shownExercise = ordered.find((e) => e.id === shownId) ?? ordered[0] ?? null;
   const plannedRests = shown.exercises.flatMap((e) => (e.target?.restSeconds ? [e.target.restSeconds] : []));
 
   return (
@@ -221,7 +224,7 @@ export function CurrentSessionScreen() {
       />
       {/* Every Session exercise stays mounted, so its rows still to do keep what was typed in them. */}
       {blocks.flatMap((block) =>
-        (block.kind === 'superset' ? block.exercises : [block.exercise]).map((sessionExercise) => {
+        blockExercises(block).map((sessionExercise) => {
           const card = (
             <SessionExerciseCard
               sessionId={session.id}
@@ -276,11 +279,6 @@ export function CurrentSessionScreen() {
 }
 
 const RECORD_BANNER_MS = 6000;
-
-/** A Session's exercises in the strip's order: a Superset's members together, where its first one is. */
-function inPageOrder(exercises: SessionExercise[]): SessionExercise[] {
-  return sessionBlocks(exercises).flatMap((block) => (block.kind === 'superset' ? block.exercises : [block.exercise]));
-}
 
 const useStyles = makeStyles((colors) => ({
   error: { color: colors.danger, fontSize: 15 },

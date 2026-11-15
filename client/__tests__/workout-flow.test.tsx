@@ -7,7 +7,14 @@ import { openSwapSheet, removeExercise } from './support/exercise-menu';
 import { fakeApi, server } from './support/fake-api';
 import { findHeaderTitle } from './support/native-header';
 import { secureStore } from './support/secure-store';
-import { exerciseCard, shownTile, showExercise, strip, tileNames } from './support/session-exercises';
+import {
+  exerciseCard,
+  type ExerciseCard,
+  shownTile,
+  showExercise,
+  strip,
+  tileNames,
+} from './support/session-exercises';
 import type { FakeSetType } from './support/fake-api';
 import { chooseSetType, loggedSets, readouts, removeRow, repsToDo, rowsToDo } from './support/set-table';
 import { swipeLeft } from './support/swipeable';
@@ -364,10 +371,7 @@ describe('freeform workout', () => {
     // Its exercises' tiles are together, ahead of the one added between them.
     expect(tileNames()).toEqual(['Bench Press', 'Lat Pulldown', 'Plank']);
     const tiles = within(screen.getByLabelText('Tiles of superset of Bench Press and Lat Pulldown'));
-    expect(tiles.getAllByRole('tab').map((tile) => tile.props.accessibilityLabel)).toEqual([
-      'Bench Press',
-      'Lat Pulldown',
-    ]);
+    expect(tileNames(tiles)).toEqual(['Bench Press', 'Lat Pulldown']);
     const superset = within(screen.getByLabelText('Superset of Bench Press and Lat Pulldown'));
     expect(superset.getByText('Next: Bench Press')).toBeVisible();
 
@@ -809,7 +813,7 @@ describe('removing an exercise', () => {
 
 describe('last time', () => {
   /** What each row's Last time cell shows, in order: last time's Set at that place, or none. */
-  function lastTimeCells(card: Awaited<ReturnType<typeof exerciseCard>>) {
+  function lastTimeCells(card: ExerciseCard) {
     return readouts(card.getAllByLabelText(/^Set \d+ last time$/));
   }
 
@@ -1137,7 +1141,7 @@ describe('rows still to do without last time', () => {
 });
 
 describe('last time across a swap', () => {
-  function lastTimeCells(card: Awaited<ReturnType<typeof exerciseCard>>) {
+  function lastTimeCells(card: ExerciseCard) {
     return readouts(card.getAllByLabelText(/^Set \d+ last time$/));
   }
 
@@ -1180,7 +1184,7 @@ describe('last time across a swap', () => {
     return within(await screen.findByLabelText(`${to} card`));
   }
 
-  async function logSet(card: Awaited<ReturnType<typeof exerciseCard>>, n: number) {
+  async function logSet(card: ExerciseCard, n: number) {
     await fireEvent.press(card.getByRole('button', { name: `Log set ${n}` }));
     await waitFor(() => expect(loggedSets(card)).toHaveLength(n));
   }
@@ -1240,7 +1244,7 @@ describe('warm-ups from last time', () => {
   }
 
   /** Each row still to do, as its mark and the weight × reps it holds: "W 60×8". */
-  function rowsToDoHold(card: Awaited<ReturnType<typeof exerciseCard>>) {
+  function rowsToDoHold(card: ExerciseCard) {
     return card.getAllByRole('button', { name: /^Log set \d+$/ }).map((box) => {
       const n = box.props.accessibilityLabel.replace('Log set ', '');
       const mark = within(card.getByRole('button', { name: `Set ${n} type` })).getByText(/./).props.children;
@@ -1250,7 +1254,7 @@ describe('warm-ups from last time', () => {
     });
   }
 
-  function lastTimeCells(card: Awaited<ReturnType<typeof exerciseCard>>) {
+  function lastTimeCells(card: ExerciseCard) {
     return readouts(card.getAllByLabelText(/^Set \d+ last time$/));
   }
 
