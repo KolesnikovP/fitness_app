@@ -1,6 +1,7 @@
 // Workout entity: Session types, formatting and API bindings
 export {
   emptySetDraft,
+  blockExercises,
   countOf,
   currentTarget,
   formatClockTime,
@@ -16,6 +17,8 @@ export {
   formatStats,
   formatVolume,
   formatTarget,
+  hasRowsToDo,
+  inBlockOrder,
   hasSets,
   MAX_SESSION_NAME_CHARS,
   newRecords,

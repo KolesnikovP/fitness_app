@@ -7,6 +7,14 @@ import { openSwapSheet, removeExercise } from './support/exercise-menu';
 import { fakeApi, server } from './support/fake-api';
 import { findHeaderTitle } from './support/native-header';
 import { secureStore } from './support/secure-store';
+import {
+  exerciseCard,
+  type ExerciseCard,
+  shownTile,
+  showExercise,
+  strip,
+  tileNames,
+} from './support/session-exercises';
 import type { FakeSetType } from './support/fake-api';
 import { chooseSetType, loggedSets, readouts, removeRow, repsToDo, rowsToDo } from './support/set-table';
 import { swipeLeft } from './support/swipeable';
@@ -29,11 +37,6 @@ async function resumeWorkout(accountId: string) {
   await findHeaderTitle('Current workout');
 }
 
-/** The card for one exercise in the workout in progress. */
-function exerciseCard(name: string) {
-  return within(screen.getByLabelText(`${name} card`));
-}
-
 describe('freeform workout', () => {
   it('starts an empty workout, logs a set and shows it in the history once finished', async () => {
     const account = await openWorkoutTab();
@@ -51,7 +54,7 @@ describe('freeform workout', () => {
     await fireEvent.press(await picker.findByRole('button', { name: 'Dumbbell Bench Press' }));
 
     await findHeaderTitle('Current workout');
-    const card = exerciseCard('Dumbbell Bench Press');
+    const card = await exerciseCard('Dumbbell Bench Press');
     // A table of sets, a column each for weight, reps and RPE; with nothing
     // planned, one row is ready for the first set.
     expect(card.getByText('KG')).toBeVisible();
@@ -119,9 +122,9 @@ describe('freeform workout', () => {
     await fireEvent.press(await screen.findByRole('button', { name: 'Resume workout' }));
 
     await findHeaderTitle('Current workout');
-    expect(loggedSets(exerciseCard('Deadlift'))).toEqual(['140 kg × 3']);
+    expect(loggedSets(await exerciseCard('Deadlift'))).toEqual(['140 kg × 3']);
     // A note already written is shown open.
-    expect(exerciseCard('Deadlift').getByLabelText('Exercise note')).toHaveDisplayValue('Mixed grip');
+    expect((await exerciseCard('Deadlift')).getByLabelText('Exercise note')).toHaveDisplayValue('Mixed grip');
     expect(screen.getByRole('button', { name: 'Finish workout' })).toBeEnabled();
   });
 
@@ -132,7 +135,7 @@ describe('freeform workout', () => {
     fakeApi.finishSession(earlier, new Date(Date.now() - 86_400_000 + 3_600_000));
     fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
     await resumeWorkout(account.id);
-    const card = exerciseCard('Bench Press');
+    const card = await exerciseCard('Bench Press');
 
     // Short of the record: nothing to tell.
     await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '95');
@@ -162,7 +165,7 @@ describe('freeform workout', () => {
     fakeApi.finishSession(earlier, new Date(Date.now() - 86_400_000 + 3_600_000));
     fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
     await resumeWorkout(account.id);
-    const card = exerciseCard('Bench Press');
+    const card = await exerciseCard('Bench Press');
 
     const sets: [string, string][] = [
       ['105', '5'],
@@ -195,7 +198,7 @@ describe('freeform workout', () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
     await resumeWorkout(account.id);
-    const card = exerciseCard('Back Squat');
+    const card = await exerciseCard('Back Squat');
 
     await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '1a4o0,5.2kg');
     await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '1x0.5');
@@ -211,7 +214,7 @@ describe('freeform workout', () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
     await resumeWorkout(account.id);
-    const card = exerciseCard('Back Squat');
+    const card = await exerciseCard('Back Squat');
 
     await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '140');
     await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '5');
@@ -255,7 +258,7 @@ describe('freeform workout', () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
     await resumeWorkout(account.id);
-    const card = exerciseCard('Back Squat');
+    const card = await exerciseCard('Back Squat');
     const typeOf = (n: number) => card.getByRole('button', { name: `Set ${n} type` });
 
     // A set is normal until marked, showing its number.
@@ -314,7 +317,7 @@ describe('freeform workout', () => {
     const squat = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
     fakeApi.addSet(squat, 60, 'kg', 10, '', 7);
     await resumeWorkout(account.id);
-    const card = exerciseCard('Back Squat');
+    const card = await exerciseCard('Back Squat');
 
     await chooseSetType(card, 1, 'Warm-up');
 
@@ -336,7 +339,7 @@ describe('freeform workout', () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
     await resumeWorkout(account.id);
-    const card = exerciseCard('Back Squat');
+    const card = await exerciseCard('Back Squat');
 
     await fireEvent.press(card.getByRole('button', { name: 'Set 1 RPE' }));
     await fireEvent.press(within(screen.getByLabelText('Set 1 RPE options')).getByRole('radio', { name: '9' }));
@@ -364,28 +367,28 @@ describe('freeform workout', () => {
     await fireEvent.press(form.getByRole('checkbox', { name: 'Lat Pulldown' }));
     await fireEvent.press(form.getByRole('button', { name: 'Group as superset' }));
 
-    const superset = within(await screen.findByLabelText('Superset of Bench Press and Lat Pulldown'));
-    // Its exercises are shown back to back, ahead of the one added between them.
-    expect(screen.getAllByLabelText(/ card$/).map((card) => card.props.accessibilityLabel)).toEqual([
-      'Bench Press card',
-      'Lat Pulldown card',
-      'Plank card',
-    ]);
+    await screen.findByLabelText('Tiles of superset of Bench Press and Lat Pulldown');
+    // Its exercises' tiles are together, ahead of the one added between them.
+    expect(tileNames()).toEqual(['Bench Press', 'Lat Pulldown', 'Plank']);
+    const tiles = within(screen.getByLabelText('Tiles of superset of Bench Press and Lat Pulldown'));
+    expect(tileNames(tiles)).toEqual(['Bench Press', 'Lat Pulldown']);
+    const superset = within(screen.getByLabelText('Superset of Bench Press and Lat Pulldown'));
     expect(superset.getByText('Next: Bench Press')).toBeVisible();
 
-    const bench = within(superset.getByLabelText('Bench Press card'));
+    const bench = await exerciseCard('Bench Press');
     await fireEvent.changeText(bench.getByLabelText('Set 1 weight (kg)'), '80');
     await fireEvent.changeText(bench.getByLabelText('Set 1 reps'), '8');
     await fireEvent.press(bench.getByRole('button', { name: 'Log set 1' }));
     // No rest between the exercises of a superset...
     expect(await superset.findByText('Next: Lat Pulldown, no rest')).toBeVisible();
 
-    const pulldown = within(superset.getByLabelText('Lat Pulldown card'));
+    const pulldown = await exerciseCard('Lat Pulldown');
+    const pulldownSuperset = within(screen.getByLabelText('Superset of Bench Press and Lat Pulldown'));
     await fireEvent.changeText(pulldown.getByLabelText('Set 1 weight (kg)'), '60');
     await fireEvent.changeText(pulldown.getByLabelText('Set 1 reps'), '10');
     await fireEvent.press(pulldown.getByRole('button', { name: 'Log set 1' }));
     // ...only after the whole round.
-    expect(await superset.findByText('Round 1 done. Rest now.')).toBeVisible();
+    expect(await pulldownSuperset.findByText('Round 1 done. Rest now.')).toBeVisible();
 
     const [saved] = fakeApi.sessions(account.id);
     const [benchPress, plank, latPulldown] = saved.exercises;
@@ -395,8 +398,9 @@ describe('freeform workout', () => {
     expect(benchPress.sets).toMatchObject([{ weight: 80, reps: 8, supersetId: benchPress.supersetId }]);
     expect(latPulldown.sets).toMatchObject([{ weight: 60, reps: 10, supersetId: benchPress.supersetId }]);
 
-    await fireEvent.press(superset.getByRole('button', { name: 'Ungroup' }));
+    await fireEvent.press(pulldownSuperset.getByRole('button', { name: 'Ungroup' }));
     await waitFor(() => expect(screen.queryByLabelText(/^Superset of/)).toBeNull());
+    expect(screen.queryByLabelText(/^Tiles of superset/)).toBeNull();
     expect(fakeApi.sessions(account.id)[0].exercises.every((e) => e.supersetId === null)).toBe(true);
   });
 
@@ -410,9 +414,9 @@ describe('freeform workout', () => {
     bench.supersetId = 'superset-1';
     pulldown.supersetId = 'superset-1';
     await resumeWorkout(account.id);
-    const superset = within(screen.getByLabelText('Superset of Bench Press and Lat Pulldown'));
 
-    await fireEvent.press(superset.getByRole('button', { name: 'Lat Pulldown options' }));
+    await showExercise('Lat Pulldown');
+    await fireEvent.press(screen.getByRole('button', { name: 'Lat Pulldown options' }));
     const menu = within(await screen.findByLabelText('Lat Pulldown options sheet'));
     expect(menu.queryByRole('button', { name: 'Replace exercise' })).toBeNull();
     await fireEvent.press(menu.getByRole('button', { name: 'Cancel' }));
@@ -424,7 +428,10 @@ describe('freeform workout', () => {
         name: 'Swap to Dumbbell Bench Press',
       }),
     );
+    const superset = within(screen.getByLabelText('Superset of Dumbbell Bench Press and Lat Pulldown'));
     const swapped = within(await superset.findByLabelText('Dumbbell Bench Press card'));
+    // Its tile is the Exercise swapped to.
+    expect(tileNames()).toEqual(['Dumbbell Bench Press', 'Lat Pulldown']);
     expect(swapped.getByText('Instead of Bench Press')).toBeVisible();
     expect(fakeApi.sessions(account.id)[0].exercises[0].exerciseId).toBe(
       fakeApi.exerciseNamed('Dumbbell Bench Press').id,
@@ -435,7 +442,7 @@ describe('freeform workout', () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     fakeApi.addSet(fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat'), 140, 'kg', 5);
     await resumeWorkout(account.id);
-    const card = exerciseCard('Back Squat');
+    const card = await exerciseCard('Back Squat');
 
     await fireEvent.press(card.getByRole('button', { name: 'Edit set 1' }));
     const editing = within(card.getByLabelText('Editing set 1'));
@@ -465,7 +472,7 @@ describe('freeform workout', () => {
       fakeApi.addSet(squat, 140, 'kg', 5);
       fakeApi.addSet(squat, 140, 'kg', 3);
       await resumeWorkout(account.id);
-      const card = exerciseCard('Back Squat');
+      const card = await exerciseCard('Back Squat');
 
       await fireEvent.press(card.getByRole('button', { name: 'Edit set 1' }));
       await fireEvent.press(card.getByRole('button', { name: 'Delete set' }));
@@ -501,7 +508,7 @@ describe('freeform workout', () => {
       fakeApi.addSet(squat, 140, 'kg', 5);
       fakeApi.addSet(squat, 140, 'kg', 3);
       await resumeWorkout(account.id);
-      const card = exerciseCard('Back Squat');
+      const card = await exerciseCard('Back Squat');
 
       // Delete is under the row until it's swiped.
       expect(card.queryByRole('button', { name: 'Delete set 1' })).toBeNull();
@@ -543,14 +550,13 @@ describe('freeform workout', () => {
     bench.exerciseId = fakeApi.exerciseNamed('Dumbbell Bench Press').id;
     fakeApi.addSet(bench, 30, 'kg', 10);
     await resumeWorkout(account.id);
-    const superset = within(screen.getByLabelText('Superset of Dumbbell Bench Press and Lat Pulldown'));
 
-    const pulldownCard = within(superset.getByLabelText('Lat Pulldown card'));
+    const pulldownCard = await exerciseCard('Lat Pulldown');
     await swipeLeft(pulldownCard.getByRole('button', { name: 'Edit set 2' }));
     await fireEvent.press(pulldownCard.getByRole('button', { name: 'Delete set 2' }));
     expect(loggedSets(pulldownCard)).toEqual(['60 kg × 10']);
 
-    const benchCard = within(superset.getByLabelText('Dumbbell Bench Press card'));
+    const benchCard = await exerciseCard('Dumbbell Bench Press');
     await swipeLeft(benchCard.getByRole('button', { name: 'Edit set 1' }));
     await fireEvent.press(benchCard.getByRole('button', { name: 'Delete set 1' }));
     expect(loggedSets(benchCard)).toEqual(['30 kg × 10']);
@@ -563,7 +569,7 @@ describe('freeform workout', () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     fakeApi.addSet(fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat'), 140, 'kg', 5);
     await resumeWorkout(account.id);
-    const card = exerciseCard('Back Squat');
+    const card = await exerciseCard('Back Squat');
 
     await fireEvent.press(card.getByRole('button', { name: 'Edit set 1' }));
     await swipeLeft(within(card.getByLabelText('Editing set 1')).getByLabelText('Reps'));
@@ -577,7 +583,7 @@ describe('freeform workout', () => {
     fakeApi.addSet(squat, 140, 'kg', 5);
     fakeApi.addSet(squat, 140, 'kg', 3);
     await resumeWorkout(account.id);
-    const card = exerciseCard('Back Squat');
+    const card = await exerciseCard('Back Squat');
 
     await fireEvent.press(card.getByRole('button', { name: 'Edit set 2' }));
     await fireEvent.press(card.getByRole('button', { name: 'Delete set' }));
@@ -594,8 +600,8 @@ describe('freeform workout', () => {
     fakeApi.addSet(fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat'), 140, 'kg', 5);
     await resumeWorkout(account.id);
 
-    await fireEvent.press(exerciseCard('Back Squat').getByRole('button', { name: 'Edit set 1' }));
-    await fireEvent.press(exerciseCard('Back Squat').getByRole('button', { name: 'Delete set' }));
+    await fireEvent.press((await exerciseCard('Back Squat')).getByRole('button', { name: 'Edit set 1' }));
+    await fireEvent.press((await exerciseCard('Back Squat')).getByRole('button', { name: 'Delete set' }));
 
     expect(screen.getByRole('button', { name: 'Finish workout' })).toBeDisabled();
   });
@@ -641,11 +647,6 @@ describe('freeform workout', () => {
   });
 });
 
-/** The names of the exercise cards in the workout in progress, top to bottom. */
-function cardNames() {
-  return screen.getAllByLabelText(/ card$/).map((card) => card.props.accessibilityLabel.replace(/ card$/, ''));
-}
-
 /** Answers the next Alert by pressing its button labelled label. */
 function answerAlertWith(label: string) {
   return jest.spyOn(Alert, 'alert').mockImplementationOnce((_title, _message, buttons) => {
@@ -668,12 +669,12 @@ describe('removing an exercise', () => {
       await removeExercise('Bench Press');
 
       expect(alert).not.toHaveBeenCalled();
-      expect(cardNames()).toEqual(['Back Squat', 'Plank']);
+      expect(tileNames()).toEqual(['Back Squat', 'Plank']);
       expect(screen.getByText('Exercise removed.')).toBeVisible();
 
       // Undo puts it back where it was.
       await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
-      expect(cardNames()).toEqual(['Back Squat', 'Bench Press', 'Plank']);
+      expect(tileNames()).toEqual(['Back Squat', 'Bench Press', 'Plank']);
       expect(screen.queryByText('Exercise removed.')).toBeNull();
 
       await removeExercise('Bench Press');
@@ -683,7 +684,7 @@ describe('removing an exercise', () => {
 
       await waitFor(() => expect(fakeApi.sessions(account.id)[0].exercises).toHaveLength(2));
       expect(screen.queryByText('Exercise removed.')).toBeNull();
-      expect(cardNames()).toEqual(['Back Squat', 'Plank']);
+      expect(tileNames()).toEqual(['Back Squat', 'Plank']);
     } finally {
       jest.useRealTimers();
     }
@@ -706,17 +707,17 @@ describe('removing an exercise', () => {
       'Its 2 logged sets will be deleted too.',
       expect.anything(),
     );
-    expect(cardNames()).toEqual(['Bench Press', 'Plank']);
-    expect(loggedSets(exerciseCard('Bench Press'))).toEqual(['100 kg × 5', '100 kg × 4']);
+    expect(tileNames()).toEqual(['Bench Press', 'Plank']);
+    expect(loggedSets(await exerciseCard('Bench Press'))).toEqual(['100 kg × 5', '100 kg × 4']);
     expect(screen.queryByText('Exercise removed.')).toBeNull();
 
     answerAlertWith('Remove');
     await removeExercise('Bench Press');
 
-    expect(cardNames()).toEqual(['Plank']);
+    expect(tileNames()).toEqual(['Plank']);
     await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
-    expect(cardNames()).toEqual(['Bench Press', 'Plank']);
-    expect(loggedSets(exerciseCard('Bench Press'))).toEqual(['100 kg × 5', '100 kg × 4']);
+    expect(tileNames()).toEqual(['Bench Press', 'Plank']);
+    expect(loggedSets(await exerciseCard('Bench Press'))).toEqual(['100 kg × 5', '100 kg × 4']);
     expect(bench.sets).toHaveLength(2);
   });
 
@@ -763,8 +764,8 @@ describe('removing an exercise', () => {
     fakeApi.addSessionExercise(session, 'Bench Press');
     await resumeWorkout(account.id);
 
-    await fireEvent.press(exerciseCard('Back Squat').getByRole('button', { name: 'Edit set 1' }));
-    await fireEvent.press(exerciseCard('Back Squat').getByRole('button', { name: 'Delete set' }));
+    await fireEvent.press((await exerciseCard('Back Squat')).getByRole('button', { name: 'Edit set 1' }));
+    await fireEvent.press((await exerciseCard('Back Squat')).getByRole('button', { name: 'Delete set' }));
     await removeExercise('Bench Press');
 
     // Removing the exercise sent the set's deletion at once.
@@ -772,8 +773,8 @@ describe('removing an exercise', () => {
     expect(screen.queryByText('Set deleted.')).toBeNull();
     expect(screen.getByText('Exercise removed.')).toBeVisible();
 
-    await fireEvent.press(exerciseCard('Back Squat').getByRole('button', { name: 'Edit set 1' }));
-    await fireEvent.press(exerciseCard('Back Squat').getByRole('button', { name: 'Delete set' }));
+    await fireEvent.press((await exerciseCard('Back Squat')).getByRole('button', { name: 'Edit set 1' }));
+    await fireEvent.press((await exerciseCard('Back Squat')).getByRole('button', { name: 'Delete set' }));
 
     // And deleting a set sends the exercise's removal.
     await waitFor(() => expect(session.exercises).toHaveLength(1));
@@ -790,6 +791,7 @@ describe('removing an exercise', () => {
     await removeExercise('Back Squat');
 
     expect(screen.queryAllByLabelText(/ card$/)).toEqual([]);
+    expect(strip().queryAllByRole('tab')).toEqual([]);
     expect(screen.getByRole('button', { name: 'Finish workout' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Add exercise' })).toBeVisible();
   });
@@ -811,7 +813,7 @@ describe('removing an exercise', () => {
 
 describe('last time', () => {
   /** What each row's Last time cell shows, in order: last time's Set at that place, or none. */
-  function lastTimeCells(card: ReturnType<typeof exerciseCard>) {
+  function lastTimeCells(card: ExerciseCard) {
     return readouts(card.getAllByLabelText(/^Set \d+ last time$/));
   }
 
@@ -831,7 +833,7 @@ describe('last time', () => {
     ]);
     fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
     await resumeWorkout(account.id);
-    const card = exerciseCard('Bench Press');
+    const card = await exerciseCard('Bench Press');
 
     expect(card.getByText('PREV')).toBeVisible();
     expect(lastTimeCells(card)).toEqual(['60 kg × 10 @ RPE 7']);
@@ -879,7 +881,7 @@ describe('last time', () => {
     const bench = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
     bench.target = { sets: 3, reps: 10, weight: 185, weightUnit: 'lb', restSeconds: null, note: '' };
     await resumeWorkout(account.id);
-    const card = exerciseCard('Bench Press');
+    const card = await exerciseCard('Bench Press');
 
     expect(lastTimeCells(card)).toEqual(['220.5 lb × 6', '225 lb × 5', 'None']);
     for (const set of [1, 2, 3]) {
@@ -896,7 +898,7 @@ describe('removing a row still to do', () => {
     const squat = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
     squat.target = { sets: 4, reps: 5, weight: 100, weightUnit: 'kg', restSeconds: null, note: '' };
     await resumeWorkout(account.id);
-    const card = exerciseCard('Back Squat');
+    const card = await exerciseCard('Back Squat');
     for (const [set, reps] of [
       [1, '5'],
       [2, '4'],
@@ -929,7 +931,7 @@ describe('removing a row still to do', () => {
     const squat = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
     squat.target = { sets: 4, reps: 5, weight: 100, weightUnit: 'kg', restSeconds: null, note: '' };
     await resumeWorkout(account.id);
-    const card = exerciseCard('Back Squat');
+    const card = await exerciseCard('Back Squat');
     for (const [set, reps] of [
       [1, '5'],
       [2, '4'],
@@ -961,7 +963,7 @@ describe('removing a row still to do', () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Deadlift');
     await resumeWorkout(account.id);
-    const card = exerciseCard('Deadlift');
+    const card = await exerciseCard('Deadlift');
     await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '5');
     await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
     await fireEvent.changeText(card.getByLabelText('Set 2 reps'), '3');
@@ -983,7 +985,7 @@ describe('rows still to do with no Target', () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Deadlift');
     await resumeWorkout(account.id);
-    const card = exerciseCard('Deadlift');
+    const card = await exerciseCard('Deadlift');
     expect(rowsToDo(card)).toBe(1);
 
     await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '140');
@@ -1007,7 +1009,7 @@ describe('rows still to do with no Target', () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Deadlift');
     await resumeWorkout(account.id);
-    const card = exerciseCard('Deadlift');
+    const card = await exerciseCard('Deadlift');
 
     await chooseSetType(card, 1, 'Warm-up');
     await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '60');
@@ -1022,7 +1024,7 @@ describe('rows still to do with no Target', () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     fakeApi.addSet(fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Deadlift'), 140, 'kg', 3);
     await resumeWorkout(account.id);
-    const card = exerciseCard('Deadlift');
+    const card = await exerciseCard('Deadlift');
 
     expect(loggedSets(card)).toEqual(['140 kg × 3']);
     expect(rowsToDo(card)).toBe(0);
@@ -1035,7 +1037,7 @@ describe('rows still to do without last time', () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
     await resumeWorkout(account.id);
-    const card = exerciseCard('Back Squat');
+    const card = await exerciseCard('Back Squat');
 
     await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '60');
     await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '10');
@@ -1050,7 +1052,7 @@ describe('rows still to do without last time', () => {
     const squat = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
     squat.target = { sets: 3, reps: 5, weight: 100, weightUnit: 'kg', restSeconds: null, note: '' };
     await resumeWorkout(account.id);
-    const card = exerciseCard('Back Squat');
+    const card = await exerciseCard('Back Squat');
 
     expect(card.getByLabelText('Set 1 weight (kg)')).toHaveDisplayValue('100');
     expect(card.getByLabelText('Set 1 reps')).toHaveDisplayValue('5');
@@ -1068,7 +1070,7 @@ describe('rows still to do without last time', () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
     await resumeWorkout(account.id);
-    const card = exerciseCard('Back Squat');
+    const card = await exerciseCard('Back Squat');
 
     await chooseSetType(card, 1, 'Warm-up');
     await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '60');
@@ -1087,7 +1089,7 @@ describe('rows still to do without last time', () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
     await resumeWorkout(account.id);
-    const card = exerciseCard('Back Squat');
+    const card = await exerciseCard('Back Squat');
 
     // A warm-up row at the top gives the row below nothing to start from.
     await chooseSetType(card, 1, 'Warm-up');
@@ -1113,7 +1115,7 @@ describe('rows still to do without last time', () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
     await resumeWorkout(account.id);
-    const card = exerciseCard('Back Squat');
+    const card = await exerciseCard('Back Squat');
 
     // Logged: a warm-up, then a normal Set. A drop row after a warm-up row
     // still to do starts from the normal Set, not the warm-up.
@@ -1139,7 +1141,7 @@ describe('rows still to do without last time', () => {
 });
 
 describe('last time across a swap', () => {
-  function lastTimeCells(card: ReturnType<typeof exerciseCard>) {
+  function lastTimeCells(card: ExerciseCard) {
     return readouts(card.getAllByLabelText(/^Set \d+ last time$/));
   }
 
@@ -1182,14 +1184,14 @@ describe('last time across a swap', () => {
     return within(await screen.findByLabelText(`${to} card`));
   }
 
-  async function logSet(card: ReturnType<typeof exerciseCard>, n: number) {
+  async function logSet(card: ExerciseCard, n: number) {
     await fireEvent.press(card.getByRole('button', { name: `Log set ${n}` }));
     await waitFor(() => expect(loggedSets(card)).toHaveLength(n));
   }
 
   it("starts the Exercise swapped to at its own set 1, and shows no last time for the other's Sets", async () => {
     await benchToday(3);
-    const bench = exerciseCard('Bench Press');
+    const bench = await exerciseCard('Bench Press');
     await logSet(bench, 1);
     await logSet(bench, 2);
 
@@ -1203,7 +1205,7 @@ describe('last time across a swap', () => {
 
   it("carries on where an Exercise's Sets left off after a Swap back", async () => {
     await benchToday(4);
-    const bench = exerciseCard('Bench Press');
+    const bench = await exerciseCard('Bench Press');
     await logSet(bench, 1);
     await logSet(bench, 2);
     const dumbbells = await swap('Bench Press', 'Dumbbell Bench Press');
@@ -1242,7 +1244,7 @@ describe('warm-ups from last time', () => {
   }
 
   /** Each row still to do, as its mark and the weight × reps it holds: "W 60×8". */
-  function rowsToDoHold(card: ReturnType<typeof exerciseCard>) {
+  function rowsToDoHold(card: ExerciseCard) {
     return card.getAllByRole('button', { name: /^Log set \d+$/ }).map((box) => {
       const n = box.props.accessibilityLabel.replace('Log set ', '');
       const mark = within(card.getByRole('button', { name: `Set ${n} type` })).getByText(/./).props.children;
@@ -1252,7 +1254,7 @@ describe('warm-ups from last time', () => {
     });
   }
 
-  function lastTimeCells(card: ReturnType<typeof exerciseCard>) {
+  function lastTimeCells(card: ExerciseCard) {
     return readouts(card.getAllByLabelText(/^Set \d+ last time$/));
   }
 
@@ -1262,7 +1264,7 @@ describe('warm-ups from last time', () => {
     const bench = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
     bench.target = { sets: 3, reps: 5, weight: 100, weightUnit: 'kg', restSeconds: null, note: '' };
     await resumeWorkout(account.id);
-    const card = exerciseCard('Bench Press');
+    const card = await exerciseCard('Bench Press');
 
     // The mid-Session warm-up and the drop set don't come back; set 3
     // lines up with last time's set 3.
@@ -1289,7 +1291,7 @@ describe('warm-ups from last time', () => {
     const bench = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
     bench.target = { sets: 3, reps: 5, weight: 100, weightUnit: 'kg', restSeconds: null, note: '' };
     await resumeWorkout(account.id);
-    const card = exerciseCard('Bench Press');
+    const card = await exerciseCard('Bench Press');
 
     await removeRow(card, 1);
     expect(rowsToDoHold(card)).toEqual(['W 80×3', '1 100×5', '2 100×5', '3 100×5']);
@@ -1308,7 +1310,7 @@ describe('warm-ups from last time', () => {
     const bench = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
     bench.target = { sets: 3, reps: 5, weight: 100, weightUnit: 'kg', restSeconds: null, note: '' };
     await resumeWorkout(account.id);
-    const card = exerciseCard('Bench Press');
+    const card = await exerciseCard('Bench Press');
     await fireEvent.changeText(card.getByLabelText('Set 3 reps'), '6');
 
     // The last warm-up goes; what was typed in set 1 stays with it.
@@ -1360,7 +1362,7 @@ describe('warm-ups from last time', () => {
     benchedYesterday(account.id);
     fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
     await resumeWorkout(account.id);
-    const card = exerciseCard('Bench Press');
+    const card = await exerciseCard('Bench Press');
 
     await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
     await waitFor(() => expect(loggedSets(card)).toEqual(['60 kg × 8, Warm-up']));
@@ -1372,7 +1374,7 @@ describe('warm-ups from last time', () => {
     benchedYesterday(account.id);
     fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
     await resumeWorkout(account.id);
-    const card = exerciseCard('Bench Press');
+    const card = await exerciseCard('Bench Press');
 
     expect(rowsToDoHold(card)).toEqual(['W 60×8', 'W 80×3', '1 100×5']);
     await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
@@ -1386,5 +1388,155 @@ describe('warm-ups from last time', () => {
     await fireEvent.press(card.getByRole('button', { name: 'Log set 3' }));
     await waitFor(() => expect(loggedSets(card)).toHaveLength(1));
     expect(rowsToDoHold(card)).toEqual(['W 100×6']);
+  });
+});
+
+describe('one exercise at a time', () => {
+  it('shows only the exercise whose tile is tapped, its bar highlighted', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    fakeApi.addSessionExercise(session, 'Back Squat');
+    fakeApi.addSessionExercise(session, 'Bench Press');
+    await resumeWorkout(account.id);
+
+    expect(tileNames()).toEqual(['Back Squat', 'Bench Press']);
+    expect(shownTile()).toBe('Back Squat');
+    expect(screen.getByLabelText('Back Squat card')).toBeVisible();
+    expect(screen.queryByLabelText('Bench Press card')).toBeNull();
+
+    await showExercise('Bench Press');
+
+    expect(shownTile()).toBe('Bench Press');
+    expect(screen.getByLabelText('Bench Press card')).toBeVisible();
+    expect(screen.queryByLabelText('Back Squat card')).toBeNull();
+  });
+
+  it('keeps its rows still to do, as typed, added and removed, while another exercise is shown', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    const squat = fakeApi.addSessionExercise(session, 'Back Squat');
+    squat.target = { sets: 3, reps: 5, weight: 100, weightUnit: 'kg', restSeconds: null, note: '' };
+    fakeApi.addSessionExercise(session, 'Bench Press');
+    await resumeWorkout(account.id);
+
+    let card = await exerciseCard('Back Squat');
+    await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '8');
+    await removeRow(card, 2);
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
+    // Each row after the first starts from the row above.
+    expect(repsToDo(card)).toEqual(['8', '8', '8', '8']);
+
+    await showExercise('Bench Press');
+    card = await exerciseCard('Back Squat');
+
+    // Planned 3, one removed, two added: 4 rows, the first as typed.
+    expect(repsToDo(card)).toEqual(['8', '8', '8', '8']);
+  });
+
+  it('opens on the first exercise with a row still to do, ahead of ones whose Sets are done', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    const squat = fakeApi.addSessionExercise(session, 'Back Squat');
+    squat.target = { sets: 1, reps: 5, weight: 140, weightUnit: 'kg', restSeconds: null, note: '' };
+    fakeApi.addSet(squat, 140, 'kg', 5);
+    // With no Target, the first numbered Set logged leaves no row.
+    fakeApi.addSet(fakeApi.addSessionExercise(session, 'Deadlift'), 180, 'kg', 3);
+    fakeApi.addSessionExercise(session, 'Bench Press');
+    fakeApi.addSessionExercise(session, 'Plank');
+    await resumeWorkout(account.id);
+
+    expect(shownTile()).toBe('Bench Press');
+    expect(screen.getByLabelText('Bench Press card')).toBeVisible();
+  });
+
+  it('opens on the first exercise once every one is done', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    fakeApi.addSet(fakeApi.addSessionExercise(session, 'Back Squat'), 140, 'kg', 5);
+    fakeApi.addSet(fakeApi.addSessionExercise(session, 'Deadlift'), 180, 'kg', 3);
+    await resumeWorkout(account.id);
+
+    expect(shownTile()).toBe('Back Squat');
+  });
+
+  it('adds an exercise from the "+" tile and shows it', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    fakeApi.addSessionExercise(session, 'Back Squat');
+    fakeApi.addSessionExercise(session, 'Deadlift');
+    await resumeWorkout(account.id);
+
+    await fireEvent.press(strip().getByRole('button', { name: 'Add exercise' }));
+    await findHeaderTitle('Add exercise');
+    const picker = within(screen.getByLabelText('Exercise picker'));
+    await fireEvent.changeText(picker.getByLabelText('Search exercises'), 'plank');
+    await fireEvent.press(await picker.findByRole('button', { name: 'Plank' }));
+
+    await findHeaderTitle('Current workout');
+    await waitFor(() => expect(tileNames()).toEqual(['Back Squat', 'Deadlift', 'Plank']));
+    expect(shownTile()).toBe('Plank');
+    expect(screen.getByLabelText('Plank card')).toBeVisible();
+  });
+
+  it('shows the next exercise once the one shown is removed, else the previous, and the removed one on undo', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    fakeApi.addSessionExercise(session, 'Back Squat');
+    fakeApi.addSessionExercise(session, 'Bench Press');
+    fakeApi.addSessionExercise(session, 'Plank');
+    await resumeWorkout(account.id);
+
+    await removeExercise('Bench Press');
+    expect(shownTile()).toBe('Plank');
+    expect(screen.getByLabelText('Plank card')).toBeVisible();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
+    expect(tileNames()).toEqual(['Back Squat', 'Bench Press', 'Plank']);
+    expect(shownTile()).toBe('Bench Press');
+    expect(screen.getByLabelText('Bench Press card')).toBeVisible();
+
+    // The last one shown goes back to the one before it.
+    await removeExercise('Plank');
+    expect(shownTile()).toBe('Bench Press');
+  });
+
+  it('leaves only the "+" tile once the only exercise is removed', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
+    await resumeWorkout(account.id);
+
+    await removeExercise('Back Squat');
+
+    expect(strip().queryAllByRole('tab')).toEqual([]);
+    expect(strip().getByRole('button', { name: 'Add exercise' })).toBeVisible();
+    expect(screen.queryAllByLabelText(/ card$/)).toEqual([]);
+  });
+
+  it("shows each Exercise's image on its tile, the one swapped to after a Swap, and none without one", async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    const bench = fakeApi.addSessionExercise(session, 'Bench Press');
+    bench.plannedExerciseId = bench.exerciseId;
+    bench.substituteIds = [fakeApi.exerciseNamed('Dumbbell Bench Press').id];
+    fakeApi.addSessionExercise(session, 'Plank');
+    fakeApi.exerciseNamed('Bench Press').imageUrl = '/media/bench-press.png';
+    fakeApi.exerciseNamed('Dumbbell Bench Press').imageUrl = '/media/dumbbell-bench-press.png';
+    await resumeWorkout(account.id);
+
+    const tileImage = (name: string) => within(strip().getByRole('tab', { name })).queryByRole('image');
+    await waitFor(() => expect(tileImage('Bench Press')?.props.source.uri).toMatch(/\/media\/bench-press\.png$/));
+    expect(tileImage('Plank')).toBeNull();
+
+    await openSwapSheet('Bench Press');
+    await fireEvent.press(
+      within(await screen.findByLabelText('Substitutes for Bench Press')).getByRole('button', {
+        name: 'Swap to Dumbbell Bench Press',
+      }),
+    );
+
+    await waitFor(() =>
+      expect(tileImage('Dumbbell Bench Press')?.props.source.uri).toMatch(/\/media\/dumbbell-bench-press\.png$/),
+    );
   });
 });

@@ -7,6 +7,7 @@ import { fakeApi } from './support/fake-api';
 import { findHeaderTitle, queryHeaderTitle } from './support/native-header';
 import { secureStore } from './support/secure-store';
 import { chooseSetType, loggedSets, rowsToDo } from './support/set-table';
+import { exerciseCard, showExercise } from './support/session-exercises';
 
 /** Launches the app signed in as an onboarded kg user (made unless given), on the Workout tab. */
 async function openWorkoutTab(accountId?: string) {
@@ -85,7 +86,7 @@ describe('routines', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Start workout' }));
 
     await findHeaderTitle('Current workout');
-    const benchCard = within(screen.getByLabelText('Bench Press card'));
+    const benchCard = await exerciseCard('Bench Press');
     expect(benchCard.getByText('Target 3 × 5 · 100 kg')).toBeVisible();
     expect(benchCard.getByText('Pause on the chest')).toBeVisible();
     // A row for each planned set, at the target, ready to log as planned or adjust.
@@ -106,7 +107,7 @@ describe('routines', () => {
     expect(benchCard.getByLabelText('Set 3 reps')).toHaveDisplayValue('4');
     expect(benchCard.queryByLabelText('Set 4 reps')).toBeNull();
 
-    const pressCard = within(screen.getByLabelText('Overhead Press card'));
+    const pressCard = await exerciseCard('Overhead Press');
     await fireEvent.changeText(pressCard.getByLabelText('Set 1 weight (kg)'), '42,5');
     await fireEvent.press(pressCard.getByRole('button', { name: 'Log set 1' }));
     await waitFor(() => expect(loggedSets(pressCard)).toEqual(['42.5 kg × 8']));
@@ -144,7 +145,7 @@ describe('routines', () => {
     await fireEvent.press(within(await screen.findByLabelText('Routines')).getByRole('button', { name: 'Leg day' }));
     await fireEvent.press(await screen.findByRole('button', { name: 'Start workout' }));
     await findHeaderTitle('Current workout');
-    const card = within(screen.getByLabelText('Back Squat card'));
+    const card = await exerciseCard('Back Squat');
     async function log(n: number, type: string) {
       await chooseSetType(card, n, type);
       await fireEvent.press(card.getByRole('button', { name: `Log set ${n}` }));
@@ -252,7 +253,7 @@ describe('routines', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Start workout' }));
 
     await findHeaderTitle('Current workout');
-    let card = within(screen.getByLabelText('Bench Press card'));
+    let card = await exerciseCard('Bench Press');
     await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
     await waitFor(() => expect(loggedSets(card)).toEqual(['100 kg × 5']));
 
@@ -373,7 +374,7 @@ describe('routines', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Start workout' }));
 
     await findHeaderTitle('Current workout');
-    const card = within(screen.getByLabelText('Back Squat card'));
+    const card = await exerciseCard('Back Squat');
     expect(card.getByText('Target 3 × 8 · 60 kg')).toBeVisible();
     expect(card.getByLabelText('Set 1 weight (kg)')).toHaveDisplayValue('60');
     // Saved to the routine, so it isn't asked again.
@@ -389,7 +390,7 @@ describe('routines', () => {
     await fireEvent.press(await screen.findByRole('button', { name: 'Start workout' }));
 
     await findHeaderTitle('Current workout');
-    const card = within(screen.getByLabelText('Back Squat card'));
+    const card = await exerciseCard('Back Squat');
     expect(card.getByText('Target 3 × 10')).toBeVisible();
     expect(card.getByLabelText('Set 1 weight (kg)')).toHaveDisplayValue('');
     expect(card.getByLabelText('Set 1 reps')).toHaveDisplayValue('10');
@@ -423,6 +424,8 @@ describe('routines', () => {
     await fireEvent.press(await screen.findByRole('button', { name: 'Start workout' }));
 
     await findHeaderTitle('Current workout');
+    expect(screen.getByLabelText('Tiles of superset of Lat Pulldown and Overhead Press')).toBeVisible();
+    await showExercise('Lat Pulldown');
     const superset = within(screen.getByLabelText('Superset of Lat Pulldown and Overhead Press'));
     expect(superset.getByText('Next: Lat Pulldown')).toBeVisible();
   });

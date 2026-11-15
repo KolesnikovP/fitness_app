@@ -14,6 +14,8 @@ Judgement calls for review. `npm run lint`, `typecheck` and `format:check` alrea
 
 - **Table rows line up with their header through shared columns.** Every cell of a set-table row takes its size from `setColumns`, and a cell that wraps several columns (a logged Set's tappable values) is sized as those columns and their gaps are in the header, never `flex: 1`. A new column changes the header, the logged row and the row still to do together. Flag a diff that changes only some of them, or sizes a row's cell outside `setColumns`.
 
+- **State that must survive switching views is lifted, not kept by hiding.** When a screen shows one of several views at a time, such as one Session exercise's card, state that must outlive a switch (typed values, rows added or removed) lives in the parent, and only the shown view is mounted. Flag a diff that keeps views mounted and hidden with `display: 'none'` to keep their state: on iOS a gesture-handler view set up while hidden, such as a swipeable row, never gets its gesture, and Jest's fake swipeable can't show it.
+
 ## Wording
 
 - **Glossary terms, unless the ticket decided otherwise.** Code names, test names and on-screen copy use the terms in `CONTEXT.md` and avoid its _Avoid_ list. A ticket's **Decided** section can set an on-screen label that differs, such as "Best 1RM" for Estimated 1RM or a "How to" tab. Read the originating ticket before flagging a label, and flag the label only when no decision covers it.
