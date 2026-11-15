@@ -1,0 +1,1 @@
+export { SessionExerciseStrip } from './SessionExerciseStrip';

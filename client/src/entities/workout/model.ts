@@ -556,6 +556,14 @@ function pendingSetCount(exercise: SessionExercise, rows: RowsToDo): number {
 }
 
 /**
+ * Whether a Session exercise has a row still to do as its set table opens,
+ * before the User adds or removes any.
+ */
+export function hasRowsToDo(exercise: SessionExercise): boolean {
+  return pendingSetCount(exercise, untouchedRows) > 0;
+}
+
+/**
  * The rows of a Session exercise once the row with key (see rowKeys) is
  * removed. A warm-up row from Last time takes that warm-up with it; another
  * row takes an added row if there is one, else a planned one. Either stays

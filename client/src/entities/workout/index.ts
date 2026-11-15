@@ -16,6 +16,7 @@ export {
   formatStats,
   formatVolume,
   formatTarget,
+  hasRowsToDo,
   hasSets,
   MAX_SESSION_NAME_CHARS,
   newRecords,

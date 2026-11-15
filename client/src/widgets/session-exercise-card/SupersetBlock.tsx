@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Text, View } from 'react-native';
 
 import { supersetProgress, type Session, type SessionExercise } from '@/entities/workout';
@@ -5,29 +6,21 @@ import { UngroupSupersetButton } from '@/features/superset';
 import { makeStyles, spacing } from '@/shared/ui';
 import { listNames } from '@/shared/utils';
 
-import { SessionExerciseCard } from './SessionExerciseCard';
-
 type SupersetBlockProps = {
   sessionId: string;
   supersetId: string;
   exercises: SessionExercise[];
   onChange: (session: Session) => void;
-  onDeleteSet: (setId: string) => void;
-  onRemove: (sessionExerciseId: string) => void;
+  /** The card of the member shown. */
+  children: ReactNode;
 };
 
 /**
- * A Superset in the workout in progress: its exercises back to back, and
- * what's next, with rest only once every exercise has had its Set.
+ * A Superset in the workout in progress, around the card of the member
+ * shown: what's next, with rest only once every exercise has had its Set,
+ * and ungrouping it.
  */
-export function SupersetBlock({
-  sessionId,
-  supersetId,
-  exercises,
-  onChange,
-  onDeleteSet,
-  onRemove,
-}: SupersetBlockProps) {
+export function SupersetBlock({ sessionId, supersetId, exercises, onChange, children }: SupersetBlockProps) {
   const styles = useStyles();
   const progress = supersetProgress(exercises);
   const started = exercises.some((e) => e.sets.length > 0);
@@ -40,16 +33,7 @@ export function SupersetBlock({
     <View accessibilityLabel={`Superset of ${listNames(exercises.map((e) => e.name))}`} style={styles.block}>
       <Text style={styles.label}>Superset</Text>
       <Text style={[styles.hint, progress.kind === 'roundDone' && styles.rest]}>{hint}</Text>
-      {exercises.map((sessionExercise) => (
-        <SessionExerciseCard
-          key={sessionExercise.id}
-          sessionId={sessionId}
-          sessionExercise={sessionExercise}
-          onChange={onChange}
-          onDeleteSet={onDeleteSet}
-          onRemove={onRemove}
-        />
-      ))}
+      {children}
       <UngroupSupersetButton sessionId={sessionId} supersetId={supersetId} onUngrouped={onChange} />
     </View>
   );
