@@ -15,6 +15,7 @@ import {
   type Session,
   type SessionExercise,
   type SessionSet,
+  rowsAfterDeleting,
   rowsAfterLogging,
   rowKeys,
   rowsAfterRemoving,
@@ -77,6 +78,11 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet, ro
     onChange(session);
   }
 
+  function deleteSet(setId: string) {
+    onRowsChange((current) => rowsAfterDeleting(sessionExercise, current, setId));
+    onDeleteSet(setId);
+  }
+
   return (
     <View accessibilityLabel="Sets" style={styles.table}>
       <View style={[setColumns.row, styles.header]}>
@@ -103,12 +109,12 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet, ro
                 }}
                 onDelete={() => {
                   setEditingSetId(null);
-                  onDeleteSet(set.id);
+                  deleteSet(set.id);
                 }}
                 onCancel={() => setEditingSetId(null)}
               />
             ) : (
-              <SwipeToDelete key={set.id} deleteLabel={`Delete set ${number}`} onDelete={() => onDeleteSet(set.id)}>
+              <SwipeToDelete key={set.id} deleteLabel={`Delete set ${number}`} onDelete={() => deleteSet(set.id)}>
                 <LoggedSetRow
                   sessionId={sessionId}
                   set={set}

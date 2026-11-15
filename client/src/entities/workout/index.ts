@@ -29,6 +29,7 @@ export {
   repsInput,
   rowKeys,
   rowsAfterLogging,
+  rowsAfterDeleting,
   rowsAfterRemoving,
   RPE_SCALE,
   sessionBlocks,
