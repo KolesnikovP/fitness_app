@@ -19,6 +19,7 @@ import {
   rowKeys,
   rowsAfterRemoving,
   type RowsToDo,
+  withFirstRowUsed,
   withRowAdded,
   withRowTyped,
   useRecordTierColours,
@@ -77,6 +78,17 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet, ro
     onChange(session);
   }
 
+  // A logged Set deleted or changed can leave no numbered Set; the first
+  // row it used up stays used up (see withFirstRowUsed).
+  function deleteSet(setId: string) {
+    onRowsChange((current) => withFirstRowUsed(sessionExercise, current));
+    onDeleteSet(setId);
+  }
+  function setChanged(session: Session) {
+    onRowsChange((current) => withFirstRowUsed(sessionExercise, current));
+    onChange(session);
+  }
+
   return (
     <View accessibilityLabel="Sets" style={styles.table}>
       <View style={[setColumns.row, styles.header]}>
@@ -99,16 +111,16 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet, ro
                 number={number}
                 onSaved={(session) => {
                   setEditingSetId(null);
-                  onChange(session);
+                  setChanged(session);
                 }}
                 onDelete={() => {
                   setEditingSetId(null);
-                  onDeleteSet(set.id);
+                  deleteSet(set.id);
                 }}
                 onCancel={() => setEditingSetId(null)}
               />
             ) : (
-              <SwipeToDelete key={set.id} deleteLabel={`Delete set ${number}`} onDelete={() => onDeleteSet(set.id)}>
+              <SwipeToDelete key={set.id} deleteLabel={`Delete set ${number}`} onDelete={() => deleteSet(set.id)}>
                 <LoggedSetRow
                   sessionId={sessionId}
                   set={set}
@@ -117,7 +129,7 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet, ro
                   unit={unit}
                   lastTime={lastTime[number - 1]}
                   onPress={() => setEditingSetId(set.id)}
-                  onChange={onChange}
+                  onChange={setChanged}
                 />
               </SwipeToDelete>
             ),

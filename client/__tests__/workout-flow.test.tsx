@@ -323,7 +323,8 @@ describe('freeform workout', () => {
 
     await waitFor(() => expect(loggedSets(card)).toEqual(['60 kg × 10 @ RPE 7, Warm-up']));
     expect(within(card.getByRole('button', { name: 'Set 1 type' })).getByText('W')).toBeVisible();
-    expect(within(card.getByRole('button', { name: 'Set 2 type' })).getByText('1')).toBeVisible();
+    // Its first row was used up by the Set logged; rows to do now come from + Add set.
+    expect(rowsToDo(card)).toBe(0);
     expect(fakeApi.sessions(account.id)[0].exercises[0].sets).toMatchObject([
       { weight: 60, reps: 10, rpe: 7, type: 'warmup' },
     ]);
@@ -1029,6 +1030,97 @@ describe('rows still to do with no Target', () => {
     expect(loggedSets(card)).toEqual(['140 kg × 3']);
     expect(rowsToDo(card)).toBe(0);
     expect(card.getByRole('button', { name: '+ Add set' })).toBeVisible();
+  });
+
+  it("doesn't bring the row back once the only set is deleted", async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Deadlift');
+    await resumeWorkout(account.id);
+    const card = await exerciseCard('Deadlift');
+    await logFirstSet(card, '140', '3');
+
+    await swipeLeft(card.getByRole('button', { name: 'Edit set 1' }));
+    await fireEvent.press(card.getByRole('button', { name: 'Delete set 1' }));
+    expect(loggedSets(card)).toEqual([]);
+    expect(rowsToDo(card)).toBe(0);
+
+    // Undo brings back the Set, and no row below it.
+    await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
+    expect(loggedSets(card)).toEqual(['140 kg × 3']);
+    expect(rowsToDo(card)).toBe(0);
+  });
+
+  it('adds a row for set 1 with + Add set once the only set, logged before resuming, is deleted', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSet(fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Deadlift'), 140, 'kg', 3);
+    await resumeWorkout(account.id);
+    const card = await exerciseCard('Deadlift');
+
+    await swipeLeft(card.getByRole('button', { name: 'Edit set 1' }));
+    await fireEvent.press(card.getByRole('button', { name: 'Delete set 1' }));
+    expect(rowsToDo(card)).toBe(0);
+
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
+    expect(rowsToDo(card)).toBe(1);
+    await logFirstSet(card, '150', '2');
+    expect(loggedSets(card)).toEqual(['150 kg × 2']);
+    expect(rowsToDo(card)).toBe(0);
+  });
+
+  it('leaves no rows once every set is deleted', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Deadlift');
+    await resumeWorkout(account.id);
+    const card = await exerciseCard('Deadlift');
+    await logFirstSet(card, '140', '3');
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 2' }));
+    await waitFor(() => expect(loggedSets(card)).toHaveLength(2));
+
+    // Deleting a second Set sends the first one's pending deletion.
+    await swipeLeft(card.getByRole('button', { name: 'Edit set 2' }));
+    await fireEvent.press(card.getByRole('button', { name: 'Delete set 2' }));
+    await swipeLeft(card.getByRole('button', { name: 'Edit set 1' }));
+    await fireEvent.press(card.getByRole('button', { name: 'Delete set 1' }));
+    await waitFor(() => expect(loggedSets(card)).toEqual([]));
+    expect(rowsToDo(card)).toBe(0);
+  });
+
+  it("doesn't bring the row back once the only set is made a warm-up", async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Deadlift');
+    await resumeWorkout(account.id);
+    const card = await exerciseCard('Deadlift');
+    await logFirstSet(card, '140', '3');
+
+    await chooseSetType(card, 1, 'Warm-up');
+    await waitFor(() => expect(loggedSets(card)).toEqual(['140 kg × 3, Warm-up']));
+    expect(rowsToDo(card)).toBe(0);
+  });
+});
+
+/** Types weight and reps into a card's row for set 1 and logs it. */
+async function logFirstSet(card: ReturnType<typeof within>, weight: string, reps: string) {
+  await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), weight);
+  await fireEvent.changeText(card.getByLabelText('Set 1 reps'), reps);
+  await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
+  await waitFor(() => expect(loggedSets(card)).toHaveLength(1));
+}
+
+describe('deleting a set with a Target', () => {
+  it('brings back the planned row', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const squat = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
+    squat.target = { sets: 3, reps: 5, weight: 100, weightUnit: 'kg', restSeconds: null, note: '' };
+    fakeApi.addSet(squat, 100, 'kg', 5);
+    await resumeWorkout(account.id);
+    const card = await exerciseCard('Back Squat');
+    expect(rowsToDo(card)).toBe(2);
+
+    await swipeLeft(card.getByRole('button', { name: 'Edit set 1' }));
+    await fireEvent.press(card.getByRole('button', { name: 'Delete set 1' }));
+    expect(loggedSets(card)).toEqual([]);
+    expect(rowsToDo(card)).toBe(3);
   });
 });
 

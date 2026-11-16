@@ -66,6 +66,7 @@ export {
   untouchedRows,
   weightInput,
   withLastTime,
+  withFirstRowUsed,
   withRowAdded,
   withRowTyped,
   withoutExercise,
