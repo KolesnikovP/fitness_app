@@ -16,7 +16,7 @@ import {
   tileNames,
 } from './support/session-exercises';
 import type { FakeSetType } from './support/fake-api';
-import { chooseSetType, loggedSets, readouts, removeRow, repsToDo, rowsToDo } from './support/set-table';
+import { chooseSetType, loggedSets, readouts, removeRow, repsToDo, rowsToDo, rowsToDoHold } from './support/set-table';
 import { swipeLeft } from './support/swipeable';
 
 /** Launches the app signed in as an onboarded kg user, on the Workout tab. */
@@ -826,7 +826,7 @@ describe('last time', () => {
     fakeApi.finishSession(earlier, new Date(Date.now() - 86_400_000 + 3_600_000));
   }
 
-  it("shows last time's sets beside today's, and starts each row from them or the row above", async () => {
+  it("shows last time's sets beside today's, starts a row from each, and each row added from the row above", async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     benchedYesterday(account.id, [
       [60, 'kg', 10, 7],
@@ -837,25 +837,24 @@ describe('last time', () => {
     const card = await exerciseCard('Bench Press');
 
     expect(card.getByText('PREV')).toBeVisible();
-    expect(lastTimeCells(card)).toEqual(['60 kg × 10 @ RPE 7']);
+    expect(lastTimeCells(card)).toEqual(['60 kg × 10 @ RPE 7', '62.5 kg × 8']);
     expect(card.getByText('60 × 10')).toBeVisible();
     expect(card.getByText('@ 7')).toBeVisible();
-    // Set 1 starts as last time's set 1, but not its RPE: that's how it felt.
-    expect(card.getByLabelText('Set 1 weight (kg)')).toHaveDisplayValue('60');
-    expect(card.getByLabelText('Set 1 reps')).toHaveDisplayValue('10');
+    // Each row starts as last time's Set, but not its RPE: that's how it felt.
+    expect(rowsToDoHold(card)).toEqual(['1 60×10', '2 62.5×8']);
     expect(within(card.getByRole('button', { name: 'Set 1 RPE' })).getByText('–')).toBeVisible();
 
     await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
     // Last time's set 1 again ties the best before: silver.
     await waitFor(() => expect(loggedSets(card)).toEqual(['60 kg × 10, Silver']));
 
-    // The logged set keeps its Last time; a row added repeats the set just done.
-    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
+    // The logged set keeps its Last time.
     expect(lastTimeCells(card)).toEqual(['60 kg × 10 @ RPE 7', '62.5 kg × 8']);
-    expect(card.getByLabelText('Set 2 weight (kg)')).toHaveDisplayValue('60');
-    expect(card.getByLabelText('Set 2 reps')).toHaveDisplayValue('10');
+    expect(rowsToDoHold(card)).toEqual(['2 62.5×8']);
 
     // Tapping Last time puts its weight and reps into the row, keeping the RPE picked.
+    await fireEvent.changeText(card.getByLabelText('Set 2 weight (kg)'), '65');
+    await fireEvent.changeText(card.getByLabelText('Set 2 reps'), '6');
     await fireEvent.press(card.getByRole('button', { name: 'Set 2 RPE' }));
     await fireEvent.press(within(screen.getByLabelText('Set 2 RPE options')).getByRole('radio', { name: '9' }));
     await fireEvent.press(card.getByRole('button', { name: 'Set 2 last time' }));
@@ -863,13 +862,28 @@ describe('last time', () => {
     expect(card.getByLabelText('Set 2 reps')).toHaveDisplayValue('8');
     expect(within(card.getByRole('button', { name: 'Set 2 RPE' })).getByText('9')).toBeVisible();
 
-    // Another row added follows the row above, and last time had no set there.
+    // A row added follows the row above, and last time had no set there.
     await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
     expect(lastTimeCells(card)).toEqual(['60 kg × 10 @ RPE 7', '62.5 kg × 8', 'None']);
     expect(card.getByLabelText('Set 3 weight (kg)')).toHaveDisplayValue('62.5');
     expect(card.getByLabelText('Set 3 reps')).toHaveDisplayValue('8');
     await fireEvent.changeText(card.getByLabelText('Set 2 weight (kg)'), '65');
     expect(card.getByLabelText('Set 3 weight (kg)')).toHaveDisplayValue('65');
+  });
+
+  it("lines up the rows left with their own last time's sets once a row is removed", async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    benchedYesterday(account.id, [
+      [100, 'kg', 5],
+      [90, 'kg', 6],
+    ]);
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
+    await resumeWorkout(account.id);
+    const card = await exerciseCard('Bench Press');
+
+    await removeRow(card, 1);
+    expect(rowsToDoHold(card)).toEqual(['1 90×6']);
+    expect(lastTimeCells(card)).toEqual(['90 kg × 6']);
   });
 
   it('comes before the Target, and is in the unit the user sees', async () => {
@@ -1335,17 +1349,6 @@ describe('warm-ups from last time', () => {
     fakeApi.finishSession(earlier, new Date(Date.now() - 86_400_000 + 3_600_000));
   }
 
-  /** Each row still to do, as its mark and the weight × reps it holds: "W 60×8". */
-  function rowsToDoHold(card: ExerciseCard) {
-    return card.getAllByRole('button', { name: /^Log set \d+$/ }).map((box) => {
-      const n = box.props.accessibilityLabel.replace('Log set ', '');
-      const mark = within(card.getByRole('button', { name: `Set ${n} type` })).getByText(/./).props.children;
-      const weight = card.getByLabelText(`Set ${n} weight (kg)`).props.value;
-      const reps = card.getByLabelText(`Set ${n} reps`).props.value;
-      return `${mark} ${weight}×${reps}`;
-    });
-  }
-
   function lastTimeCells(card: ExerciseCard) {
     return readouts(card.getAllByLabelText(/^Set \d+ last time$/));
   }
@@ -1449,37 +1452,183 @@ describe('warm-ups from last time', () => {
     expect(rowsToDoHold(card)).toEqual(['1 30×10', '2 30×10', '3 30×10']);
   });
 
-  it("keeps a freeform exercise's row for its first set once last time's warm-up is logged", async () => {
+  it("gives a freeform exercise a row for each of last time's sets, mid-Session warm-ups and drop sets too", async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     benchedYesterday(account.id);
     fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
     await resumeWorkout(account.id);
     const card = await exerciseCard('Bench Press');
 
+    expect(rowsToDoHold(card)).toEqual(['W 60×8', 'W 80×3', '1 100×5', '2 102.5×5', 'W 50×5', 'D 70×10', '3 105×4']);
     await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
     await waitFor(() => expect(loggedSets(card)).toEqual(['60 kg × 8, Warm-up']));
-    expect(rowsToDoHold(card)).toEqual(['W 80×3', '1 100×5']);
+    expect(rowsToDoHold(card)).toEqual(['W 80×3', '1 100×5', '2 102.5×5', 'W 50×5', 'D 70×10', '3 105×4']);
   });
 
-  it('gives a freeform exercise its warm-ups too, and a row marked a warm-up by hand takes a warm-up place', async () => {
+  it("logs a freeform exercise's rows in any order, and a row marked a warm-up by hand takes a warm-up place", async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     benchedYesterday(account.id);
     fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
     await resumeWorkout(account.id);
     const card = await exerciseCard('Bench Press');
 
-    expect(rowsToDoHold(card)).toEqual(['W 60×8', 'W 80×3', '1 100×5']);
-    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
-    await chooseSetType(card, 4, 'Warm-up');
-    // Last time's third warm-up, from mid-Session.
-    expect(lastTimeCells(card)).toEqual(['60 kg × 8', '80 kg × 3', '100 kg × 5', '50 kg × 5']);
+    // Set 1 made a warm-up lines up with last time's third warm-up, from
+    // mid-Session; the warm-up row after it with none, the next set with set 1.
+    await chooseSetType(card, 3, 'Warm-up');
+    expect(lastTimeCells(card)).toEqual([
+      '60 kg × 8',
+      '80 kg × 3',
+      '50 kg × 5',
+      '100 kg × 5',
+      'None',
+      'None',
+      '102.5 kg × 5',
+    ]);
 
-    // Going straight to the working set leaves the warm-ups behind, and the
-    // rows after keep what was typed in them.
-    await fireEvent.changeText(card.getByLabelText('Set 4 reps'), '6');
-    await fireEvent.press(card.getByRole('button', { name: 'Log set 3' }));
-    await waitFor(() => expect(loggedSets(card)).toHaveLength(1));
-    expect(rowsToDoHold(card)).toEqual(['W 100×6']);
+    // Going straight to a working set leaves the warm-up rows, and the rows
+    // below keep what was typed in them.
+    await fireEvent.changeText(card.getByLabelText('Set 5 reps'), '6');
+    await fireEvent.press(card.getByRole('button', { name: 'Log set 4' }));
+    // Last time's set 2 again ties the best before: silver.
+    await waitFor(() => expect(loggedSets(card)).toEqual(['102.5 kg × 5, Silver']));
+    expect(rowsToDoHold(card)).toEqual(['W 60×8', 'W 80×3', 'W 100×5', 'W 50×6', 'D 70×10', '2 105×4']);
+  });
+});
+
+describe('rows still to do from last time with no Target', () => {
+  /** A finished Session of Bench Press a day ago: W 60×8, 1: 100×5, 2: 100×5, D 80×8. */
+  function benchedYesterday(accountId: string) {
+    const earlier = fakeApi.addSession(accountId, new Date(Date.now() - 86_400_000));
+    const bench = fakeApi.addSessionExercise(earlier, 'Bench Press');
+    const sets: [number, number, FakeSetType][] = [
+      [60, 8, 'warmup'],
+      [100, 5, 'normal'],
+      [100, 5, 'normal'],
+      [80, 8, 'drop'],
+    ];
+    for (const [weight, reps, type] of sets) fakeApi.addSet(bench, weight, 'kg', reps, '', null, type);
+    fakeApi.finishSession(earlier, new Date(Date.now() - 86_400_000 + 3_600_000));
+  }
+
+  async function benchToday() {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    benchedYesterday(account.id);
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
+    await resumeWorkout(account.id);
+    return exerciseCard('Bench Press');
+  }
+
+  async function logSet(card: ExerciseCard, n: number, logged: number) {
+    await fireEvent.press(card.getByRole('button', { name: `Log set ${n}` }));
+    await waitFor(() => expect(loggedSets(card)).toHaveLength(logged));
+  }
+
+  it("opens with a row for each of last time's sets, of its type and values, in order", async () => {
+    const card = await benchToday();
+    expect(rowsToDoHold(card)).toEqual(['W 60×8', '1 100×5', '2 100×5', 'D 80×8']);
+  });
+
+  it('opens with one empty row with no last time', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
+    await resumeWorkout(account.id);
+    expect(rowsToDoHold(await exerciseCard('Bench Press'))).toEqual(['1 ×']);
+  });
+
+  it('uses up each row as it is logged, leaving none once all are', async () => {
+    const card = await benchToday();
+    await logSet(card, 1, 1);
+    expect(rowsToDoHold(card)).toEqual(['1 100×5', '2 100×5', 'D 80×8']);
+    await logSet(card, 2, 2);
+    await logSet(card, 3, 3);
+    expect(rowsToDoHold(card)).toEqual(['D 80×8']);
+    await logSet(card, 4, 4);
+    // Each 100 × 5 ties last time's best: silver.
+    expect(loggedSets(card)).toEqual([
+      '60 kg × 8, Warm-up',
+      '100 kg × 5, Silver',
+      '100 kg × 5, Silver',
+      '80 kg × 8, Drop',
+    ]);
+    expect(rowsToDo(card)).toBe(0);
+  });
+
+  it("doesn't bring a row back once its set is deleted, and leaves the rows below as they were", async () => {
+    const card = await benchToday();
+    await fireEvent.changeText(card.getByLabelText('Set 3 reps'), '4');
+    await logSet(card, 2, 1);
+    expect(rowsToDoHold(card)).toEqual(['W 60×8', '2 100×4', 'D 80×8']);
+
+    await swipeLeft(card.getByRole('button', { name: 'Edit set 1' }));
+    await fireEvent.press(card.getByRole('button', { name: 'Delete set 1' }));
+    expect(loggedSets(card)).toEqual([]);
+    expect(rowsToDoHold(card)).toEqual(['W 60×8', '1 100×4', 'D 80×8']);
+  });
+
+  it("doesn't bring back a row used up by a set logged before resuming once it's deleted", async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    benchedYesterday(account.id);
+    const bench = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
+    fakeApi.addSet(bench, 60, 'kg', 8, '', null, 'warmup');
+    await resumeWorkout(account.id);
+    const card = await exerciseCard('Bench Press');
+    expect(rowsToDoHold(card)).toEqual(['1 100×5', '2 100×5', 'D 80×8']);
+
+    await swipeLeft(card.getByRole('button', { name: 'Edit set 1' }));
+    await fireEvent.press(card.getByRole('button', { name: 'Delete set 1' }));
+    expect(loggedSets(card)).toEqual([]);
+    expect(rowsToDoHold(card)).toEqual(['1 100×5', '2 100×5', 'D 80×8']);
+  });
+
+  it('keeps a row removed by swipe gone as later sets are logged', async () => {
+    const card = await benchToday();
+    await removeRow(card, 2);
+    expect(rowsToDoHold(card)).toEqual(['W 60×8', '1 100×5', 'D 80×8']);
+    await logSet(card, 1, 1);
+    await logSet(card, 2, 2);
+    expect(rowsToDoHold(card)).toEqual(['D 80×8']);
+  });
+
+  it('plans the rows from the Target, not last time, with one', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const earlier = fakeApi.addSession(account.id, new Date(Date.now() - 86_400_000));
+    const squatBefore = fakeApi.addSessionExercise(earlier, 'Back Squat');
+    for (const reps of [5, 5, 5, 4, 3]) fakeApi.addSet(squatBefore, 100, 'kg', reps);
+    fakeApi.finishSession(earlier, new Date(Date.now() - 86_400_000 + 3_600_000));
+    const squat = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
+    squat.target = { sets: 3, reps: 5, weight: 100, weightUnit: 'kg', restSeconds: null, note: '' };
+    await resumeWorkout(account.id);
+
+    expect(rowsToDoHold(await exerciseCard('Back Squat'))).toEqual(['1 100×5', '2 100×5', '3 100×5']);
+  });
+
+  it("starts the rows over from the Exercise swapped to's last time", async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    benchedYesterday(account.id);
+    const earlier = fakeApi.addSession(account.id, new Date(Date.now() - 2 * 86_400_000));
+    const dumbbellsBefore = fakeApi.addSessionExercise(earlier, 'Dumbbell Bench Press');
+    fakeApi.addSet(dumbbellsBefore, 30, 'kg', 10);
+    fakeApi.addSet(dumbbellsBefore, 32, 'kg', 8);
+    fakeApi.finishSession(earlier, new Date(Date.now() - 2 * 86_400_000 + 3_600_000));
+    const bench = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
+    bench.plannedExerciseId = bench.exerciseId;
+    bench.substituteIds = [fakeApi.exerciseNamed('Dumbbell Bench Press').id];
+    await resumeWorkout(account.id);
+    await logSet(await exerciseCard('Bench Press'), 1, 1);
+
+    async function swap(from: string, to: string) {
+      await openSwapSheet(from);
+      await fireEvent.press(
+        within(await screen.findByLabelText('Substitutes for Bench Press')).getByRole('button', {
+          name: `Swap to ${to}`,
+        }),
+      );
+      return within(await screen.findByLabelText(`${to} card`));
+    }
+
+    expect(rowsToDoHold(await swap('Bench Press', 'Dumbbell Bench Press'))).toEqual(['1 30×10', '2 32×8']);
+    // Back on Bench Press, the warm-up logged has used up its row.
+    expect(rowsToDoHold(await swap('Dumbbell Bench Press', 'Bench Press'))).toEqual(['1 100×5', '2 100×5', 'D 80×8']);
   });
 });
 

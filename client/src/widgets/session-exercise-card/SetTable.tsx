@@ -19,7 +19,7 @@ import {
   rowKeys,
   rowsAfterRemoving,
   type RowsToDo,
-  withFirstRowUsed,
+  withRowsUsedUp,
   withRowAdded,
   withRowTyped,
   useRecordTierColours,
@@ -78,14 +78,14 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet, ro
     onChange(session);
   }
 
-  // A logged Set deleted or changed can leave no numbered Set; the first
-  // row it used up stays used up (see withFirstRowUsed).
+  // A logged Set deleted or changed leaves the rows it used up used up (see
+  // withRowsUsedUp).
   function deleteSet(setId: string) {
-    onRowsChange((current) => withFirstRowUsed(sessionExercise, current));
+    onRowsChange((current) => withRowsUsedUp(sessionExercise, current));
     onDeleteSet(setId);
   }
   function setChanged(session: Session) {
-    onRowsChange((current) => withFirstRowUsed(sessionExercise, current));
+    onRowsChange((current) => withRowsUsedUp(sessionExercise, current));
     onChange(session);
   }
 

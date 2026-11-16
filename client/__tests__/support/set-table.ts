@@ -6,7 +6,8 @@ import { swipeLeft } from './swipeable';
  * The logged Sets in a card's set table, in order, as each row reads out to
  * a screen reader: "140 kg × 5", "140 kg × 5 @ RPE 8", then its Set type
  * unless normal and its Record tier if any: "60 kg × 8, Warm-up",
- * "100 kg × 5, Silver" (see formatSetWithTier).
+ * "100 kg × 5, Silver" (see formatSetWithTier). A Set that matches Last
+ * time's best reads with its tier, so a fixture with Last time usually earns one.
  */
 export function loggedSets(card: ReturnType<typeof within>): string[] {
   return readouts(card.queryAllByRole('button', { name: /^Edit set \d+$/ }));
@@ -44,4 +45,15 @@ export function repsToDo(card: ReturnType<typeof within>): string[] {
 export async function removeRow(card: ReturnType<typeof within>, n: number) {
   await swipeLeft(card.getByLabelText(`Set ${n} reps`));
   await fireEvent.press(card.getByRole('button', { name: `Delete set ${n}` }));
+}
+
+/** Each row still to do of a card's set table in kg, as its mark and the weight × reps it holds: "W 60×8". */
+export function rowsToDoHold(card: ReturnType<typeof within>): string[] {
+  return card.getAllByRole('button', { name: /^Log set \d+$/ }).map((box) => {
+    const n = box.props.accessibilityLabel.replace('Log set ', '');
+    const mark = within(card.getByRole('button', { name: `Set ${n} type` })).getByText(/./).props.children;
+    const weight = card.getByLabelText(`Set ${n} weight (kg)`).props.value;
+    const reps = card.getByLabelText(`Set ${n} reps`).props.value;
+    return `${mark} ${weight}×${reps}`;
+  });
 }
