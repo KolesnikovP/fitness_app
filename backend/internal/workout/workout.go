@@ -508,10 +508,11 @@ type changeExerciseBody struct {
 	ExerciseID *string `json:"exerciseId"`
 }
 
-// changeExercise sets a session exercise's note, changes its exercise, or
-// both. The exercise can be changed to any the User can see: a Swap to the
-// planned one or one of its Substitutes, or a Replace with any other. Sets
-// logged after it record the exercise changed to; the Routine isn't changed.
+// changeExercise sets a session exercise's note, Swaps or Replaces its
+// exercise, or both. A Swap is to the planned exercise or one of its
+// Substitutes, and a Replace is with any other the User can see, so the only
+// check is that the User can see it. Sets logged after either record the new
+// exercise; the Routine isn't changed.
 func (h handlers) changeExercise(w http.ResponseWriter, r *http.Request) {
 	var body changeExerciseBody
 	if !httpx.DecodeJSON(w, r, &body) {

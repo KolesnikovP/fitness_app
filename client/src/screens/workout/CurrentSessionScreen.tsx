@@ -193,11 +193,10 @@ export function CurrentSessionScreen() {
     setGroupingSuperset(true);
   }
   // Replacing sends what's pending first, as the request starts from what
-  // the server has.
-  function replaceExercise(sessionExercise: SessionExercise) {
+  // the server has; if that fails, its error shows here and the picker doesn't open.
+  async function replaceExercise(sessionExercise: SessionExercise) {
     if (!session) return;
-    void deletion.flush();
-    void removal.flush();
+    if (!(await deletion.flush()) || !(await removal.flush())) return;
     router.push({
       pathname: '/workout/replace-exercise',
       params: { sessionId: session.id, sessionExerciseId: sessionExercise.id, exerciseId: sessionExercise.exerciseId },

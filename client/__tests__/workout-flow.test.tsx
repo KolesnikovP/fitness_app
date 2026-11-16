@@ -1404,6 +1404,21 @@ describe('replacing an exercise', () => {
     expect(replaced.sets).toMatchObject([{ exerciseId: fakeApi.exerciseNamed('Bench Press').id, weight: 100 }]);
   });
 
+  it('sends an exercise removal waiting out its Undo window before opening the picker', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const today = fakeApi.addSession(account.id);
+    fakeApi.addSessionExercise(today, 'Plank');
+    fakeApi.addSessionExercise(today, 'Bench Press');
+    await resumeWorkout(account.id);
+    await removeExercise('Plank');
+    expect(await screen.findByText('Exercise removed.')).toBeVisible();
+
+    await openExerciseMenuItem('Bench Press', 'Replace exercise');
+    await findHeaderTitle('Replace exercise');
+
+    expect(today.exercises.map((e) => e.exerciseId)).toEqual([fakeApi.exerciseNamed('Bench Press').id]);
+  });
+
   it('reaches the picker from the Swap sheet, keeping the Target but not its weight', async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     const today = fakeApi.addSession(account.id);
