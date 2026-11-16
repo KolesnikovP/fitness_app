@@ -871,6 +871,21 @@ describe('last time', () => {
     expect(card.getByLabelText('Set 3 weight (kg)')).toHaveDisplayValue('65');
   });
 
+  it("lines up the rows left with their own last time's sets once a row is removed", async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    benchedYesterday(account.id, [
+      [100, 'kg', 5],
+      [90, 'kg', 6],
+    ]);
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
+    await resumeWorkout(account.id);
+    const card = await exerciseCard('Bench Press');
+
+    await removeRow(card, 1);
+    expect(rowsToDoHold(card)).toEqual(['1 90×6']);
+    expect(lastTimeCells(card)).toEqual(['90 kg × 6']);
+  });
+
   it('comes before the Target, and is in the unit the user sees', async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'lb');
     // 100 kg is 220.5 lb.

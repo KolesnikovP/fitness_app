@@ -134,8 +134,8 @@ export type LastTimeSet = {
  * warm-up 1, set 1 with its set 1. A drop Set has no place, so lines up with
  * none. Places count only the Sets of the Exercise being done now, as Last
  * time is its Sets: a logged Set of another, from before a Swap, takes no
- * place and lines up with none. Last time's warm-ups whose rows the User
- * removed take no place either, so the warm-ups after keep theirs.
+ * place and lines up with none. Last time's Sets whose rows the User
+ * removed take no place either, so the Sets after keep theirs.
  */
 export function lastTimeAtPlaces(
   exercise: SessionExercise,
@@ -144,7 +144,7 @@ export function lastTimeAtPlaces(
 ): (LastTimeSet | undefined)[] {
   const removed = lastTimePlaces(rows.removedFromLastTime, exercise);
   const warmups = exercise.lastTime.filter((s, place) => s.type === 'warmup' && !removed.includes(place));
-  const numbered = exercise.lastTime.filter((s) => isNumbered(s.type));
+  const numbered = exercise.lastTime.filter((s, place) => isNumbered(s.type) && !removed.includes(place));
   const sets = [...exercise.sets, ...pendingTypes.map((type) => ({ type, exerciseId: exercise.exerciseId }))];
   let warmup = 0;
   let number = 0;
@@ -211,7 +211,7 @@ function setsLoggedUnseen(exercise: SessionExercise, rows: RowsToDo): number {
 }
 
 /** The places among Last time's Sets of the Exercise being done now, of those rows that stood for one. */
-function lastTimePlaces(entries: LastTimeRow[], exercise: SessionExercise): number[] {
+function lastTimePlaces(entries: RowTakenOut[], exercise: SessionExercise): number[] {
   return entries.flatMap((r) => (r.exerciseId === exercise.exerciseId && r.place !== null ? [r.place] : []));
 }
 
@@ -548,14 +548,14 @@ function numberedSetsLeft(exercise: SessionExercise, rows: RowsToDo): number {
  * for and its place among that Exercise's Last time's Sets: null for a row
  * that stood for none of them, planned by the Target or added.
  */
-export type LastTimeRow = { exerciseId: string; place: number | null };
+export type RowTakenOut = { exerciseId: string; place: number | null };
 
 /**
  * What the User did to a Session exercise's rows still to do, beyond where
  * they start: added is how many rows they added with + Add set and haven't
  * used up, removedPlanned how many of the numbered rows planned they
  * removed, removedFromLastTime the rows from Last time they removed, logged
- * every row logged (see LastTimeRow; by Exercise, so a Swap doesn't carry
+ * every row logged (see RowTakenOut; by Exercise, so a Swap doesn't carry
  * them to another Exercise's), keys what tells each row from the others as
  * rows above it go (see rowKeys), typed what they typed in each row, by
  * position (a row they haven't touched follows Last time, the row above, or
@@ -569,8 +569,8 @@ export type RowsToDo = {
   added: number;
   firstRowUsed: boolean;
   removedPlanned: number;
-  removedFromLastTime: LastTimeRow[];
-  logged: LastTimeRow[];
+  removedFromLastTime: RowTakenOut[];
+  logged: RowTakenOut[];
   keys: number[];
   nextKey: number;
   typed: (SetDraft | undefined)[];
@@ -668,11 +668,11 @@ export function withRowsUsedUp(exercise: SessionExercise, rows: RowsToDo): RowsT
   const unseen = setsLoggedUnseen(exercise, rows);
   if (firstRowUsed === rows.firstRowUsed && unseen === 0) return rows;
   const unused = lastTimePlacesUnused(exercise, rows);
-  const seen = Array.from({ length: unseen }, (_, i) => ({
+  const unseenRows = Array.from({ length: unseen }, (_, i) => ({
     exerciseId: exercise.exerciseId,
     place: exercise.target ? null : (unused[i] ?? null),
   }));
-  return { ...rows, firstRowUsed, logged: [...rows.logged, ...seen] };
+  return { ...rows, firstRowUsed, logged: [...rows.logged, ...unseenRows] };
 }
 
 /** The rows with one more added with + Add set. */
@@ -706,12 +706,15 @@ export function rowsAfterLogging(
   const fromLastTime = row !== -1 && row < placesBefore.length;
   const logged = [...rows.logged, { exerciseId: before.exerciseId, place: fromLastTime ? placesBefore[row] : null }];
   const added = fromLastTime || numberedSetsLeft(before, rows) > 0 ? rows.added : Math.max(rows.added - 1, 0);
-  const logs = { ...withRowsUsedUp(after, { ...kept, logged }), added };
+  const afterLog = { ...withRowsUsedUp(after, { ...kept, logged }), added };
   // Rows from Last time gone that weren't the row logged: the warm-ups a
   // working Set left behind.
-  const leftBehind = Math.max(placesBefore.length - (fromLastTime ? 1 : 0) - lastTimePlacesToDo(after, logs).length, 0);
+  const leftBehind = Math.max(
+    placesBefore.length - (fromLastTime ? 1 : 0) - lastTimePlacesToDo(after, afterLog).length,
+    0,
+  );
   return {
-    ...logs,
+    ...afterLog,
     keys: without(kept.keys, row).slice(leftBehind),
     typed: without(rows.typed, row).slice(leftBehind),
   };
