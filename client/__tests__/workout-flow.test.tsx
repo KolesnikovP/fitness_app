@@ -797,7 +797,7 @@ describe('removing an exercise', () => {
     expect(screen.getByRole('button', { name: 'Add exercise' })).toBeVisible();
   });
 
-  it('ungroups the other exercise of a superset of two once one is removed, and Undo groups them again', async () => {
+  it('takes the other exercise of a superset of two out of it once one is removed, and Undo puts both back in it', async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     const session = fakeApi.addSession(account.id);
     const bench = fakeApi.addSessionExercise(session, 'Bench Press');
@@ -824,6 +824,27 @@ describe('removing an exercise', () => {
     const [saved] = fakeApi.sessions(account.id);
     expect(saved.exercises).toMatchObject([{ exerciseId: pulldown.exerciseId, supersetId: null }]);
     expect(saved.exercises[0].sets).toMatchObject([{ weight: 60, reps: 10, supersetId: 'superset-1' }]);
+  });
+
+  it('puts the exercise left alone in a superset in a new one while its removal can still be undone', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    const bench = fakeApi.addSessionExercise(session, 'Bench Press');
+    const pulldown = fakeApi.addSessionExercise(session, 'Lat Pulldown');
+    bench.supersetId = 'superset-1';
+    pulldown.supersetId = 'superset-1';
+    fakeApi.addSessionExercise(session, 'Plank');
+    await resumeWorkout(account.id);
+
+    await removeExercise('Bench Press');
+    await fireEvent.press(screen.getByRole('button', { name: 'Create superset' }));
+    const form = within(screen.getByLabelText('New superset'));
+    await fireEvent.press(form.getByRole('checkbox', { name: 'Lat Pulldown' }));
+    await fireEvent.press(form.getByRole('checkbox', { name: 'Plank' }));
+    await fireEvent.press(form.getByRole('button', { name: 'Group as superset' }));
+
+    expect(await screen.findByLabelText('Tiles of superset of Lat Pulldown and Plank')).toBeVisible();
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('drops an exercise removed from a superset of three from the superset', async () => {

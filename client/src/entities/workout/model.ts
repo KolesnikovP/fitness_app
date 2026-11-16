@@ -432,11 +432,12 @@ export function hasSets(session: Session): boolean {
  * or more; its Sets keep the Superset they were logged in.
  */
 export function withoutExercise(session: Session, sessionExerciseId: string): Session {
-  const left = session.exercises.filter((e) => e.id !== sessionExerciseId);
-  const alone = (e: SessionExercise) => !left.some((o) => o !== e && o.supersetId === e.supersetId);
+  const remaining = session.exercises.filter((e) => e.id !== sessionExerciseId);
+  const aloneInSuperset = (e: SessionExercise) =>
+    e.supersetId !== null && !remaining.some((o) => o !== e && o.supersetId === e.supersetId);
   return {
     ...session,
-    exercises: left.map((e) => (e.supersetId !== null && alone(e) ? { ...e, supersetId: null } : e)),
+    exercises: remaining.map((e) => (aloneInSuperset(e) ? { ...e, supersetId: null } : e)),
   };
 }
 
