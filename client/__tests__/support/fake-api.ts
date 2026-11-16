@@ -1110,6 +1110,12 @@ const handlers = [
     if (!session) return response;
     if (!session.exercises.some((e) => e.id === params.sessionExerciseId)) return sessionExerciseNotFound();
     session.exercises = session.exercises.filter((e) => e.id !== params.sessionExerciseId);
+    // One left alone in its superset is out of it; its sets keep the superset.
+    for (const e of session.exercises) {
+      if (e.supersetId !== null && !session.exercises.some((o) => o !== e && o.supersetId === e.supersetId)) {
+        e.supersetId = null;
+      }
+    }
     return HttpResponse.json(sessionJson(session));
   }),
 

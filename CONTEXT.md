@@ -49,7 +49,7 @@ A Session started empty, with Exercises added as the User goes, rather than from
 _Avoid_: Empty workout, quick start
 
 **Session exercise**:
-An Exercise added to one Session, holding the Sets logged for it there and an optional note. One started from an Exercise slot can be Swapped. While the Session is in progress, a Session exercise can be removed from it: its logged Sets are deleted with it, and it leaves any Superset it was in. Removing the only one leaves the Session in progress and empty, as a Freeform session starts.
+An Exercise added to one Session, holding the Sets logged for it there and an optional note. One started from an Exercise slot can be Swapped. While the Session is in progress, a Session exercise can be removed from it: its logged Sets are deleted with it, and it leaves any Superset it was in. Removing one of a Superset of two takes the other out of it too, since a Superset needs two or more; Sets already logged keep the Superset they were logged in. Removing the only one leaves the Session in progress and empty, as a Freeform session starts.
 _Avoid_: Workout exercise, entry, slot (a slot belongs to a routine)
 
 **Set**:

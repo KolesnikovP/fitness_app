@@ -1471,6 +1471,27 @@ func TestRemoveExercise(t *testing.T) {
 		}
 	})
 
+	t.Run("removing one of a superset of two ungroups the other, its sets keeping the superset", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		id := startSession(t, srv, token)
+		bench := addExercise(t, srv, token, id, "Bench Press")
+		row := addExercise(t, srv, token, id, "Barbell Row")
+		createSuperset(t, srv, token, id, bench, row)
+		logSet(t, srv, token, id, row, 60, 10)
+		supersetID := currentExercises(t, srv, token)[1]["supersetId"]
+
+		res := testutil.Do(t, srv, http.MethodDelete, "/workouts/sessions/"+id+"/exercises/"+bench, token, nil)
+
+		got := sessionExercises(t, res)
+		if len(got) != 1 || got[0]["name"] != "Barbell Row" || got[0]["supersetId"] != nil {
+			t.Fatalf("exercises = %v, want Barbell Row left in no superset", got)
+		}
+		sets := got[0]["sets"].([]any)
+		if len(sets) != 1 || sets[0].(map[string]any)["supersetId"] != supersetID {
+			t.Fatalf("sets = %v, want its set still logged in superset %v", sets, supersetID)
+		}
+	})
+
 	t.Run("removing one of a superset of three leaves the other two in it", func(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
 		id := startSession(t, srv, token)

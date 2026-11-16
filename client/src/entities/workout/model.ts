@@ -426,9 +426,18 @@ export function hasSets(session: Session): boolean {
   return session.exercises.some((e) => e.sets.length > 0);
 }
 
-/** The session as it looks once sessionExerciseId is removed, with its Sets. */
+/**
+ * The session as it looks once sessionExerciseId is removed, with its Sets.
+ * One left alone in its Superset is out of it too, since a Superset needs two
+ * or more; its Sets keep the Superset they were logged in.
+ */
 export function withoutExercise(session: Session, sessionExerciseId: string): Session {
-  return { ...session, exercises: session.exercises.filter((e) => e.id !== sessionExerciseId) };
+  const left = session.exercises.filter((e) => e.id !== sessionExerciseId);
+  const alone = (e: SessionExercise) => !left.some((o) => o !== e && o.supersetId === e.supersetId);
+  return {
+    ...session,
+    exercises: left.map((e) => (e.supersetId !== null && alone(e) ? { ...e, supersetId: null } : e)),
+  };
 }
 
 /** The session as it looks once setId is deleted. */

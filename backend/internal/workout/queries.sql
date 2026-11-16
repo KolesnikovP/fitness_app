@@ -137,6 +137,17 @@ WHERE session_id = sqlc.arg(session_id) AND id = ANY(sqlc.arg(ids)::uuid[]);
 DELETE FROM session_exercises
 WHERE id = $1 AND session_id = $2;
 
+-- name: UngroupLoneSupersetMembers :exec
+-- Takes any session exercise left alone in its superset out of it, since a
+-- superset needs two or more. Sets already logged keep the superset.
+UPDATE session_exercises e
+SET superset_id = NULL
+WHERE e.session_id = $1 AND e.superset_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM session_exercises o
+    WHERE o.session_id = e.session_id AND o.superset_id = e.superset_id AND o.id <> e.id
+  );
+
 -- name: UngroupSuperset :execrows
 UPDATE session_exercises
 SET superset_id = NULL

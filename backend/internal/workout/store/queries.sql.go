@@ -864,6 +864,23 @@ func (q *Queries) TransactionTime(ctx context.Context) (time.Time, error) {
 	return now, err
 }
 
+const ungroupLoneSupersetMembers = `-- name: UngroupLoneSupersetMembers :exec
+UPDATE session_exercises e
+SET superset_id = NULL
+WHERE e.session_id = $1 AND e.superset_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM session_exercises o
+    WHERE o.session_id = e.session_id AND o.superset_id = e.superset_id AND o.id <> e.id
+  )
+`
+
+// Takes any session exercise left alone in its superset out of it, since a
+// superset needs two or more. Sets already logged keep the superset.
+func (q *Queries) UngroupLoneSupersetMembers(ctx context.Context, sessionID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, ungroupLoneSupersetMembers, sessionID)
+	return err
+}
+
 const ungroupSuperset = `-- name: UngroupSuperset :execrows
 UPDATE session_exercises
 SET superset_id = NULL
