@@ -45,3 +45,14 @@ export async function removeRow(card: ReturnType<typeof within>, n: number) {
   await swipeLeft(card.getByLabelText(`Set ${n} reps`));
   await fireEvent.press(card.getByRole('button', { name: `Delete set ${n}` }));
 }
+
+/** Each row still to do of a card's set table in kg, as its mark and the weight × reps it holds: "W 60×8". */
+export function rowsToDoHold(card: ReturnType<typeof within>): string[] {
+  return card.getAllByRole('button', { name: /^Log set \d+$/ }).map((box) => {
+    const n = box.props.accessibilityLabel.replace('Log set ', '');
+    const mark = within(card.getByRole('button', { name: `Set ${n} type` })).getByText(/./).props.children;
+    const weight = card.getByLabelText(`Set ${n} weight (kg)`).props.value;
+    const reps = card.getByLabelText(`Set ${n} reps`).props.value;
+    return `${mark} ${weight}×${reps}`;
+  });
+}

@@ -142,8 +142,8 @@ export function lastTimeAtPlaces(
   pendingTypes: SetType[],
   rows: RowsToDo,
 ): (LastTimeSet | undefined)[] {
-  const lastWarmups = exercise.lastTime.filter((s) => s.type === 'warmup');
-  const warmups = warmupPlacesKept(exercise, rows).map((place) => lastWarmups[place]);
+  const removed = lastTimePlaces(rows.removedFromLastTime, exercise);
+  const warmups = exercise.lastTime.filter((s, place) => s.type === 'warmup' && !removed.includes(place));
   const numbered = exercise.lastTime.filter((s) => isNumbered(s.type));
   const sets = [...exercise.sets, ...pendingTypes.map((type) => ({ type, exerciseId: exercise.exerciseId }))];
   let warmup = 0;
@@ -156,38 +156,63 @@ export function lastTimeAtPlaces(
 }
 
 /**
- * The warm-ups a Session exercise still has rows for, as their places among
- * Last time's warm-ups: those before its first numbered Set, in order, less
- * those whose rows the User removed and those already logged. Only while it
- * has logged nothing but warm-ups of the Exercise being done now, so a
- * working Set, or a Swap after a Set is logged, leaves none.
+ * The Sets of Last time a Session exercise still has rows for, as their
+ * places among Last time's Sets, in order. With no Target, every one of them
+ * (see lastTimePlacesLeft). With a Target, which plans the numbered rows,
+ * only the warm-ups before Last time's first numbered Set, less those whose
+ * rows the User removed and those already logged, and only while it has
+ * logged nothing but warm-ups of the Exercise being done now, so a working
+ * Set, or a Swap after a Set is logged, leaves none.
  */
-function warmupPlacesToDo(exercise: SessionExercise, rows: RowsToDo): number[] {
+function lastTimePlacesToDo(exercise: SessionExercise, rows: RowsToDo): number[] {
+  if (!exercise.target) return lastTimePlacesLeft(exercise, rows);
   if (exercise.sets.some((s) => s.type !== 'warmup' || s.exerciseId !== exercise.exerciseId)) return [];
   const firstNumbered = exercise.lastTime.findIndex((s) => isNumbered(s.type));
-  const before = firstNumbered === -1 ? exercise.lastTime : exercise.lastTime.slice(0, firstNumbered);
-  const warmupsBefore = before.filter((s) => s.type === 'warmup').length;
-  return warmupPlacesKept(exercise, rows)
-    .filter((place) => place < warmupsBefore)
+  const removed = lastTimePlaces(rows.removedFromLastTime, exercise);
+  return exercise.lastTime
+    .map((set, place) => ({ set, place }))
+    .filter(({ set, place }) => set.type === 'warmup' && (firstNumbered === -1 || place < firstNumbered))
+    .filter(({ place }) => !removed.includes(place))
+    .map(({ place }) => place)
     .slice(exercise.sets.length);
 }
 
-/** The warm-ups a Session exercise still has rows for (see warmupPlacesToDo). */
-function warmupsToDo(exercise: SessionExercise, rows: RowsToDo): LastTimeSet[] {
-  const warmups = exercise.lastTime.filter((s) => s.type === 'warmup');
-  return warmupPlacesToDo(exercise, rows).map((place) => warmups[place]);
+/** The Sets of Last time a Session exercise still has rows for (see lastTimePlacesToDo). */
+function lastTimeSetsToDo(exercise: SessionExercise, rows: RowsToDo): LastTimeSet[] {
+  return lastTimePlacesToDo(exercise, rows).map((place) => exercise.lastTime[place]);
 }
 
 /**
- * The places among Last time's warm-ups of the Exercise being done now, in
- * order, less those whose rows the User removed.
+ * The places among Last time's Sets with a row still to do, for a Session
+ * exercise with no Target: those whose rows weren't removed or logged (see
+ * lastTimePlacesUnused), less one from the top for each logged Set of the
+ * Exercise being done now that no row was seen logged for, as on resuming a
+ * Session with Sets already logged.
  */
-function warmupPlacesKept(exercise: SessionExercise, rows: RowsToDo): number[] {
-  const removed = rows.removedWarmups.filter((w) => w.exerciseId === exercise.exerciseId).map((w) => w.place);
-  return exercise.lastTime
-    .filter((s) => s.type === 'warmup')
-    .map((_, place) => place)
-    .filter((place) => !removed.includes(place));
+function lastTimePlacesLeft(exercise: SessionExercise, rows: RowsToDo): number[] {
+  return lastTimePlacesUnused(exercise, rows).slice(setsLoggedUnseen(exercise, rows));
+}
+
+/** The places among Last time's Sets whose rows weren't removed or logged. */
+function lastTimePlacesUnused(exercise: SessionExercise, rows: RowsToDo): number[] {
+  const gone = lastTimePlaces([...rows.removedFromLastTime, ...rows.logged], exercise);
+  return exercise.lastTime.map((_, place) => place).filter((place) => !gone.includes(place));
+}
+
+/**
+ * How many logged Sets of the Exercise being done now no row was seen logged
+ * for (see logged in RowsToDo): those logged before the app restarted, or
+ * before a Swap back. None once Sets are deleted.
+ */
+function setsLoggedUnseen(exercise: SessionExercise, rows: RowsToDo): number {
+  const sets = exercise.sets.filter((s) => s.exerciseId === exercise.exerciseId).length;
+  const seen = rows.logged.filter((r) => r.exerciseId === exercise.exerciseId).length;
+  return Math.max(sets - seen, 0);
+}
+
+/** The places among Last time's Sets of the Exercise being done now, of those rows that stood for one. */
+function lastTimePlaces(entries: LastTimeRow[], exercise: SessionExercise): number[] {
+  return entries.flatMap((r) => (r.exerciseId === exercise.exerciseId && r.place !== null ? [r.place] : []));
 }
 
 /** "60 × 10": last time's Set as its cell in the set table shows it, under the table's unit. */
@@ -496,11 +521,13 @@ export function setDraftFromTarget(target: SessionTarget | null, weightUnit: Uni
 
 /**
  * How many numbered Sets a Session exercise plans rows for: those its
- * Target plans, or with no Target one, the first, until a numbered Set of it
- * is logged (see firstRowUsed in RowsToDo).
+ * Target plans. With no Target, its rows are Last time's Sets (see
+ * lastTimePlacesToDo), so none; with no Last time either, one, the first,
+ * until a numbered Set of it is logged (see firstRowUsed in RowsToDo).
  */
 function plannedNumberedSets(exercise: SessionExercise, rows: RowsToDo): number {
   if (exercise.target) return exercise.target.sets;
+  if (exercise.lastTime.length > 0) return 0;
   return rows.firstRowUsed ? 0 : 1;
 }
 
@@ -517,24 +544,33 @@ function numberedSetsLeft(exercise: SessionExercise, rows: RowsToDo): number {
 }
 
 /**
+ * A row still to do taken out, removed or logged, by the Exercise it was
+ * for and its place among that Exercise's Last time's Sets: null for a row
+ * that stood for none of them, planned by the Target or added.
+ */
+export type LastTimeRow = { exerciseId: string; place: number | null };
+
+/**
  * What the User did to a Session exercise's rows still to do, beyond where
  * they start: added is how many rows they added with + Add set and haven't
  * used up, removedPlanned how many of the numbered rows planned they
- * removed, removedWarmups the warm-ups from Last time whose rows they
- * removed, by Exercise and place among its Last time's warm-ups (so a Swap
- * doesn't carry them to another Exercise's), keys what tells each row from
- * the others as rows above it go (see rowKeys), typed what they typed
- * in each row, by position (a row they haven't touched follows Last time,
- * the row above, or the Target; see pendingSetDrafts), and firstRowUsed
- * whether a numbered Set has been logged, which uses up the one row a
- * Session exercise with no Target starts with for good: deleting that Set,
- * or making it a warm-up, doesn't bring the row back (see withFirstRowUsed).
+ * removed, removedFromLastTime the rows from Last time they removed, logged
+ * every row logged (see LastTimeRow; by Exercise, so a Swap doesn't carry
+ * them to another Exercise's), keys what tells each row from the others as
+ * rows above it go (see rowKeys), typed what they typed in each row, by
+ * position (a row they haven't touched follows Last time, the row above, or
+ * the Target; see pendingSetDrafts), and firstRowUsed whether a numbered Set
+ * has been logged, which uses up the one row a Session exercise with no
+ * Target and no Last time starts with for good. A row logged stays used up:
+ * deleting its Set, or making it a warm-up, doesn't bring it back (see
+ * withRowsUsedUp).
  */
 export type RowsToDo = {
   added: number;
   firstRowUsed: boolean;
   removedPlanned: number;
-  removedWarmups: { exerciseId: string; place: number }[];
+  removedFromLastTime: LastTimeRow[];
+  logged: LastTimeRow[];
   keys: number[];
   nextKey: number;
   typed: (SetDraft | undefined)[];
@@ -545,7 +581,8 @@ export const untouchedRows: RowsToDo = {
   added: 0,
   firstRowUsed: false,
   removedPlanned: 0,
-  removedWarmups: [],
+  removedFromLastTime: [],
+  logged: [],
   keys: [],
   nextKey: 0,
   typed: [],
@@ -573,12 +610,12 @@ function withKeysKept(exercise: SessionExercise, rows: RowsToDo): RowsToDo {
 
 /**
  * How many rows a Session exercise shows for Sets still to log: one for each
- * warm-up it has left from Last time (see warmupsToDo), then one for each
+ * Set of Last time it has left (see lastTimePlacesToDo), then one for each
  * numbered Set it has left (see numberedSetsLeft), plus the ones the User
  * added.
  */
 function pendingSetCount(exercise: SessionExercise, rows: RowsToDo): number {
-  return warmupsToDo(exercise, rows).length + Math.max(numberedSetsLeft(exercise, rows), 0) + rows.added;
+  return lastTimePlacesToDo(exercise, rows).length + Math.max(numberedSetsLeft(exercise, rows), 0) + rows.added;
 }
 
 /**
@@ -591,20 +628,21 @@ export function hasRowsToDo(exercise: SessionExercise): boolean {
 
 /**
  * The rows of a Session exercise once the row with key (see rowKeys) is
- * removed. A warm-up row from Last time takes that warm-up with it; another
- * row takes an added row if there is one, else a planned one. Either stays
- * gone as later Sets are logged. The rows below move up with their keys and
- * what was typed in them.
+ * removed. A row from Last time takes that Set of Last time with it (a
+ * warm-up's place too, so the warm-ups after keep theirs); another row takes
+ * an added row if there is one, else a planned one. Either stays gone as
+ * later Sets are logged. The rows below move up with their keys and what was
+ * typed in them.
  */
 export function rowsAfterRemoving(exercise: SessionExercise, rows: RowsToDo, key: number): RowsToDo {
   const kept = withKeysKept(exercise, rows);
   const row = kept.keys.indexOf(key);
   if (row === -1) return rows;
   const left = { ...kept, keys: without(kept.keys, row), typed: without(rows.typed, row) };
-  const warmupPlaces = warmupPlacesToDo(exercise, rows);
-  if (row < warmupPlaces.length) {
-    const removed = { exerciseId: exercise.exerciseId, place: warmupPlaces[row] };
-    return { ...left, removedWarmups: [...rows.removedWarmups, removed] };
+  const places = lastTimePlacesToDo(exercise, rows);
+  if (row < places.length) {
+    const removed = { exerciseId: exercise.exerciseId, place: places[row] };
+    return { ...left, removedFromLastTime: [...rows.removedFromLastTime, removed] };
   }
   return rows.added > 0 ? { ...left, added: rows.added - 1 } : { ...left, removedPlanned: rows.removedPlanned + 1 };
 }
@@ -618,14 +656,23 @@ function without<T>(items: T[], index: number): T[] {
 }
 
 /**
- * The rows with firstRowUsed (see RowsToDo) set if the Session exercise has
- * a numbered Set logged. Taken before a logged Set is deleted or changed,
- * so a Session resumed with Sets already logged keeps its first row used
- * up too.
+ * The rows with the ones the Session exercise's logged Sets used up written
+ * down, so that deleting a Set or changing its type brings none back: the
+ * first row of one with no Target or Last time once a numbered Set is logged
+ * (see firstRowUsed), and the rows from Last time that Sets logged before
+ * resuming used up (see setsLoggedUnseen). Taken before a logged Set is
+ * deleted or changed.
  */
-export function withFirstRowUsed(exercise: SessionExercise, rows: RowsToDo): RowsToDo {
-  if (rows.firstRowUsed || !exercise.sets.some((s) => isNumbered(s.type))) return rows;
-  return { ...rows, firstRowUsed: true };
+export function withRowsUsedUp(exercise: SessionExercise, rows: RowsToDo): RowsToDo {
+  const firstRowUsed = rows.firstRowUsed || exercise.sets.some((s) => isNumbered(s.type));
+  const unseen = setsLoggedUnseen(exercise, rows);
+  if (firstRowUsed === rows.firstRowUsed && unseen === 0) return rows;
+  const unused = lastTimePlacesUnused(exercise, rows);
+  const seen = Array.from({ length: unseen }, (_, i) => ({
+    exerciseId: exercise.exerciseId,
+    place: exercise.target ? null : (unused[i] ?? null),
+  }));
+  return { ...rows, firstRowUsed, logged: [...rows.logged, ...seen] };
 }
 
 /** The rows with one more added with + Add set. */
@@ -642,10 +689,10 @@ export function withRowTyped(rows: RowsToDo, row: number, draft: SetDraft): Rows
 
 /**
  * The rows once the row with key (see rowKeys) is logged, turning before
- * into after. A warm-up row uses up itself; another uses up a planned row
- * while there are some left, and an added one after. That row goes with its
- * key and what was typed in it, and so do the warm-up rows a logged working
- * Set leaves behind.
+ * into after. A row from Last time uses up itself; another uses up a planned
+ * row while there are some left, and an added one after. That row goes with
+ * its key and what was typed in it. With a Target, so do the warm-up rows
+ * from Last time a logged working Set leaves behind.
  */
 export function rowsAfterLogging(
   before: SessionExercise,
@@ -655,14 +702,16 @@ export function rowsAfterLogging(
 ): RowsToDo {
   const kept = withKeysKept(before, rows);
   const row = kept.keys.indexOf(key);
-  const warmupRowsBefore = warmupsToDo(before, rows).length;
-  const loggedWarmupRows = row !== -1 && row < warmupRowsBefore ? 1 : 0;
-  const added = loggedWarmupRows || numberedSetsLeft(before, rows) > 0 ? rows.added : Math.max(rows.added - 1, 0);
-  // Warm-up rows gone that weren't the row logged: those a working Set left behind.
-  const leftBehind = Math.max(warmupRowsBefore - loggedWarmupRows - warmupsToDo(after, rows).length, 0);
+  const placesBefore = lastTimePlacesToDo(before, rows);
+  const fromLastTime = row !== -1 && row < placesBefore.length;
+  const logged = [...rows.logged, { exerciseId: before.exerciseId, place: fromLastTime ? placesBefore[row] : null }];
+  const added = fromLastTime || numberedSetsLeft(before, rows) > 0 ? rows.added : Math.max(rows.added - 1, 0);
+  const logs = { ...withRowsUsedUp(after, { ...kept, logged }), added };
+  // Rows from Last time gone that weren't the row logged: the warm-ups a
+  // working Set left behind.
+  const leftBehind = Math.max(placesBefore.length - (fromLastTime ? 1 : 0) - lastTimePlacesToDo(after, logs).length, 0);
   return {
-    ...withFirstRowUsed(after, kept),
-    added,
+    ...logs,
     keys: without(kept.keys, row).slice(leftBehind),
     typed: without(rows.typed, row).slice(leftBehind),
   };
@@ -683,23 +732,22 @@ function weightAndReps(set: { weight: number; reps: number }): Pick<SetDraft, 'w
 
 /**
  * What each of a Session exercise's rows still to do holds: what the User
- * typed in it (see RowsToDo), else where it starts. With Last
- * time, the rows start with a warm-up row for each warm-up it has left (see
- * warmupsToDo), each as last time's warm-up at its place. The first numbered
- * row starts as the last numbered Set logged, else as last time's numbered
- * Set at its place, else at the Target; each later row starts as the
- * nearest working row above it (a warm-up row never sets it), with Last time
- * or without, so the next row repeats the Set just done. A row never starts
- * with an RPE or note, and starts normal unless a warm-up.
+ * typed in it (see RowsToDo), else where it starts. A row from Last time
+ * (see lastTimePlacesToDo) starts as its own Set of Last time, of its Set
+ * type. The first numbered row after them starts as the last numbered Set
+ * logged, else as last time's numbered Set at its place, else at the Target;
+ * each later row starts as the nearest working row above it (a warm-up row
+ * never sets it), with Last time or without, so the next row repeats the Set
+ * just done. A row never starts with an RPE or note, and starts normal
+ * unless from Last time.
  */
 export function pendingSetDrafts(exercise: SessionExercise, weightUnit: UnitPreference, rows: RowsToDo): SetDraft[] {
   const count = pendingSetCount(exercise, rows);
   const { typed } = rows;
   // Last time is in the User's Unit preference, the table's unit.
-  const warmups = warmupsToDo(exercise, rows);
-  const drafts: SetDraft[] = warmups
+  const drafts: SetDraft[] = lastTimeSetsToDo(exercise, rows)
     .slice(0, count)
-    .map((set, i) => typed[i] ?? { ...emptySetDraft, ...weightAndReps(set), type: 'warmup' });
+    .map((set, i) => typed[i] ?? { ...emptySetDraft, ...weightAndReps(set), type: set.type });
   for (let i = drafts.length; i < count; i++) {
     const workingAbove = drafts.findLast((d) => d.type !== 'warmup');
     drafts.push(
