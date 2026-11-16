@@ -12,6 +12,8 @@ type SwapSheetProps = {
   sessionId: string;
   sessionExercise: SessionExercise;
   onSwapped: (session: Session) => void;
+  /** Leaves the sheet for the exercise picker, to Replace it with any other Exercise. */
+  onReplace: () => void;
   open: boolean;
   onClose: () => void;
 };
@@ -24,10 +26,11 @@ export function canSwap(sessionExercise: SessionExercise): boolean {
 /**
  * The sheet for when a Session exercise's equipment is taken: every Exercise
  * it can be done as, with its equipment, and the one being done marked.
- * Tapping one swaps to it for this workout only. Nothing shows for a Session
- * exercise that can't be Swapped.
+ * Tapping one swaps to it for this workout only; Any other exercise… goes to
+ * the exercise picker instead. Nothing shows for a Session exercise that
+ * can't be Swapped.
  */
-export function SwapSheet({ sessionId, sessionExercise, onSwapped, open, onClose }: SwapSheetProps) {
+export function SwapSheet({ sessionId, sessionExercise, onSwapped, onReplace, open, onClose }: SwapSheetProps) {
   const styles = useStyles();
   const { state } = useAuth();
   const [swapping, setSwapping] = useState(false);
@@ -100,6 +103,19 @@ export function SwapSheet({ sessionId, sessionExercise, onSwapped, open, onClose
             );
           })}
         </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Any other exercise…"
+          disabled={swapping}
+          onPress={() => {
+            close();
+            onReplace();
+          }}
+          style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+        >
+          <Text style={[styles.name, styles.rowText]}>Any other exercise…</Text>
+          <Text style={styles.action}>Pick</Text>
+        </Pressable>
         {error ? (
           <Text accessibilityRole="alert" style={styles.error}>
             {error}

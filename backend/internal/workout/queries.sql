@@ -108,10 +108,9 @@ LEFT JOIN session_sets s ON s.session_exercise_id = e.id
 WHERE e.session_id = ANY(sqlc.arg(session_ids)::uuid[])
 ORDER BY e.created_at, e.id, s.created_at, s.id;
 
--- name: GetSwapOptions :one
--- What a session exercise of the session can be swapped to: its planned
--- exercise (null if it wasn't planned) and substitutes.
-SELECT planned_exercise_id, substitute_ids
+-- name: GetSessionExerciseID :one
+-- The session exercise's id, if it's one of the session's.
+SELECT id
 FROM session_exercises
 WHERE id = $1 AND session_id = $2;
 

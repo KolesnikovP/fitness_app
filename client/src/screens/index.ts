@@ -16,6 +16,7 @@ export { EditProfileScreen } from './profile/EditProfileScreen';
 export { ProfileScreen } from './profile/ProfileScreen';
 export { SettingsScreen } from './profile/SettingsScreen';
 export { AddSessionExerciseScreen } from './workout/AddSessionExerciseScreen';
+export { ReplaceSessionExerciseScreen } from './workout/ReplaceSessionExerciseScreen';
 export { CurrentSessionScreen } from './workout/CurrentSessionScreen';
 export { FinishedSessionScreen } from './workout/FinishedSessionScreen';
 export { WorkoutHomeScreen } from './workout/WorkoutHomeScreen';

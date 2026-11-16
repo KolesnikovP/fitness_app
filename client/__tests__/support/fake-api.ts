@@ -1093,9 +1093,8 @@ const handlers = [
     const sessionExercise = session.exercises.find((e) => e.id === params.sessionExerciseId);
     if (!sessionExercise) return sessionExerciseNotFound();
     if (typeof exerciseId === 'string') {
-      const { plannedExerciseId, substituteIds } = sessionExercise;
-      if (plannedExerciseId === null || (exerciseId !== plannedExerciseId && !substituteIds.includes(exerciseId))) {
-        return error(400, 'invalid_swap', 'Swap only to the exercise the routine planned, or one of its substitutes.');
+      if (!visibleExercise(account, exerciseId)) {
+        return error(400, 'invalid_swap', 'Swap or replace only with an exercise you can see.');
       }
       sessionExercise.exerciseId = exerciseId;
     }

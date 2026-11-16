@@ -1230,16 +1230,76 @@ func TestSwapExercise(t *testing.T) {
 		}
 	})
 
-	t.Run("refuses an exercise that isn't one of its substitutes", func(t *testing.T) {
+	t.Run("replaces a planned exercise with any exercise, keeping the slot's target", func(t *testing.T) {
 		_, _, token := testutil.SignUp(t, srv)
 		_, id, bench := startWithSubstitutes(t, token)
 		deadlift := exerciseID(t, srv, token, "Deadlift")
+
+		res := swap(t, token, id, bench, deadlift)
+
+		if res.Status != http.StatusOK {
+			t.Fatalf("status = %d, want 200; body %v", res.Status, res.Body)
+		}
+		got := sessionExercises(t, res)[0]
+		if got["name"] != "Deadlift" {
+			t.Errorf("name = %v, want Deadlift", got["name"])
+		}
+		if planned, _ := got["planned"].(map[string]any); planned["name"] != "Bench Press" {
+			t.Errorf("planned = %v, want still Bench Press", got["planned"])
+		}
+		if target, _ := got["target"].(map[string]any); target["sets"] != 3.0 || target["reps"] != 5.0 {
+			t.Errorf("target = %v, want the slot's 3 x 5 kept", got["target"])
+		}
+	})
+
+	t.Run("last time follows the exercise replaced with", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		before := startSession(t, srv, token)
+		logSet(t, srv, token, before, addExercise(t, srv, token, before, "Deadlift"), 140, 3)
+		finishSession(t, srv, token, before)
+		_, id, bench := startWithSubstitutes(t, token)
+
+		res := swap(t, token, id, bench, exerciseID(t, srv, token, "Deadlift"))
+
+		lastTime := objects(t, sessionExercises(t, res)[0], "lastTime")
+		if len(lastTime) != 1 || lastTime[0]["weight"] != 140.0 || lastTime[0]["reps"] != 3.0 {
+			t.Errorf("lastTime = %v, want Deadlift's 140 x 3", lastTime)
+		}
+	})
+
+	t.Run("replaces an added exercise with any exercise the user can see", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		_, id, _ := startWithSubstitutes(t, token)
+		freeform := addExercise(t, srv, token, id, "Back Squat")
+		logSet(t, srv, token, id, freeform, 100, 5)
+		mine := createCustomExercise(t, srv, token, "Belt Squat")
+
+		res := swap(t, token, id, freeform, mine)
+
+		if res.Status != http.StatusOK {
+			t.Fatalf("status = %d, want 200; body %v", res.Status, res.Body)
+		}
+		got := sessionExercises(t, res)[1]
+		if got["name"] != "Belt Squat" || got["planned"] != nil || got["target"] != nil {
+			t.Errorf("exercise = %v, want Belt Squat with no plan", got)
+		}
+		if sets := objects(t, got, "sets"); len(sets) != 1 || sets[0]["name"] != "Back Squat" {
+			t.Errorf("sets = %v, want the one logged still of Back Squat", sets)
+		}
+	})
+
+	t.Run("refuses an exercise the user can't see", func(t *testing.T) {
+		_, _, token := testutil.SignUp(t, srv)
+		_, _, other := testutil.SignUp(t, srv)
+		_, id, bench := startWithSubstitutes(t, token)
+		theirs := createCustomExercise(t, srv, other, "Their Squat")
 		freeform := addExercise(t, srv, token, id, "Back Squat")
 
 		for name, res := range map[string]testutil.Response{
-			"not a substitute":  swap(t, token, id, bench, deadlift),
-			"not an id":         swap(t, token, id, bench, "nope"),
-			"an added exercise": swap(t, token, id, freeform, deadlift),
+			"another user's":   swap(t, token, id, bench, theirs),
+			"unknown":          swap(t, token, id, bench, "00000000-0000-0000-0000-000000000000"),
+			"not an id":        swap(t, token, id, bench, "nope"),
+			"for an added one": swap(t, token, id, freeform, theirs),
 		} {
 			if res.Status != http.StatusBadRequest || res.ErrorCode() != "invalid_swap" {
 				t.Errorf("%s: got %d %q, want 400 invalid_swap", name, res.Status, res.ErrorCode())

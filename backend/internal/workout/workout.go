@@ -99,9 +99,10 @@ type Session struct {
 // now. SupersetID is shared by the exercises of one Superset, and null for an
 // exercise in none. Target is what its Routine's slot planned, and Planned
 // the slot's own Exercise, both null for an exercise added during the
-// Session. It can be swapped to Planned or one of its Substitutes. LastTime
-// is last time's Sets of the Exercise being done now, while the Session is in
-// progress; empty once it's finished.
+// Session. It can be Swapped to Planned or one of its Substitutes, or
+// Replaced with any Exercise the User can see. LastTime is last time's Sets
+// of the Exercise being done now, while the Session is in progress; empty
+// once it's finished.
 type SessionExercise struct {
 	ID          uuid.UUID     `json:"id"`
 	ExerciseID  uuid.UUID     `json:"exerciseId"`
@@ -507,9 +508,10 @@ type changeExerciseBody struct {
 	ExerciseID *string `json:"exerciseId"`
 }
 
-// changeExercise sets a session exercise's note, swaps its exercise to the
-// planned one or one of its Substitutes, or both. Sets logged after a swap
-// record the exercise swapped to; the Routine isn't changed.
+// changeExercise sets a session exercise's note, changes its exercise, or
+// both. The exercise can be changed to any the User can see: a Swap to the
+// planned one or one of its Substitutes, or a Replace with any other. Sets
+// logged after it record the exercise changed to; the Routine isn't changed.
 func (h handlers) changeExercise(w http.ResponseWriter, r *http.Request) {
 	var body changeExerciseBody
 	if !httpx.DecodeJSON(w, r, &body) {
@@ -540,22 +542,29 @@ func (h handlers) changeExercise(w http.ResponseWriter, r *http.Request) {
 		writeSessionExerciseNotFound(w)
 		return
 	}
+	if body.ExerciseID != nil {
+		caller, _ := auth.AccountID(r.Context())
+		names, err := h.exercises.ExerciseNames(r.Context(), caller, []uuid.UUID{swapTo})
+		if err != nil {
+			httpx.WriteInternalError(w, r, err)
+			return
+		}
+		if _, ok := names[swapTo]; !ok {
+			writeInvalidSwap(w)
+			return
+		}
+	}
 
 	h.changeSession(w, r, http.StatusOK, func(q *store.Queries, sessionID uuid.UUID) error {
-		options, err := q.GetSwapOptions(r.Context(), store.GetSwapOptionsParams{ID: sessionExerciseID, SessionID: sessionID})
+		_, err := q.GetSessionExerciseID(r.Context(), store.GetSessionExerciseIDParams{ID: sessionExerciseID, SessionID: sessionID})
 		if errors.Is(err, pgx.ErrNoRows) {
 			writeSessionExerciseNotFound(w)
 			return errResponseWritten
 		}
 		if err != nil {
-			return fmt.Errorf("get swap options: %w", err)
+			return fmt.Errorf("get session exercise: %w", err)
 		}
 		if body.ExerciseID != nil {
-			if options.PlannedExerciseID == nil ||
-				(swapTo != *options.PlannedExerciseID && !slices.Contains(options.SubstituteIds, swapTo)) {
-				writeInvalidSwap(w)
-				return errResponseWritten
-			}
 			if err := q.SwapExercise(r.Context(), store.SwapExerciseParams{
 				ID: sessionExerciseID, SessionID: sessionID, ExerciseID: swapTo,
 			}); err != nil {
@@ -575,7 +584,7 @@ func (h handlers) changeExercise(w http.ResponseWriter, r *http.Request) {
 
 func writeInvalidSwap(w http.ResponseWriter) {
 	httpx.WriteError(w, http.StatusBadRequest, "invalid_swap",
-		"Swap only to the exercise the routine planned, or one of its substitutes.")
+		"Swap or replace only with an exercise you can see.")
 }
 
 // setBody is a Set as the client sends it, to log or to correct.
