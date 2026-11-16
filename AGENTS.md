@@ -11,3 +11,7 @@ Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `
 ### Domain docs
 
 Single-context layout: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### Private docs
+
+`docs/notes/` (idea notes, paused plans) and `docs/reference/` (reference screenshots from other apps) are gitignored and private to the maintainer and agents. Read them for context. Never commit them (no `git add -f`), and never copy their text or images into issues, PRs or anything else that leaves this machine. Linking to one by path is fine.
