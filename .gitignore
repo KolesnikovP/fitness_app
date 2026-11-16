@@ -5,3 +5,7 @@
 /backend/api
 /backend/bin/
 /backend/tmp/
+
+# Private to the maintainer and their AI agents: never commit or publish
+/docs/notes/
+/docs/reference/
