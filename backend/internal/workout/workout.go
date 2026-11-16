@@ -663,7 +663,8 @@ func validSet(w http.ResponseWriter, r *http.Request) (setValues, bool) {
 }
 
 // removeExercise deletes a session exercise and its sets from the session in
-// progress. One in a Superset just leaves it.
+// progress. One in a Superset leaves it, and one left alone in that Superset
+// is ungrouped too, since a Superset needs two or more.
 func (h handlers) removeExercise(w http.ResponseWriter, r *http.Request) {
 	sessionExerciseID, err := uuid.Parse(r.PathValue("sessionExerciseId"))
 	if err != nil {
@@ -681,6 +682,9 @@ func (h handlers) removeExercise(w http.ResponseWriter, r *http.Request) {
 		if deleted == 0 {
 			writeSessionExerciseNotFound(w)
 			return errResponseWritten
+		}
+		if err := q.UngroupLoneSupersetMembers(r.Context(), sessionID); err != nil {
+			return fmt.Errorf("ungroup lone superset members: %w", err)
 		}
 		return nil
 	})

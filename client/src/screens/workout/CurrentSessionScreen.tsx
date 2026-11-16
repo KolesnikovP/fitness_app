@@ -185,6 +185,12 @@ export function CurrentSessionScreen() {
     }
     removal.remove(sessionExerciseId);
   }
+  // Grouping sends a pending removal first: the server still has the exercise
+  // left alone in a Superset of two in it until then.
+  function groupSuperset() {
+    void removal.flush();
+    setGroupingSuperset(true);
+  }
   // Undoing a removal shows the Session exercise again.
   function undoRemoval() {
     const restored = removal.pendingExerciseId;
@@ -250,7 +256,7 @@ export function CurrentSessionScreen() {
           onCancel={() => setGroupingSuperset(false)}
         />
       ) : ungrouped.length >= 2 ? (
-        <Button label="Create superset" variant="secondary" onPress={() => setGroupingSuperset(true)} />
+        <Button label="Create superset" variant="secondary" onPress={groupSuperset} />
       ) : null}
       <RestTimer plannedSeconds={plannedRests} />
       {error ? (

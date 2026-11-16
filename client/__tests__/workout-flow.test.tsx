@@ -797,6 +797,56 @@ describe('removing an exercise', () => {
     expect(screen.getByRole('button', { name: 'Add exercise' })).toBeVisible();
   });
 
+  it('takes the other exercise of a superset of two out of it once one is removed, and Undo puts both back in it', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    const bench = fakeApi.addSessionExercise(session, 'Bench Press');
+    const pulldown = fakeApi.addSessionExercise(session, 'Lat Pulldown');
+    bench.supersetId = 'superset-1';
+    pulldown.supersetId = 'superset-1';
+    fakeApi.addSet(pulldown, 60, 'kg', 10);
+    await resumeWorkout(account.id);
+
+    await removeExercise('Bench Press');
+
+    expect(await exerciseCard('Lat Pulldown')).toBeTruthy();
+    expect(screen.queryByLabelText(/^Superset of/)).toBeNull();
+    expect(screen.queryByLabelText(/^Tiles of superset/)).toBeNull();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
+    expect(await screen.findByLabelText('Superset of Bench Press and Lat Pulldown')).toBeVisible();
+    expect(screen.getByLabelText('Tiles of superset of Bench Press and Lat Pulldown')).toBeVisible();
+
+    await removeExercise('Bench Press');
+    await fireEvent.press(screen.getByRole('button', { name: 'Finish workout' }));
+
+    await findHeaderTitle('Workout finished');
+    const [saved] = fakeApi.sessions(account.id);
+    expect(saved.exercises).toMatchObject([{ exerciseId: pulldown.exerciseId, supersetId: null }]);
+    expect(saved.exercises[0].sets).toMatchObject([{ weight: 60, reps: 10, supersetId: 'superset-1' }]);
+  });
+
+  it('puts the exercise left alone in a superset in a new one while its removal can still be undone', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    const bench = fakeApi.addSessionExercise(session, 'Bench Press');
+    const pulldown = fakeApi.addSessionExercise(session, 'Lat Pulldown');
+    bench.supersetId = 'superset-1';
+    pulldown.supersetId = 'superset-1';
+    fakeApi.addSessionExercise(session, 'Plank');
+    await resumeWorkout(account.id);
+
+    await removeExercise('Bench Press');
+    await fireEvent.press(screen.getByRole('button', { name: 'Create superset' }));
+    const form = within(screen.getByLabelText('New superset'));
+    await fireEvent.press(form.getByRole('checkbox', { name: 'Lat Pulldown' }));
+    await fireEvent.press(form.getByRole('checkbox', { name: 'Plank' }));
+    await fireEvent.press(form.getByRole('button', { name: 'Group as superset' }));
+
+    expect(await screen.findByLabelText('Tiles of superset of Lat Pulldown and Plank')).toBeVisible();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
   it('drops an exercise removed from a superset of three from the superset', async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     const session = fakeApi.addSession(account.id);

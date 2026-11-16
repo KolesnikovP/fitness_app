@@ -16,6 +16,8 @@ Judgement calls for review. `npm run lint`, `typecheck` and `format:check` alrea
 
 - **State that must survive switching views is lifted, not kept by hiding.** When a screen shows one of several views at a time, such as one Session exercise's card, state that must outlive a switch (typed values, rows added or removed) lives in the parent, and only the shown view is mounted. Flag a diff that keeps views mounted and hidden with `display: 'none'` to keep their state: on iOS a gesture-handler view set up while hidden, such as a swipeable row, never gets its gesture, and Jest's fake swipeable can't show it.
 
+- **What's sent during an Undo window starts from what the server has.** A Set deletion or exercise removal waiting out its Undo window is already gone on screen but not on the server, and the screen can show more than that gone (an exercise removed from a Superset of two leaves the other ungrouped on screen only). Any new request about the workout in progress sends the pending one first with `flush()`, as deleting a Set and removing an exercise do for each other in `CurrentSessionScreen.tsx`. Flag a new action on the workout in progress that sends a request without it.
+
 ## Wording
 
 - **Glossary terms, unless the ticket decided otherwise.** Code names, test names and on-screen copy use the terms in `CONTEXT.md` and avoid its _Avoid_ list. A ticket's **Decided** section can set an on-screen label that differs, such as "Best 1RM" for Estimated 1RM or a "How to" tab. Read the originating ticket before flagging a label, and flag the label only when no decision covers it.
