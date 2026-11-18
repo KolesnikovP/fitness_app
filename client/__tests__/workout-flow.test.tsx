@@ -3,7 +3,7 @@ import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-rout
 import { http, HttpResponse } from 'msw';
 import { Alert } from 'react-native';
 
-import { openSwapSheet, removeExercise } from './support/exercise-menu';
+import { openExerciseMenuItem, openSwapSheet, removeExercise } from './support/exercise-menu';
 import { fakeApi, server } from './support/fake-api';
 import { findHeaderTitle } from './support/native-header';
 import { secureStore } from './support/secure-store';
@@ -405,7 +405,7 @@ describe('freeform workout', () => {
     expect(fakeApi.sessions(account.id)[0].exercises.every((e) => e.supersetId === null)).toBe(true);
   });
 
-  it("swaps an exercise in a superset from its card's menu, and offers no Replace without Substitutes", async () => {
+  it("swaps an exercise in a superset from its card's menu", async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     const session = fakeApi.addSession(account.id);
     const bench = fakeApi.addSessionExercise(session, 'Bench Press');
@@ -415,13 +415,6 @@ describe('freeform workout', () => {
     bench.supersetId = 'superset-1';
     pulldown.supersetId = 'superset-1';
     await resumeWorkout(account.id);
-
-    await showExercise('Lat Pulldown');
-    await fireEvent.press(screen.getByRole('button', { name: 'Lat Pulldown options' }));
-    const menu = within(await screen.findByLabelText('Lat Pulldown options sheet'));
-    expect(menu.queryByRole('button', { name: 'Replace exercise' })).toBeNull();
-    await fireEvent.press(menu.getByRole('button', { name: 'Cancel' }));
-    expect(screen.queryByLabelText('Lat Pulldown options sheet')).toBeNull();
 
     await openSwapSheet('Bench Press');
     await fireEvent.press(
@@ -1375,6 +1368,79 @@ describe('last time across a swap', () => {
     // It starts from the last Bench Press Set logged, not last time's set 3.
     expect(card.getByLabelText('Set 4 weight (kg)')).toHaveDisplayValue('60');
     expect(card.getByLabelText('Set 4 reps')).toHaveDisplayValue('10');
+  });
+});
+
+describe('replacing an exercise', () => {
+  /** Picks name from the exercise picker, searching for it first. */
+  async function pick(name: string) {
+    const picker = within(screen.getByLabelText('Exercise picker'));
+    await fireEvent.changeText(picker.getByLabelText('Search exercises'), name);
+    await fireEvent.press(await picker.findByRole('button', { name }));
+    await findHeaderTitle('Current workout');
+  }
+
+  it("replaces an exercise with no Substitutes with any from the picker, keeping its logged Sets' Exercise", async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const earlier = fakeApi.addSession(account.id, new Date(Date.now() - 86_400_000));
+    fakeApi.addSet(fakeApi.addSessionExercise(earlier, 'Incline Bench Press'), 80, 'kg', 6);
+    fakeApi.finishSession(earlier, new Date(Date.now() - 86_400_000 + 3_600_000));
+    const today = fakeApi.addSession(account.id);
+    fakeApi.addSet(fakeApi.addSessionExercise(today, 'Bench Press'), 100, 'kg', 5);
+    await resumeWorkout(account.id);
+
+    await openExerciseMenuItem('Bench Press', 'Replace exercise');
+    await findHeaderTitle('Replace exercise');
+    await pick('Incline Bench Press');
+
+    const card = await exerciseCard('Incline Bench Press');
+    expect(tileNames()).toEqual(['Incline Bench Press']);
+    // Added during the workout, it has no planned Exercise to be instead of.
+    expect(card.queryByText(/^Instead of/)).toBeNull();
+    // Set 1 was Bench Press, so only set 2 lines up with last time's Incline Bench Press.
+    expect(readouts(card.getAllByLabelText(/^Set \d+ last time$/))).toEqual(['None', '80 kg × 6']);
+    const [replaced] = today.exercises;
+    expect(replaced.exerciseId).toBe(fakeApi.exerciseNamed('Incline Bench Press').id);
+    expect(replaced.sets).toMatchObject([{ exerciseId: fakeApi.exerciseNamed('Bench Press').id, weight: 100 }]);
+  });
+
+  it('sends an exercise removal waiting out its Undo window before opening the picker', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const today = fakeApi.addSession(account.id);
+    fakeApi.addSessionExercise(today, 'Plank');
+    fakeApi.addSessionExercise(today, 'Bench Press');
+    await resumeWorkout(account.id);
+    await removeExercise('Plank');
+    expect(await screen.findByText('Exercise removed.')).toBeVisible();
+
+    await openExerciseMenuItem('Bench Press', 'Replace exercise');
+    await findHeaderTitle('Replace exercise');
+
+    expect(today.exercises.map((e) => e.exerciseId)).toEqual([fakeApi.exerciseNamed('Bench Press').id]);
+  });
+
+  it('reaches the picker from the Swap sheet, keeping the Target but not its weight', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const today = fakeApi.addSession(account.id);
+    const bench = fakeApi.addSessionExercise(today, 'Bench Press');
+    bench.target = { sets: 3, reps: 5, weight: 100, weightUnit: 'kg', restSeconds: null, note: '' };
+    bench.plannedExerciseId = bench.exerciseId;
+    bench.substituteIds = [fakeApi.exerciseNamed('Dumbbell Bench Press').id];
+    await resumeWorkout(account.id);
+
+    await openSwapSheet('Bench Press');
+    await fireEvent.press(
+      within(await screen.findByLabelText('Substitutes for Bench Press')).getByRole('button', {
+        name: 'Any other exercise…',
+      }),
+    );
+    await findHeaderTitle('Replace exercise');
+    await pick('Overhead Press');
+
+    const card = await exerciseCard('Overhead Press');
+    expect(card.getByText('Instead of Bench Press')).toBeVisible();
+    expect(card.getByText('Target 3 × 5')).toBeVisible();
+    expect(today.exercises[0].exerciseId).toBe(fakeApi.exerciseNamed('Overhead Press').id);
   });
 });
 

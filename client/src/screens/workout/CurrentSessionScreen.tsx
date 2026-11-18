@@ -20,6 +20,7 @@ import {
   type PersonalRecord,
   type Session,
   type SessionBlock,
+  type SessionExercise,
 } from '@/entities/workout';
 import { usePendingSetDeletion } from '@/features/delete-set';
 import { usePendingExerciseRemoval } from '@/features/remove-exercise';
@@ -191,6 +192,16 @@ export function CurrentSessionScreen() {
     void removal.flush();
     setGroupingSuperset(true);
   }
+  // Replacing sends what's pending first, as the request starts from what
+  // the server has; if that fails, its error shows here and the picker doesn't open.
+  async function replaceExercise(sessionExercise: SessionExercise) {
+    if (!session) return;
+    if (!(await deletion.flush()) || !(await removal.flush())) return;
+    router.push({
+      pathname: '/workout/replace-exercise',
+      params: { sessionId: session.id, sessionExerciseId: sessionExercise.id, exerciseId: sessionExercise.exerciseId },
+    });
+  }
   // Undoing a removal shows the Session exercise again.
   function undoRemoval() {
     const restored = removal.pendingExerciseId;
@@ -241,6 +252,7 @@ export function CurrentSessionScreen() {
           onChange={changed}
           onDeleteSet={deleteSet}
           onRemove={removeExercise}
+          onReplace={replaceExercise}
           rows={rowsToDo.rowsOf(shownExercise)}
           onRowsChange={(change) => rowsToDo.change(shownExercise, change)}
         />

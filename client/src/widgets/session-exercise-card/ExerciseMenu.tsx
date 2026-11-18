@@ -11,22 +11,25 @@ type ExerciseMenuProps = {
   sessionExercise: SessionExercise;
   onSwapped: (session: Session) => void;
   onRemove: () => void;
+  onReplace: () => void;
 };
 
 /**
  * A ⋯ button for a Session exercise, opening a sheet of what can be done
- * with it: Replace exercise, for one with Substitutes, opens the Swap sheet;
- * Remove exercise removes it, asking first if it has logged Sets.
+ * with it: Replace exercise opens the Swap sheet for one with Substitutes,
+ * and the exercise picker (onReplace) for one without; Remove exercise
+ * removes it, asking first if it has logged Sets.
  */
-export function ExerciseMenu({ sessionId, sessionExercise, onSwapped, onRemove }: ExerciseMenuProps) {
+export function ExerciseMenu({ sessionId, sessionExercise, onSwapped, onRemove, onReplace }: ExerciseMenuProps) {
   const styles = useStyles();
   const [open, setOpen] = useState(false);
   const [swapSheetOpen, setSwapSheetOpen] = useState(false);
   const name = sessionExercise.name;
 
-  function openSwapSheet() {
+  function replace() {
     setOpen(false);
-    setSwapSheetOpen(true);
+    if (canSwap(sessionExercise)) setSwapSheetOpen(true);
+    else onReplace();
   }
 
   // The sheet stays up under the question, since an alert can't open as a
@@ -54,17 +57,15 @@ export function ExerciseMenu({ sessionId, sessionExercise, onSwapped, onRemove }
           <Text accessibilityRole="header" style={styles.title}>
             {name}
           </Text>
-          {canSwap(sessionExercise) ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Replace exercise"
-              onPress={openSwapSheet}
-              style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}
-            >
-              <Text style={styles.optionIcon}>⇄</Text>
-              <Text style={styles.optionLabel}>Replace exercise</Text>
-            </Pressable>
-          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Replace exercise"
+            onPress={replace}
+            style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}
+          >
+            <Text style={styles.optionIcon}>⇄</Text>
+            <Text style={styles.optionLabel}>Replace exercise</Text>
+          </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Remove exercise"
@@ -88,6 +89,7 @@ export function ExerciseMenu({ sessionId, sessionExercise, onSwapped, onRemove }
         sessionId={sessionId}
         sessionExercise={sessionExercise}
         onSwapped={onSwapped}
+        onReplace={onReplace}
         open={swapSheetOpen}
         onClose={() => setSwapSheetOpen(false)}
       />

@@ -21,6 +21,8 @@ type SessionExerciseCardProps = {
   onChange: (session: Session) => void;
   onDeleteSet: (setId: string) => void;
   onRemove: (sessionExerciseId: string) => void;
+  /** Opens the exercise picker to Replace it with any Exercise. */
+  onReplace: (sessionExercise: SessionExercise) => void;
   /** What the User did to its rows still to do, kept by the screen (see useRowsToDo). */
   rows: RowsToDo;
   onRowsChange: (change: RowsChange) => void;
@@ -37,6 +39,7 @@ export function SessionExerciseCard({
   onChange,
   onDeleteSet,
   onRemove,
+  onReplace,
   rows,
   onRowsChange,
 }: SessionExerciseCardProps) {
@@ -58,6 +61,7 @@ export function SessionExerciseCard({
           sessionExercise={sessionExercise}
           onSwapped={onChange}
           onRemove={() => onRemove(sessionExercise.id)}
+          onReplace={() => onReplace(sessionExercise)}
         />
       </View>
       {target ? (

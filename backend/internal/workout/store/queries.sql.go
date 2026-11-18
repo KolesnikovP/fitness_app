@@ -191,6 +191,25 @@ func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (GetSess
 	return i, err
 }
 
+const getSessionExerciseID = `-- name: GetSessionExerciseID :one
+SELECT id
+FROM session_exercises
+WHERE id = $1 AND session_id = $2
+`
+
+type GetSessionExerciseIDParams struct {
+	ID        uuid.UUID
+	SessionID uuid.UUID
+}
+
+// The session exercise's id, if it's one of the session's.
+func (q *Queries) GetSessionExerciseID(ctx context.Context, arg GetSessionExerciseIDParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, getSessionExerciseID, arg.ID, arg.SessionID)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getSessionInProgress = `-- name: GetSessionInProgress :one
 SELECT id
 FROM workout_sessions
@@ -202,31 +221,6 @@ func (q *Queries) GetSessionInProgress(ctx context.Context, accountID uuid.UUID)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
-}
-
-const getSwapOptions = `-- name: GetSwapOptions :one
-SELECT planned_exercise_id, substitute_ids
-FROM session_exercises
-WHERE id = $1 AND session_id = $2
-`
-
-type GetSwapOptionsParams struct {
-	ID        uuid.UUID
-	SessionID uuid.UUID
-}
-
-type GetSwapOptionsRow struct {
-	PlannedExerciseID *uuid.UUID
-	SubstituteIds     []uuid.UUID
-}
-
-// What a session exercise of the session can be swapped to: its planned
-// exercise (null if it wasn't planned) and substitutes.
-func (q *Queries) GetSwapOptions(ctx context.Context, arg GetSwapOptionsParams) (GetSwapOptionsRow, error) {
-	row := q.db.QueryRow(ctx, getSwapOptions, arg.ID, arg.SessionID)
-	var i GetSwapOptionsRow
-	err := row.Scan(&i.PlannedExerciseID, &i.SubstituteIds)
-	return i, err
 }
 
 const listExercisesOfSessions = `-- name: ListExercisesOfSessions :many

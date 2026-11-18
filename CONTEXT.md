@@ -132,7 +132,11 @@ _Avoid_: Alternative, alternate, replacement
 
 **Swap**:
 Changing a Session exercise to one of its Substitutes, or back to the planned Exercise, for that Session only. It keeps the Target's sets and reps but not its weight, which was planned for another Exercise. The Routine is unchanged; Sets logged after the Swap record the Exercise swapped to.
-_Avoid_: Substitution (as a stored thing), replace, switch
+_Avoid_: Substitution (as a stored thing), switch
+
+**Replace**:
+Changing a Session exercise to any Exercise from the picker, for any reason, such as fixing one added by mistake, for that Session only. Unlike a Swap it isn't limited to the Substitutes, and a Session exercise added during the Session can be Replaced too. Otherwise it works as a Swap does: it keeps the Target's sets and reps but not its weight, the Routine is unchanged, and Sets logged after it record the Exercise replaced with.
+_Avoid_: change exercise, substitute (as a verb)
 
 **Program**:
 A training plan of weeks, each holding Routines. In v1 every User has one Program with one week that holds all their Routines, and the app shows neither.
