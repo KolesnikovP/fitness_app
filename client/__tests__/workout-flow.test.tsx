@@ -1492,7 +1492,7 @@ describe('replacing an exercise', () => {
 
     const card = await exerciseCard('Overhead Press');
     expect(card.getByText('Instead of Bench Press')).toBeVisible();
-    expect(card.getByText('Set 1 of 3 · 3 × 5')).toBeVisible();
+    expect(card.getByText('Set 1 of 3 · 5 reps')).toBeVisible();
     expect(today.exercises[0].exerciseId).toBe(fakeApi.exerciseNamed('Overhead Press').id);
   });
 });
@@ -1938,12 +1938,12 @@ describe("the shown exercise's heading", () => {
 
   it("says which of the Target's Sets is next, with its reps and weight, and the slot note under it", async () => {
     const card = await squatToday(3);
-    expect(card.getByText('Set 1 of 3 · 3 × 5 · 100 kg')).toBeVisible();
+    expect(card.getByText('Set 1 of 3 · 100 kg × 5')).toBeVisible();
     expect(card.getByText('Brace hard')).toBeVisible();
 
     await logSet(card, 1);
 
-    expect(card.getByText('Set 2 of 3 · 3 × 5 · 100 kg')).toBeVisible();
+    expect(card.getByText('Set 2 of 3 · 100 kg × 5')).toBeVisible();
   });
 
   it('says the exercise is done once every planned Set is logged, and counts a Set added beyond the Target without "of"', async () => {
@@ -1954,9 +1954,9 @@ describe("the shown exercise's heading", () => {
     expect(card.getByText('2 of 2 done')).toBeVisible();
 
     await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
-    expect(card.getByText('Set 3 · 2 × 5 · 100 kg')).toBeVisible();
+    expect(card.getByText('Set 3 · 100 kg × 5')).toBeVisible();
     await logSet(card, 3);
-    expect(card.getByText('Set 4 · 2 × 5 · 100 kg')).toBeVisible();
+    expect(card.getByText('Set 4 · 100 kg × 5')).toBeVisible();
   });
 
   it("says how many of the Target's Sets were done once a planned row is removed and the rest logged", async () => {
@@ -1973,13 +1973,13 @@ describe("the shown exercise's heading", () => {
     const card = await squatToday(3);
     await chooseSetType(card, 1, 'Warm-up');
     await logSet(card, 1);
-    expect(card.getByText('Set 1 of 3 · 3 × 5 · 100 kg')).toBeVisible();
+    expect(card.getByText('Set 1 of 3 · 100 kg × 5')).toBeVisible();
 
     await logSet(card, 2);
     await chooseSetType(card, 3, 'Drop');
     await logSet(card, 3);
 
-    expect(card.getByText('Set 2 of 3 · 3 × 5 · 100 kg')).toBeVisible();
+    expect(card.getByText('Set 2 of 3 · 100 kg × 5')).toBeVisible();
   });
 
   it('says just "Set N" with no Target', async () => {
@@ -2008,7 +2008,7 @@ describe("the shown exercise's heading", () => {
     const card = await swap('Bench Press', 'Dumbbell Bench Press');
 
     expect(card.getByText('Instead of Bench Press')).toBeVisible();
-    expect(card.getByText('Set 2 of 3 · 3 × 5')).toBeVisible();
+    expect(card.getByText('Set 2 of 3 · 5 reps')).toBeVisible();
   });
 });
 

@@ -519,8 +519,9 @@ export function formatTarget(target: {
  * Only numbered Sets count, as they do for its Target, so warm-ups and drop
  * Sets leave it unchanged; like the Target, it counts those of the whole
  * Session exercise, across a Swap. While a numbered row is still to do, it
- * names the next numbered Set: "Set 2 of 3 · 3 × 5 · 100 kg", or "Set 4 ·
- * 3 × 5 · 100 kg" beyond the Target. With none, it says how many of the
+ * names the next numbered Set with each Set the Target plans (see
+ * formatTargetSet): "Set 2 of 3 · 100 kg × 5", or "Set 4 · 100 kg × 5"
+ * beyond the Target. With none, it says how many of the
  * Target's were done: "3 of 3 done", or "2 of 3 done" once a planned row was
  * removed; beyond the Target, it names the next as before. With no Target,
  * just "Set 2".
@@ -533,7 +534,12 @@ export function formatSetProgress(exercise: SessionExercise, weightUnit: UnitPre
   const planned = target.sets;
   const numberedToDo = pendingSetDrafts(exercise, weightUnit, rows).some((d) => isNumbered(d.type));
   if (!numberedToDo && logged <= planned) return `${logged} of ${planned} done`;
-  return logged < planned ? `${next} of ${planned} · ${formatTarget(target)}` : `${next} · ${formatTarget(target)}`;
+  return `${logged < planned ? `${next} of ${planned}` : next} · ${formatTargetSet(target)}`;
+}
+
+/** Each Set a Target plans, as a logged Set reads: "100 kg × 5", or "5 reps" with no weight (0) planned. */
+function formatTargetSet(target: SessionTarget): string {
+  return target.weight === 0 ? `${target.reps} reps` : `${target.weight} ${target.weightUnit} × ${target.reps}`;
 }
 
 /** Whether a Session exercise has a Target and every Set it plans is logged; never without a Target. */
