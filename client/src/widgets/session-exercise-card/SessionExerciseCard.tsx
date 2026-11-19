@@ -1,6 +1,6 @@
 import { Text, View } from 'react-native';
 
-import { useAuth } from '@/entities/auth';
+import { useUnitPreference } from '@/entities/auth';
 import { formatSetProgress, swappedFrom, type RowsToDo, type Session, type SessionExercise } from '@/entities/workout';
 import { ExerciseNoteField } from '@/features/exercise-note';
 import { makeStyles, spacing } from '@/shared/ui';
@@ -40,8 +40,7 @@ export function SessionExerciseCard({
   onRowsChange,
 }: SessionExerciseCardProps) {
   const styles = useStyles();
-  const { state } = useAuth();
-  const unit = state.status === 'signedIn' ? (state.me.unitPreference ?? 'kg') : 'kg';
+  const unit = useUnitPreference();
   const slotNote = sessionExercise.target?.note;
   const swappedAway = swappedFrom(sessionExercise);
 

@@ -19,7 +19,7 @@ export {
   formatSetProgress,
   formatTarget,
   hasRowsToDo,
-  plannedSetsLogged,
+  allPlannedSetsLogged,
   inBlockOrder,
   hasSets,
   MAX_SESSION_NAME_CHARS,

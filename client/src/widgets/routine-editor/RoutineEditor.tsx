@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { useAuth } from '@/entities/auth';
+import { useUnitPreference } from '@/entities/auth';
 import type { ExerciseRef } from '@/shared/model';
 import {
   parseRoutineDraft,
@@ -55,8 +55,7 @@ export function RoutineEditor({
   onSave,
 }: RoutineEditorProps) {
   const styles = useStyles();
-  const { state } = useAuth();
-  const unit = state.status === 'signedIn' ? (state.me.unitPreference ?? 'kg') : 'kg';
+  const unit = useUnitPreference();
   const [draft, setDraft] = useState(initial);
   const [grouping, setGrouping] = useState(false);
   const [error, setError] = useState<string | null>(null);

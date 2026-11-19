@@ -1959,6 +1959,16 @@ describe("the shown exercise's heading", () => {
     expect(card.getByText('Set 4 · 2 × 5 · 100 kg')).toBeVisible();
   });
 
+  it("says how many of the Target's Sets were done once a planned row is removed and the rest logged", async () => {
+    const card = await squatToday(3);
+    await removeRow(card, 3);
+    await logSet(card, 1);
+    await logSet(card, 2);
+
+    expect(rowsToDo(card)).toBe(0);
+    expect(card.getByText('2 of 3 done')).toBeVisible();
+  });
+
   it("counts only numbered Sets: logging a warm-up or a drop Set doesn't change it", async () => {
     const card = await squatToday(3);
     await chooseSetType(card, 1, 'Warm-up');

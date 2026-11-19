@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { ExerciseMedia, getExercise } from '@/entities/exercise';
-import { blockExercises, plannedSetsLogged, type SessionBlock, type SessionExercise } from '@/entities/workout';
+import { blockExercises, allPlannedSetsLogged, type SessionBlock, type SessionExercise } from '@/entities/workout';
 import { makeStyles, spacing } from '@/shared/ui';
 import { listNames } from '@/shared/utils';
 
@@ -56,7 +56,7 @@ export function SessionExerciseStrip({ token, blocks, shownId, onShow, onAdd }: 
 
   function tile(exercise: SessionExercise, block: string) {
     const shown = exercise.id === shownId;
-    const done = plannedSetsLogged(exercise);
+    const done = allPlannedSetsLogged(exercise);
     const imageUrl = images[exercise.exerciseId];
     return (
       <Pressable
@@ -163,7 +163,8 @@ function useExerciseImages(token: string, exerciseIds: string[]): Record<string,
 }
 
 const TILE_SIZE = 56;
-/** The bar under the tile shown, thicker than the rest's 4. */
+const BAR_HEIGHT = 4;
+/** The bar under the tile shown, thicker than the rest. */
 const BAR_SHOWN_HEIGHT = 6;
 /** How much of the next tile shows beyond the one scrolled to. */
 const PEEK = 24;
@@ -191,7 +192,7 @@ const useStyles = makeStyles((colors) => ({
   },
   add: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.fieldBorder },
   plus: { fontSize: 28, color: colors.text },
-  bar: { width: TILE_SIZE, height: 4, borderRadius: 2, backgroundColor: colors.border },
+  bar: { width: TILE_SIZE, height: BAR_HEIGHT, borderRadius: BAR_HEIGHT / 2, backgroundColor: colors.border },
   barShown: { height: BAR_SHOWN_HEIGHT, borderRadius: BAR_SHOWN_HEIGHT / 2, backgroundColor: colors.primary },
   barDone: { backgroundColor: colors.success },
   // As tall as the bar shown, so tiles stay level as the one shown changes.

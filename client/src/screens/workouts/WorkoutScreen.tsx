@@ -3,7 +3,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { useAuth } from '@/entities/auth';
+import { useAuth, useUnitPreference } from '@/entities/auth';
 import { getPost, type Post } from '@/entities/post';
 import {
   formatSessionDate,
@@ -28,7 +28,7 @@ export function WorkoutScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state } = useAuth();
   const token = state.status === 'signedIn' ? state.token : null;
-  const unit = state.status === 'signedIn' ? (state.me.unitPreference ?? 'kg') : 'kg';
+  const unit = useUnitPreference();
   const [post, setPost] = useState<Post | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
