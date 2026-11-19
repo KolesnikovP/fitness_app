@@ -1,4 +1,4 @@
-import { fireEvent, screen, within } from 'expo-router/testing-library';
+import { fireEvent, screen, waitFor, within } from 'expo-router/testing-library';
 
 import { swipeLeft } from './swipeable';
 
@@ -16,6 +16,15 @@ export function loggedSets(card: ReturnType<typeof within>): string[] {
 /** What a screen reader says each of these elements' value is, in order. */
 export function readouts(elements: { props: { accessibilityValue?: unknown } }[]): string[] {
   return elements.map((element) => (element.props.accessibilityValue as { text: string }).text);
+}
+
+/**
+ * Ticks row n of a card's set table to log it, and waits until the card
+ * shows logged Sets (n, unless rows above were left to do).
+ */
+export async function logSet(card: ReturnType<typeof within>, n: number, logged = n) {
+  await fireEvent.press(card.getByRole('button', { name: `Log set ${n}` }));
+  await waitFor(() => expect(loggedSets(card)).toHaveLength(logged));
 }
 
 /**

@@ -4,6 +4,7 @@ import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-rout
 
 import { findHeaderTitle } from './support/native-header';
 import { fakeApi } from './support/fake-api';
+import { openFinishedWorkout } from './support/finished-workout';
 import { readouts } from './support/set-table';
 import { imagePicker } from './support/image-picker';
 import { secureStore } from './support/secure-store';
@@ -153,8 +154,7 @@ describe('the workout screen', () => {
     secureStore.set('auth-token', fakeApi.issueToken(account.id));
     await renderRouter('./src/app', { initialUrl: '/' });
     await screen.findByRole('header', { name: 'Workout' });
-    await act(async () => router.navigate(`/profile/workouts/${session.id}`));
-    await screen.findByLabelText('Carousel');
+    await openFinishedWorkout(session.id);
 
     // Saving waits for the cover's photo, so the image isn't captured without it.
     expect(screen.getByRole('button', { name: 'Save to Photos' })).toBeDisabled();
@@ -262,8 +262,7 @@ describe('the workout screen', () => {
     secureStore.set('auth-token', fakeApi.issueToken(account.id));
     await renderRouter('./src/app', { initialUrl: '/' });
     await screen.findByRole('header', { name: 'Workout' });
-    await act(async () => router.navigate(`/profile/workouts/${session.id}`));
-    await screen.findByLabelText('Carousel');
+    await openFinishedWorkout(session.id);
 
     await pressAndSave(screen.getByRole('button', { name: 'Copy session summary' }));
 
@@ -305,8 +304,7 @@ describe('the workout screen', () => {
     secureStore.set('auth-token', fakeApi.issueToken(account.id));
     await renderRouter('./src/app', { initialUrl: '/' });
     await screen.findByRole('header', { name: 'Workout' });
-    await act(async () => router.navigate(`/profile/workouts/${session.id}`));
-    await screen.findByLabelText('Carousel');
+    await openFinishedWorkout(session.id);
 
     // Each Set is marked as in the set table: a letter, or its number among the working sets.
     const lines = ['Set 1', 'Set 2', 'Set 3', 'Set 4'].map((name) => screen.getByLabelText(name));
@@ -352,8 +350,7 @@ describe('the workout screen', () => {
     secureStore.set('auth-token', fakeApi.issueToken(account.id));
     await renderRouter('./src/app', { initialUrl: '/' });
     await screen.findByRole('header', { name: 'Workout' });
-    await act(async () => router.navigate(`/profile/workouts/${session.id}`));
-    await screen.findByLabelText('Carousel');
+    await openFinishedWorkout(session.id);
 
     await pressAndSave(screen.getByRole('button', { name: 'Copy session summary' }));
 
@@ -386,8 +383,7 @@ describe('the workout screen', () => {
     sharing.grantPhotos = false;
     await renderRouter('./src/app', { initialUrl: '/' });
     await screen.findByRole('header', { name: 'Workout' });
-    await act(async () => router.navigate(`/profile/workouts/${session.id}`));
-    await screen.findByLabelText('Carousel');
+    await openFinishedWorkout(session.id);
 
     await pressAndSave(screen.getByRole('button', { name: 'Save to Photos' }));
 
