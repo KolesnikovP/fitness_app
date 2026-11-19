@@ -4,6 +4,7 @@ import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-rout
 
 import { findHeaderTitle } from './support/native-header';
 import { fakeApi } from './support/fake-api';
+import { openFinishedWorkout } from './support/finished-workout';
 import { readouts } from './support/set-table';
 import { imagePicker } from './support/image-picker';
 import { secureStore } from './support/secure-store';
@@ -153,8 +154,7 @@ describe('the workout screen', () => {
     secureStore.set('auth-token', fakeApi.issueToken(account.id));
     await renderRouter('./src/app', { initialUrl: '/' });
     await screen.findByRole('header', { name: 'Workout' });
-    await act(async () => router.navigate(`/profile/workouts/${session.id}`));
-    await screen.findByLabelText('Carousel');
+    await openFinishedWorkout(session.id);
 
     // Saving waits for the cover's photo, so the image isn't captured without it.
     expect(screen.getByRole('button', { name: 'Save to Photos' })).toBeDisabled();
@@ -262,8 +262,7 @@ describe('the workout screen', () => {
     secureStore.set('auth-token', fakeApi.issueToken(account.id));
     await renderRouter('./src/app', { initialUrl: '/' });
     await screen.findByRole('header', { name: 'Workout' });
-    await act(async () => router.navigate(`/profile/workouts/${session.id}`));
-    await screen.findByLabelText('Carousel');
+    await openFinishedWorkout(session.id);
 
     await pressAndSave(screen.getByRole('button', { name: 'Copy session summary' }));
 
@@ -305,8 +304,7 @@ describe('the workout screen', () => {
     secureStore.set('auth-token', fakeApi.issueToken(account.id));
     await renderRouter('./src/app', { initialUrl: '/' });
     await screen.findByRole('header', { name: 'Workout' });
-    await act(async () => router.navigate(`/profile/workouts/${session.id}`));
-    await screen.findByLabelText('Carousel');
+    await openFinishedWorkout(session.id);
 
     // Each Set is marked as in the set table: a letter, or its number among the working sets.
     const lines = ['Set 1', 'Set 2', 'Set 3', 'Set 4'].map((name) => screen.getByLabelText(name));
@@ -337,6 +335,45 @@ describe('the workout screen', () => {
     );
   });
 
+  it("numbers each Exercise's Sets on its own in the Session summary, across a Swap and a Swap back", async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id, new Date(2026, 10, 5, 9, 0));
+    const bench = fakeApi.addSessionExercise(session, 'Bench Press');
+    const benchId = bench.exerciseId;
+    fakeApi.addSet(bench, 100, 'kg', 5);
+    fakeApi.addSet(bench, 100, 'kg', 4);
+    bench.exerciseId = fakeApi.exerciseNamed('Dumbbell Bench Press').id;
+    fakeApi.addSet(bench, 30, 'kg', 10);
+    bench.exerciseId = benchId;
+    fakeApi.addSet(bench, 95, 'kg', 5);
+    fakeApi.finishSession(session, new Date(2026, 10, 5, 10, 0));
+    secureStore.set('auth-token', fakeApi.issueToken(account.id));
+    await renderRouter('./src/app', { initialUrl: '/' });
+    await screen.findByRole('header', { name: 'Workout' });
+    await openFinishedWorkout(session.id);
+
+    await pressAndSave(screen.getByRole('button', { name: 'Copy session summary' }));
+
+    await waitFor(() =>
+      expect(sharing.clipboard).toContain(
+        [
+          '## Bench Press',
+          '',
+          '1. 100 kg × 5',
+          '2. 100 kg × 4',
+          '',
+          '## Dumbbell Bench Press',
+          '',
+          '1. 30 kg × 10',
+          '',
+          '## Bench Press',
+          '',
+          '3. 95 kg × 5',
+        ].join('\n'),
+      ),
+    );
+  });
+
   it('without access to Photos, says so and saves nothing', async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     const session = fakeApi.addSession(account.id);
@@ -346,8 +383,7 @@ describe('the workout screen', () => {
     sharing.grantPhotos = false;
     await renderRouter('./src/app', { initialUrl: '/' });
     await screen.findByRole('header', { name: 'Workout' });
-    await act(async () => router.navigate(`/profile/workouts/${session.id}`));
-    await screen.findByLabelText('Carousel');
+    await openFinishedWorkout(session.id);
 
     await pressAndSave(screen.getByRole('button', { name: 'Save to Photos' }));
 

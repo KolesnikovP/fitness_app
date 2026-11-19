@@ -6,6 +6,8 @@ Judgement calls for review. `npm run lint`, `typecheck` and `format:check` alrea
 
 - **Expected values are independent of the code.** Each expected value is a literal or a worked example ("330 lb × 3 is 149.7 kg, so 164.7 kg estimated"), never recomputed the way the code computes it. A tautological expectation, such as a date formatted with the same `toLocaleDateString` call the component uses, passes by construction and hides the very question a test should answer. Flag it, and suggest a literal or asserting only the parts the code decides.
 
+- **A flow step used in more than one place is a helper in `client/__tests__/support/`.** A step through the app that more than one describe or test file takes, such as a Swap (`swap`), logging a row (`logSet`) or opening a finished workout (`openFinishedWorkout`), lives in `support/` with a doc comment saying what it does and what it waits for. A new test reuses the helper. Flag a diff that copies a step into a second describe or file, or that defines locally a helper `support/` already has. A fixture building one describe's own scenario, such as a `benchToday`, can stay local.
+
 - **Day and week boundaries are tested at pinned instants, in zones on both sides of UTC.** A backend test of anything that depends on the date, such as the Streak, runs on `testutil.NewServerAt` and builds every date from that instant. It checks one instant near the boundary, where the User's zone and UTC are on different days, and one well away from it. Where the User's time zone matters, it covers a zone behind UTC and one ahead, such as `America/Chicago` and `Europe/Rome`. Flag a test that reads the real clock for such dates, or covers only one side of UTC.
 
 ## UI

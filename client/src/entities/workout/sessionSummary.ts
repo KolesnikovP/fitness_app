@@ -66,10 +66,18 @@ export function sessionSummary(session: Session, unit: UnitPreference): string {
     if (exercise.sets.length === 0) {
       lines.push('', `## ${exercise.name}`, '', 'No sets logged.');
     }
-    // A Swap splits an Exercise's Sets into runs, each under the Exercise done.
+    // A Swap splits an Exercise's Sets into runs, each under the Exercise
+    // done. Each Exercise's list is numbered on its own, all through the
+    // Session exercise, so the Exercise swapped to starts at 1 and a Swap
+    // back carries on, as in the set table (see setMarks).
+    const listed = new Map<string, number>();
     for (const run of setRuns(exercise)) {
       lines.push('', `## ${run.name}`, '');
-      for (const { set, number } of run.sets) lines.push(`${number}. ${setLine(set, unit)}`);
+      for (const { set } of run.sets) {
+        const number = (listed.get(run.exerciseId) ?? 0) + 1;
+        listed.set(run.exerciseId, number);
+        lines.push(`${number}. ${setLine(set, unit)}`);
+      }
     }
     if (exercise.note) lines.push('', `Note: ${exercise.note}`);
   }

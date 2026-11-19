@@ -3,8 +3,9 @@ import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-rout
 import { http, HttpResponse } from 'msw';
 import { Alert } from 'react-native';
 
-import { openExerciseMenuItem, openSwapSheet, removeExercise } from './support/exercise-menu';
+import { openExerciseMenuItem, openSwapSheet, removeExercise, swap } from './support/exercise-menu';
 import { fakeApi, server } from './support/fake-api';
+import { openFinishedWorkout } from './support/finished-workout';
 import { findHeaderTitle } from './support/native-header';
 import { secureStore } from './support/secure-store';
 import {
@@ -16,7 +17,16 @@ import {
   tileNames,
 } from './support/session-exercises';
 import type { FakeSetType } from './support/fake-api';
-import { chooseSetType, loggedSets, readouts, removeRow, repsToDo, rowsToDo, rowsToDoHold } from './support/set-table';
+import {
+  chooseSetType,
+  loggedSets,
+  logSet,
+  readouts,
+  removeRow,
+  repsToDo,
+  rowsToDo,
+  rowsToDoHold,
+} from './support/set-table';
 import { swipeLeft } from './support/swipeable';
 
 /** Launches the app signed in as an onboarded kg user, on the Workout tab. */
@@ -1323,21 +1333,6 @@ describe('last time across a swap', () => {
     await resumeWorkout(account.id);
   }
 
-  async function swap(from: string, to: string) {
-    await openSwapSheet(from);
-    await fireEvent.press(
-      within(await screen.findByLabelText('Substitutes for Bench Press')).getByRole('button', {
-        name: `Swap to ${to}`,
-      }),
-    );
-    return within(await screen.findByLabelText(`${to} card`));
-  }
-
-  async function logSet(card: ExerciseCard, n: number) {
-    await fireEvent.press(card.getByRole('button', { name: `Log set ${n}` }));
-    await waitFor(() => expect(loggedSets(card)).toHaveLength(n));
-  }
-
   it("starts the Exercise swapped to at its own set 1, and shows no last time for the other's Sets", async () => {
     await benchToday(3);
     const bench = await exerciseCard('Bench Press');
@@ -1368,6 +1363,63 @@ describe('last time across a swap', () => {
     // It starts from the last Bench Press Set logged, not last time's set 3.
     expect(card.getByLabelText('Set 4 weight (kg)')).toHaveDisplayValue('60');
     expect(card.getByLabelText('Set 4 reps')).toHaveDisplayValue('10');
+  });
+});
+
+describe('set numbers across a swap', () => {
+  /** What marks each row of a card's set table, logged then still to do: a number, or a type's letter. */
+  function marks(card: ExerciseCard): string[] {
+    return card
+      .getAllByRole('button', { name: /^Set \d+ type$/ })
+      .map((mark) => within(mark).getByText(/^(W|F|D|\d+)$/).props.children);
+  }
+
+  /** Today's Session, with Bench Press on a Target of targetSets × 5 at 60 kg that can swap to Dumbbell Bench Press. */
+  async function benchToday(targetSets: number) {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    const bench = fakeApi.addSessionExercise(session, 'Bench Press');
+    bench.target = { sets: targetSets, reps: 5, weight: 60, weightUnit: 'kg', restSeconds: null, note: '' };
+    bench.plannedExerciseId = bench.exerciseId;
+    bench.substituteIds = [fakeApi.exerciseNamed('Dumbbell Bench Press').id];
+    await resumeWorkout(account.id);
+    return session;
+  }
+
+  it('starts the Exercise swapped to at set 1, in the Session and the finished workout', async () => {
+    const session = await benchToday(3);
+    const bench = await exerciseCard('Bench Press');
+    await logSet(bench, 1);
+    await logSet(bench, 2);
+
+    const card = await swap('Bench Press', 'Dumbbell Bench Press');
+    // The Target counts the Bench Press Sets, leaving one row, the first Dumbbell Set.
+    expect(rowsToDo(card)).toBe(1);
+    expect(marks(card)).toEqual(['1', '2', '1']);
+    // The Target's weight is Bench Press's, so the Dumbbell row starts without one.
+    await fireEvent.changeText(card.getByLabelText('Set 3 weight (kg)'), '30');
+    await logSet(card, 3);
+    expect(marks(card)).toEqual(['1', '2', '1']);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Finish workout' }));
+    await findHeaderTitle('Workout finished');
+    await openFinishedWorkout(session.id);
+    const lines = ['Set 1', 'Set 2', 'Set 3'].map((name) => screen.getByLabelText(name));
+    expect(lines.map((line) => within(line).getByText(/^\d+$/).props.children)).toEqual(['1', '2', '1']);
+  });
+
+  it("carries on an Exercise's numbers after a Swap back", async () => {
+    await benchToday(4);
+    const bench = await exerciseCard('Bench Press');
+    await logSet(bench, 1);
+    await logSet(bench, 2);
+    const dumbbells = await swap('Bench Press', 'Dumbbell Bench Press');
+    await fireEvent.changeText(dumbbells.getByLabelText('Set 3 weight (kg)'), '30');
+    await logSet(dumbbells, 3);
+
+    const card = await swap('Dumbbell Bench Press', 'Bench Press');
+    expect(rowsToDo(card)).toBe(1);
+    expect(marks(card)).toEqual(['1', '2', '1', '3']);
   });
 });
 
@@ -1547,16 +1599,6 @@ describe('warm-ups from last time', () => {
     bench.substituteIds = [fakeApi.exerciseNamed('Dumbbell Bench Press').id];
     await resumeWorkout(account.id);
 
-    async function swap(from: string, to: string) {
-      await openSwapSheet(from);
-      await fireEvent.press(
-        within(await screen.findByLabelText('Substitutes for Bench Press')).getByRole('button', {
-          name: `Swap to ${to}`,
-        }),
-      );
-      return within(await screen.findByLabelText(`${to} card`));
-    }
-
     let card = await swap('Bench Press', 'Dumbbell Bench Press');
     expect(rowsToDoHold(card)).toEqual(['W 20×10', 'W 25×8', '1 30×10', '2 30×10', '3 30×10']);
     card = await swap('Dumbbell Bench Press', 'Bench Press');
@@ -1632,11 +1674,6 @@ describe('rows still to do from last time with no Target', () => {
     fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
     await resumeWorkout(account.id);
     return exerciseCard('Bench Press');
-  }
-
-  async function logSet(card: ExerciseCard, n: number, logged: number) {
-    await fireEvent.press(card.getByRole('button', { name: `Log set ${n}` }));
-    await waitFor(() => expect(loggedSets(card)).toHaveLength(logged));
   }
 
   it("opens with a row for each of last time's sets, of its type and values, in order", async () => {
@@ -1731,16 +1768,6 @@ describe('rows still to do from last time with no Target', () => {
     bench.substituteIds = [fakeApi.exerciseNamed('Dumbbell Bench Press').id];
     await resumeWorkout(account.id);
     await logSet(await exerciseCard('Bench Press'), 1, 1);
-
-    async function swap(from: string, to: string) {
-      await openSwapSheet(from);
-      await fireEvent.press(
-        within(await screen.findByLabelText('Substitutes for Bench Press')).getByRole('button', {
-          name: `Swap to ${to}`,
-        }),
-      );
-      return within(await screen.findByLabelText(`${to} card`));
-    }
 
     expect(rowsToDoHold(await swap('Bench Press', 'Dumbbell Bench Press'))).toEqual(['1 30×10', '2 32×8']);
     // Back on Bench Press, the warm-up logged has used up its row.

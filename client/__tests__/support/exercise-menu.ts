@@ -16,6 +16,19 @@ export async function openSwapSheet(name: string) {
   await openExerciseMenuItem(name, 'Replace exercise');
 }
 
+/**
+ * Swaps a Session exercise with Substitutes from the Exercise done now
+ * (from) to another (to) through its Swap sheet, and returns the card it
+ * becomes.
+ */
+export async function swap(from: string, to: string) {
+  await openSwapSheet(from);
+  await fireEvent.press(
+    within(await screen.findByLabelText(/^Substitutes for /)).getByRole('button', { name: `Swap to ${to}` }),
+  );
+  return within(await screen.findByLabelText(`${to} card`));
+}
+
 /** Shows a Session exercise and chooses Remove exercise in its card's ⋯ menu. */
 export async function removeExercise(name: string) {
   await openExerciseMenuItem(name, 'Remove exercise');
