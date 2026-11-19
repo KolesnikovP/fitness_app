@@ -337,6 +337,46 @@ describe('the workout screen', () => {
     );
   });
 
+  it("numbers each Exercise's Sets on its own in the Session summary, across a Swap and a Swap back", async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id, new Date(2026, 10, 5, 9, 0));
+    const bench = fakeApi.addSessionExercise(session, 'Bench Press');
+    const benchId = bench.exerciseId;
+    fakeApi.addSet(bench, 100, 'kg', 5);
+    fakeApi.addSet(bench, 100, 'kg', 4);
+    bench.exerciseId = fakeApi.exerciseNamed('Dumbbell Bench Press').id;
+    fakeApi.addSet(bench, 30, 'kg', 10);
+    bench.exerciseId = benchId;
+    fakeApi.addSet(bench, 95, 'kg', 5);
+    fakeApi.finishSession(session, new Date(2026, 10, 5, 10, 0));
+    secureStore.set('auth-token', fakeApi.issueToken(account.id));
+    await renderRouter('./src/app', { initialUrl: '/' });
+    await screen.findByRole('header', { name: 'Workout' });
+    await act(async () => router.navigate(`/profile/workouts/${session.id}`));
+    await screen.findByLabelText('Carousel');
+
+    await pressAndSave(screen.getByRole('button', { name: 'Copy session summary' }));
+
+    await waitFor(() =>
+      expect(sharing.clipboard).toContain(
+        [
+          '## Bench Press',
+          '',
+          '1. 100 kg × 5',
+          '2. 100 kg × 4',
+          '',
+          '## Dumbbell Bench Press',
+          '',
+          '1. 30 kg × 10',
+          '',
+          '## Bench Press',
+          '',
+          '3. 95 kg × 5',
+        ].join('\n'),
+      ),
+    );
+  });
+
   it('without access to Photos, says so and saves nothing', async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     const session = fakeApi.addSession(account.id);
