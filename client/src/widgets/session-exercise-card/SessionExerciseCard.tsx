@@ -1,13 +1,7 @@
 import { Text, View } from 'react-native';
 
-import {
-  currentTarget,
-  formatTarget,
-  swappedFrom,
-  type RowsToDo,
-  type Session,
-  type SessionExercise,
-} from '@/entities/workout';
+import { useAuth } from '@/entities/auth';
+import { formatSetProgress, swappedFrom, type RowsToDo, type Session, type SessionExercise } from '@/entities/workout';
 import { ExerciseNoteField } from '@/features/exercise-note';
 import { makeStyles, spacing } from '@/shared/ui';
 
@@ -29,9 +23,11 @@ type SessionExerciseCardProps = {
 };
 
 /**
- * One exercise in the workout in progress: what its Routine planned, if
- * anything, and what it was Swapped from; a ⋯ menu of what can be done with
- * it; its Sets as a table, logged and still to do; and a note.
+ * One exercise in the workout in progress. Its heading: its name, what it
+ * was Swapped from, how far through its Sets it is with its Target (see
+ * formatSetProgress), and its Exercise slot's note. Then a ⋯ menu of what
+ * can be done with it; its Sets as a table, logged and still to do; and a
+ * note.
  */
 export function SessionExerciseCard({
   sessionId,
@@ -44,7 +40,9 @@ export function SessionExerciseCard({
   onRowsChange,
 }: SessionExerciseCardProps) {
   const styles = useStyles();
-  const target = currentTarget(sessionExercise);
+  const { state } = useAuth();
+  const unit = state.status === 'signedIn' ? (state.me.unitPreference ?? 'kg') : 'kg';
+  const slotNote = sessionExercise.target?.note;
   const swappedAway = swappedFrom(sessionExercise);
 
   return (
@@ -52,7 +50,9 @@ export function SessionExerciseCard({
       <View style={styles.header}>
         <View style={styles.heading}>
           <Text style={styles.name}>{sessionExercise.name}</Text>
-          {swappedAway ? <Text style={styles.swappedFrom}>Instead of {swappedAway.name}</Text> : null}
+          {swappedAway ? <Text style={styles.muted}>Instead of {swappedAway.name}</Text> : null}
+          <Text style={styles.progress}>{formatSetProgress(sessionExercise, unit, rows)}</Text>
+          {slotNote ? <Text style={styles.muted}>{slotNote}</Text> : null}
         </View>
         {/* Where the exercise's picture will go. */}
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.picture} />
@@ -64,12 +64,6 @@ export function SessionExerciseCard({
           onReplace={() => onReplace(sessionExercise)}
         />
       </View>
-      {target ? (
-        <View style={styles.target}>
-          <Text style={styles.targetValue}>Target {formatTarget(target)}</Text>
-          {target.note ? <Text style={styles.setNote}>{target.note}</Text> : null}
-        </View>
-      ) : null}
       <SetTable
         // Starts over on a swap, from the Target for the Exercise swapped to.
         key={sessionExercise.exerciseId}
@@ -95,9 +89,7 @@ const useStyles = makeStyles((colors) => ({
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
   heading: { flex: 1, gap: spacing.xs },
   name: { fontSize: 20, fontWeight: '600', color: colors.text },
-  swappedFrom: { fontSize: 15, color: colors.muted },
+  muted: { fontSize: 15, color: colors.muted },
   picture: { width: 64, height: 64, borderRadius: 10, backgroundColor: colors.background },
-  target: { gap: 2 },
-  targetValue: { fontSize: 15, fontWeight: '600', color: colors.primary },
-  setNote: { fontSize: 15, color: colors.muted },
+  progress: { fontSize: 15, fontWeight: '600', color: colors.primary },
 }));

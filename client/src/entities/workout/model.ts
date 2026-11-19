@@ -514,6 +514,32 @@ export function formatTarget(target: {
   return target.weight === 0 ? base : `${base} · ${target.weight} ${target.weightUnit}`;
 }
 
+/**
+ * How far through its Sets a Session exercise is, as its heading says it.
+ * Only numbered Sets count, as they do for its Target, so warm-ups and drop
+ * Sets leave it unchanged; like the Target, it counts those of the whole
+ * Session exercise, across a Swap. N is the next numbered Set: "Set 2 of 3 ·
+ * 3 × 5 · 100 kg" while the Target plans more, "3 of 3 done" once every Set
+ * it plans is logged and no numbered row is left to do, and "Set 4 · 3 × 5 ·
+ * 100 kg" beyond it, or just "Set 2" with no Target.
+ */
+export function formatSetProgress(exercise: SessionExercise, weightUnit: UnitPreference, rows: RowsToDo): string {
+  const logged = exercise.sets.filter((s) => isNumbered(s.type)).length;
+  const next = `Set ${logged + 1}`;
+  const target = currentTarget(exercise);
+  if (!target) return next;
+  const planned = target.sets;
+  if (logged < planned) return `${next} of ${planned} · ${formatTarget(target)}`;
+  const numberedToDo = pendingSetDrafts(exercise, weightUnit, rows).some((d) => isNumbered(d.type));
+  if (logged === planned && !numberedToDo) return `${planned} of ${planned} done`;
+  return `${next} · ${formatTarget(target)}`;
+}
+
+/** Whether a Session exercise has a Target and every Set it plans is logged; never without a Target. */
+export function plannedSetsLogged(exercise: SessionExercise): boolean {
+  return exercise.target !== null && exercise.sets.filter((s) => isNumbered(s.type)).length >= exercise.target.sets;
+}
+
 /** "1:30" */
 export function formatRest(seconds: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;

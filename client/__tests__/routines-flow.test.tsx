@@ -87,7 +87,7 @@ describe('routines', () => {
 
     await findHeaderTitle('Current workout');
     const benchCard = await exerciseCard('Bench Press');
-    expect(benchCard.getByText('Target 3 × 5 · 100 kg')).toBeVisible();
+    expect(benchCard.getByText('Set 1 of 3 · 3 × 5 · 100 kg')).toBeVisible();
     expect(benchCard.getByText('Pause on the chest')).toBeVisible();
     // A row for each planned set, at the target, ready to log as planned or adjust.
     for (const set of [1, 2, 3]) {
@@ -288,7 +288,7 @@ describe('routines', () => {
     await fireEvent.press(sheet.getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByLabelText('Substitutes for Bench Press')).toBeNull();
     // The planned sets and reps still stand, but not the barbell's weight.
-    expect(card.getByText('Target 3 × 5')).toBeVisible();
+    expect(card.getByText('Set 2 of 3 · 3 × 5')).toBeVisible();
     expect(card.getByLabelText('Set 2 weight (kg)')).toHaveDisplayValue('');
     expect(card.getByLabelText('Set 2 reps')).toHaveDisplayValue('5');
     await fireEvent.changeText(card.getByLabelText('Set 2 weight (kg)'), '35');
@@ -375,7 +375,7 @@ describe('routines', () => {
 
     await findHeaderTitle('Current workout');
     const card = await exerciseCard('Back Squat');
-    expect(card.getByText('Target 3 × 8 · 60 kg')).toBeVisible();
+    expect(card.getByText('Set 1 of 3 · 3 × 8 · 60 kg')).toBeVisible();
     expect(card.getByLabelText('Set 1 weight (kg)')).toHaveDisplayValue('60');
     // Saved to the routine, so it isn't asked again.
     expect(fakeApi.routines(accountId)[0].slots.map((s) => s.targetWeight)).toEqual([60, 30]);
@@ -391,7 +391,7 @@ describe('routines', () => {
 
     await findHeaderTitle('Current workout');
     const card = await exerciseCard('Back Squat');
-    expect(card.getByText('Target 3 × 10')).toBeVisible();
+    expect(card.getByText('Set 1 of 3 · 3 × 10')).toBeVisible();
     expect(card.getByLabelText('Set 1 weight (kg)')).toHaveDisplayValue('');
     expect(card.getByLabelText('Set 1 reps')).toHaveDisplayValue('10');
     expect(fakeApi.routines(accountId)[0].slots[0].targetWeight).toBe(0);

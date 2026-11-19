@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { ExerciseMedia, getExercise } from '@/entities/exercise';
-import { blockExercises, type SessionBlock, type SessionExercise } from '@/entities/workout';
+import { blockExercises, plannedSetsLogged, type SessionBlock, type SessionExercise } from '@/entities/workout';
 import { makeStyles, spacing } from '@/shared/ui';
 import { listNames } from '@/shared/utils';
 
@@ -18,7 +18,8 @@ type SessionExerciseStripProps = {
 /**
  * A strip of square tiles across the session screen, one per Session
  * exercise with its Exercise's image, that shows the one tapped. A bar under
- * each tile is highlighted under the one shown; a Superset's members sit
+ * each tile is highlighted under the one shown, and fills once its Session
+ * exercise has a Target and every Set it plans is logged; a Superset's members sit
  * together in a bracket. A "+" tile at the end adds an exercise. The strip
  * scrolls sideways and keeps the tile shown in view.
  */
@@ -55,6 +56,7 @@ export function SessionExerciseStrip({ token, blocks, shownId, onShow, onAdd }: 
 
   function tile(exercise: SessionExercise, block: string) {
     const shown = exercise.id === shownId;
+    const done = plannedSetsLogged(exercise);
     const imageUrl = images[exercise.exerciseId];
     return (
       <Pressable
@@ -62,6 +64,7 @@ export function SessionExerciseStrip({ token, blocks, shownId, onShow, onAdd }: 
         accessibilityRole="tab"
         accessibilityLabel={exercise.name}
         accessibilityState={{ selected: shown }}
+        accessibilityValue={done ? { text: 'Done' } : undefined}
         onPress={() => onShow(exercise.id)}
         onLayout={(e) => {
           tileX.current.set(exercise.id, { block, x: e.nativeEvent.layout.x });
@@ -72,7 +75,10 @@ export function SessionExerciseStrip({ token, blocks, shownId, onShow, onAdd }: 
         <View style={styles.tile}>
           {imageUrl ? <ExerciseMedia path={imageUrl} token={token} accessibilityLabel="" fill /> : null}
         </View>
-        <View style={[styles.bar, shown && styles.barShown]} />
+        {/* Done takes the fill's colour over shown, so shown also thickens the bar. */}
+        <View style={styles.barSlot}>
+          <View style={[styles.bar, shown && styles.barShown, done && styles.barDone]} />
+        </View>
       </Pressable>
     );
   }
@@ -118,7 +124,7 @@ export function SessionExerciseStrip({ token, blocks, shownId, onShow, onAdd }: 
         <View style={[styles.tile, styles.add]}>
           <Text style={styles.plus}>+</Text>
         </View>
-        <View style={styles.barSpace} />
+        <View style={styles.barSlot} />
       </Pressable>
     </ScrollView>
   );
@@ -157,6 +163,8 @@ function useExerciseImages(token: string, exerciseIds: string[]): Record<string,
 }
 
 const TILE_SIZE = 56;
+/** The bar under the tile shown, thicker than the rest's 4. */
+const BAR_SHOWN_HEIGHT = 6;
 /** How much of the next tile shows beyond the one scrolled to. */
 const PEEK = 24;
 
@@ -184,6 +192,8 @@ const useStyles = makeStyles((colors) => ({
   add: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.fieldBorder },
   plus: { fontSize: 28, color: colors.text },
   bar: { width: TILE_SIZE, height: 4, borderRadius: 2, backgroundColor: colors.border },
-  barShown: { backgroundColor: colors.primary },
-  barSpace: { height: 4 },
+  barShown: { height: BAR_SHOWN_HEIGHT, borderRadius: BAR_SHOWN_HEIGHT / 2, backgroundColor: colors.primary },
+  barDone: { backgroundColor: colors.success },
+  // As tall as the bar shown, so tiles stay level as the one shown changes.
+  barSlot: { height: BAR_SHOWN_HEIGHT, justifyContent: 'center' },
 }));
