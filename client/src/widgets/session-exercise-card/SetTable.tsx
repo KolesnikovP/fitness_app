@@ -68,7 +68,10 @@ export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet, ro
   const pending = pendingDrafts.length;
   const keys = rowKeys(sessionExercise, rows);
   const pendingTypes = pendingDrafts.map((d) => d.type);
-  const marks = setMarks([...logged.map((s) => s.type), ...pendingTypes]);
+  const marks = setMarks([
+    ...logged,
+    ...pendingTypes.map((type) => ({ type, exerciseId: sessionExercise.exerciseId })),
+  ]);
   const lastTime = lastTimeAtPlaces(sessionExercise, pendingTypes, rows);
 
   // By key, not position: rows above may be removed while the Set is on its way.

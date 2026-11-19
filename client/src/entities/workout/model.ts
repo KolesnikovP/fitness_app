@@ -42,15 +42,18 @@ export const SET_TYPES: readonly { type: SetType; label: string; letter: string 
 ];
 
 /**
- * What marks each of a Session exercise's Sets, given their types in order:
- * the letter of a warm-up, failure or drop Set, or a normal Set's number.
- * Only normal and failure Sets are numbered, so warm-ups and drops take none:
- * W, 1, D, F, 3.
+ * What marks each of a Session exercise's Sets, given each one's type and
+ * Exercise in order: the letter of a warm-up, failure or drop Set, or a
+ * normal Set's number. Only normal and failure Sets are numbered, so warm-ups
+ * and drops take none: W, 1, D, F, 3. Each Exercise is numbered on its own,
+ * as Last time's places are (see lastTimeAtPlaces), so after a Swap the
+ * Exercise swapped to starts at 1 and a Swap back carries on.
  */
-export function setMarks(types: SetType[]): string[] {
-  let number = 0;
-  return types.map((type) => {
-    if (isNumbered(type)) number++;
+export function setMarks(sets: { type: SetType; exerciseId: string }[]): string[] {
+  const numbers = new Map<string, number>();
+  return sets.map(({ type, exerciseId }) => {
+    const number = (numbers.get(exerciseId) ?? 0) + (isNumbered(type) ? 1 : 0);
+    numbers.set(exerciseId, number);
     return SET_TYPES.find((t) => t.type === type)?.letter ?? String(number);
   });
 }
@@ -810,7 +813,7 @@ export type SetRun = { exerciseId: string; name: string; sets: { set: SessionSet
 /** A Session exercise's logged Sets, in runs done with the same Exercise, as swaps split them. */
 export function setRuns(exercise: SessionExercise): SetRun[] {
   const runs: SetRun[] = [];
-  const marks = setMarks(exercise.sets.map((s) => s.type));
+  const marks = setMarks(exercise.sets);
   exercise.sets.forEach((set, i) => {
     const last = runs.at(-1);
     const entry = { set, number: i + 1, mark: marks[i] };

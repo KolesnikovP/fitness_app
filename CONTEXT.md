@@ -57,7 +57,7 @@ One round of a Session exercise: the weight and the number of reps, with an opti
 _Avoid_: Logged set (as a system term), entry
 
 **Set type**:
-What kind of round a Set was: normal (the default), warm-up, failure or drop. A warm-up is a lighter Set done to get ready. A failure Set was taken until no more reps were possible. A drop Set was done straight after the Set before it, lighter, without rest. Every Set but a warm-up is a **working Set**: warm-ups count toward no Volume, Best, Personal record or Record tier, and failure and drop Sets count like normal ones. Normal and failure Sets are numbered 1, 2, 3 in their Session exercise; warm-ups and drop Sets take no number. Like the rest of a Set, its type can be corrected after logging. A Target plans only numbered Sets.
+What kind of round a Set was: normal (the default), warm-up, failure or drop. A warm-up is a lighter Set done to get ready. A failure Set was taken until no more reps were possible. A drop Set was done straight after the Set before it, lighter, without rest. Every Set but a warm-up is a **working Set**: warm-ups count toward no Volume, Best, Personal record or Record tier, and failure and drop Sets count like normal ones. Normal and failure Sets are numbered 1, 2, 3 for each Exercise in their Session exercise, counted all through it as **Last time** places are: after a Swap the Exercise swapped to starts at 1, and a Swap back carries on where its Sets left off. Warm-ups and drop Sets take no number. Like the rest of a Set, its type can be corrected after logging. A Target plans only numbered Sets.
 _Avoid_: Set kind, set tag, set category
 
 **Last time**:
