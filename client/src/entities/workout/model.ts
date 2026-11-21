@@ -514,6 +514,44 @@ export function formatTarget(target: {
   return target.weight === 0 ? base : `${base} · ${target.weight} ${target.weightUnit}`;
 }
 
+/**
+ * How far through its Sets a Session exercise is, as its heading says it.
+ * Only numbered Sets count, as they do for its Target, so warm-ups and drop
+ * Sets leave it unchanged; like the Target, it counts those of the whole
+ * Session exercise, across a Swap. While a numbered row is still to do, it
+ * names the next numbered Set with each Set the Target plans (see
+ * formatTargetSet): "Set 2 of 3 · 100 kg × 5", or "Set 4 · 100 kg × 5"
+ * beyond the Target. With none, it says how many of the
+ * Target's were done: "3 of 3 done", or "2 of 3 done" once a planned row was
+ * removed; beyond the Target, it names the next as before. With no Target,
+ * just "Set 2".
+ */
+export function formatSetProgress(exercise: SessionExercise, weightUnit: UnitPreference, rows: RowsToDo): string {
+  const logged = numberedSetsLogged(exercise);
+  const next = `Set ${logged + 1}`;
+  const target = currentTarget(exercise);
+  if (!target) return next;
+  const planned = target.sets;
+  const numberedToDo = pendingSetDrafts(exercise, weightUnit, rows).some((d) => isNumbered(d.type));
+  if (!numberedToDo && logged <= planned) return `${logged} of ${planned} done`;
+  return `${logged < planned ? `${next} of ${planned}` : next} · ${formatTargetSet(target)}`;
+}
+
+/** Each Set a Target plans, as a logged Set reads: "100 kg × 5", or "5 reps" with no weight (0) planned. */
+function formatTargetSet(target: SessionTarget): string {
+  return target.weight === 0 ? `${target.reps} reps` : `${target.weight} ${target.weightUnit} × ${target.reps}`;
+}
+
+/** Whether a Session exercise has a Target and every Set it plans is logged; never without a Target. */
+export function allPlannedSetsLogged(exercise: SessionExercise): boolean {
+  return exercise.target !== null && numberedSetsLogged(exercise) >= exercise.target.sets;
+}
+
+/** How many numbered Sets a Session exercise has logged, whatever Exercise they were done with. */
+function numberedSetsLogged(exercise: SessionExercise): number {
+  return exercise.sets.filter((s) => isNumbered(s.type)).length;
+}
+
 /** "1:30" */
 export function formatRest(seconds: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
@@ -551,9 +589,7 @@ function plannedNumberedSets(exercise: SessionExercise, rows: RowsToDo): number 
  * more are logged than planned.
  */
 function numberedSetsLeft(exercise: SessionExercise, rows: RowsToDo): number {
-  return (
-    plannedNumberedSets(exercise, rows) - rows.removedPlanned - exercise.sets.filter((s) => isNumbered(s.type)).length
-  );
+  return plannedNumberedSets(exercise, rows) - rows.removedPlanned - numberedSetsLogged(exercise);
 }
 
 /**

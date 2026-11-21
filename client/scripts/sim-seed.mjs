@@ -1,8 +1,12 @@
 // Puts the booted simulator in a new account with a workout in progress, for
 // npm run sim-check to look at without touching anyone's own account. The
 // account has finished one Bench Press workout (60 kg × 10 @ RPE 7, then
-// 62.5 kg × 8 twice), and has Bench Press in progress with one Set logged,
-// so the set table shows logged rows, rows still to do and Last time.
+// 62.5 kg × 8 twice), and has a Push day Routine in progress:
+//   - Bench Press, 3 × 5 at 60 kg with a slot note and Dumbbell Bench Press as
+//     a Substitute, one Set logged: the one shown, with logged rows, rows
+//     still to do, Last time and "Set 2 of 3"
+//   - Overhead Press, 2 × 8 at 40 kg, both logged: its tile's bar filled
+//   - Lateral Raise and Triceps Pushdown in a Superset, nothing logged
 //
 //   npm run sim-seed                 # then: npm run sim-check -- /workout/session
 //   API_URL=http://localhost:8090 npm run sim-seed
@@ -44,31 +48,75 @@ const password = 'sim-seed-password';
 const { token } = await call('POST', '/auth/signup', null, { email, password });
 await call('PATCH', '/users/me', token, { unitPreference: 'kg' });
 
-const { exercises } = await call('GET', `/exercises?q=${encodeURIComponent('Bench Press')}`, token);
-const bench = exercises.find((e) => e.name === 'Bench Press').id;
+/** The library Exercise's id by its exact name. */
+async function exerciseId(name) {
+  const { exercises } = await call('GET', `/exercises?q=${encodeURIComponent(name)}`, token);
+  const found = exercises.find((e) => e.name === name);
+  if (!found) {
+    console.error(`sim-seed: no Exercise named ${name} in the library`);
+    process.exit(1);
+  }
+  return found.id;
+}
 
-async function benchWorkout(sets) {
-  const { id } = await call('POST', '/workouts/sessions', token, {});
-  const session = await call('POST', `/workouts/sessions/${id}/exercises`, token, { exerciseId: bench });
-  const sessionExercise = session.exercises.at(-1).id;
+const bench = await exerciseId('Bench Press');
+
+/** Logs each [weight, reps, rpe?] in kg to a Session exercise. */
+async function logSets(sessionId, sessionExerciseId, sets) {
   for (const [weight, reps, rpe] of sets) {
-    await call('POST', `/workouts/sessions/${id}/exercises/${sessionExercise}/sets`, token, {
+    await call('POST', `/workouts/sessions/${sessionId}/exercises/${sessionExerciseId}/sets`, token, {
       weight,
       weightUnit: 'kg',
       reps,
       rpe: rpe ?? null,
     });
   }
-  return id;
 }
 
-const finished = await benchWorkout([
+// Last time for Bench Press.
+const { id: finished } = await call('POST', '/workouts/sessions', token, {});
+const before = await call('POST', `/workouts/sessions/${finished}/exercises`, token, { exerciseId: bench });
+await logSets(finished, before.exercises.at(-1).id, [
   [60, 10, 7],
   [62.5, 8],
   [62.5, 8],
 ]);
 await call('POST', `/workouts/sessions/${finished}/finish`, token);
-await benchWorkout([[60, 10]]);
+
+/** A Routine slot of name, sets × reps at weight kg, in a Superset group or none. */
+async function slot(name, sets, reps, weight, { note = '', supersetGroup = null, substitutes = [] } = {}) {
+  return {
+    exerciseId: await exerciseId(name),
+    targetSets: sets,
+    targetReps: reps,
+    targetWeight: weight,
+    weightUnit: 'kg',
+    restSeconds: 90,
+    note,
+    supersetGroup,
+    substituteIds: await Promise.all(substitutes.map(exerciseId)),
+  };
+}
+
+const routine = await call('POST', '/routines', token, {
+  name: 'Push day',
+  slots: [
+    await slot('Bench Press', 3, 5, 60, { note: 'Pause on the chest', substitutes: ['Dumbbell Bench Press'] }),
+    await slot('Overhead Press', 2, 8, 40),
+    await slot('Lateral Raise', 3, 12, 10, { supersetGroup: 1 }),
+    await slot('Triceps Pushdown', 3, 12, 25, { supersetGroup: 1 }),
+  ],
+});
+const session = await call('POST', '/workouts/sessions', token, {
+  routineId: routine.id,
+  timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+});
+const [benchToday, overheadToday] = session.exercises;
+await logSets(session.id, benchToday.id, [[60, 5]]);
+await logSets(session.id, overheadToday.id, [
+  [40, 8],
+  [40, 8],
+]);
 
 const link = `${metro}/--/dev-log-in?token=${encodeURIComponent(token)}&next=${encodeURIComponent('/workout/session')}`;
 execFileSync('xcrun', ['simctl', 'openurl', 'booted', link]);

@@ -28,3 +28,14 @@ export function tileNames(within: ReturnType<typeof strip> = strip()): string[] 
 export function shownTile(): string | undefined {
   return strip().queryByRole('tab', { selected: true })?.props.accessibilityLabel;
 }
+
+/**
+ * The names on the strip's tiles whose bar is filled, in order: those whose
+ * Session exercise has a Target and every Set it plans logged.
+ */
+export function doneTiles(): string[] {
+  return strip()
+    .getAllByRole('tab')
+    .filter((tile) => tile.props.accessibilityValue?.text === 'Done')
+    .map((tile) => tile.props.accessibilityLabel);
+}

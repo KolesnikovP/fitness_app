@@ -97,6 +97,19 @@ function vacuousHiddenAssertion(key) {
   };
 }
 
+const noLargeTitle = {
+  selector: 'Property[key.name=/^headerLargeTitle(Enabled)?$/]',
+  message:
+    "Large titles freeze iOS with Screen's layout when pushed from a screen without a top bar (a native layout loop Jest can't see). Pass headerTitle to Screen for the regular top-bar title.",
+};
+
+// The unit to show weights in, kg until the User picks one, was once copied
+// into four components; one hook keeps that default in one place.
+const noUnitPreferenceFallback = {
+  selector: "LogicalExpression[operator='??'][left.property.name='unitPreference']",
+  message: "Use useUnitPreference() from '@/entities/auth' for the unit to show weights in.",
+};
+
 module.exports = defineConfig([
   expoConfig,
   { ignores: ['dist/*', '.expo/*'] },
@@ -112,17 +125,10 @@ module.exports = defineConfig([
   { files: ['src/**'], rules: { 'react/no-array-index-key': 'error' } },
   {
     files: ['src/**'],
-    rules: {
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector: 'Property[key.name=/^headerLargeTitle(Enabled)?$/]',
-          message:
-            "Large titles freeze iOS with Screen's layout when pushed from a screen without a top bar (a native layout loop Jest can't see). Pass headerTitle to Screen for the regular top-bar title.",
-        },
-      ],
-    },
+    rules: { 'no-restricted-syntax': ['error', noLargeTitle, noUnitPreferenceFallback] },
   },
+  // Where useUnitPreference itself lives.
+  { files: ['src/entities/auth/**'], rules: { 'no-restricted-syntax': ['error', noLargeTitle] } },
   {
     files: ['__tests__/**'],
     rules: {

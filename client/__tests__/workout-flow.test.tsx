@@ -9,6 +9,7 @@ import { openFinishedWorkout } from './support/finished-workout';
 import { findHeaderTitle } from './support/native-header';
 import { secureStore } from './support/secure-store';
 import {
+  doneTiles,
   exerciseCard,
   type ExerciseCard,
   shownTile,
@@ -1491,7 +1492,7 @@ describe('replacing an exercise', () => {
 
     const card = await exerciseCard('Overhead Press');
     expect(card.getByText('Instead of Bench Press')).toBeVisible();
-    expect(card.getByText('Target 3 × 5')).toBeVisible();
+    expect(card.getByText('Set 1 of 3 · 5 reps')).toBeVisible();
     expect(today.exercises[0].exerciseId).toBe(fakeApi.exerciseNamed('Overhead Press').id);
   });
 });
@@ -1922,5 +1923,110 @@ describe('one exercise at a time', () => {
     await waitFor(() =>
       expect(tileImage('Dumbbell Bench Press')?.props.source.uri).toMatch(/\/media\/dumbbell-bench-press\.png$/),
     );
+  });
+});
+
+describe("the shown exercise's heading", () => {
+  /** Today's Session, with Back Squat on a Target of targetSets × 5 at 100 kg and a slot note. */
+  async function squatToday(targetSets: number) {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const squat = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
+    squat.target = { sets: targetSets, reps: 5, weight: 100, weightUnit: 'kg', restSeconds: null, note: 'Brace hard' };
+    await resumeWorkout(account.id);
+    return exerciseCard('Back Squat');
+  }
+
+  it("says which of the Target's Sets is next, with its reps and weight, and the slot note under it", async () => {
+    const card = await squatToday(3);
+    expect(card.getByText('Set 1 of 3 · 100 kg × 5')).toBeVisible();
+    expect(card.getByText('Brace hard')).toBeVisible();
+
+    await logSet(card, 1);
+
+    expect(card.getByText('Set 2 of 3 · 100 kg × 5')).toBeVisible();
+  });
+
+  it('says the exercise is done once every planned Set is logged, and counts a Set added beyond the Target without "of"', async () => {
+    const card = await squatToday(2);
+    await logSet(card, 1);
+    await logSet(card, 2);
+
+    expect(card.getByText('2 of 2 done')).toBeVisible();
+
+    await fireEvent.press(card.getByRole('button', { name: '+ Add set' }));
+    expect(card.getByText('Set 3 · 100 kg × 5')).toBeVisible();
+    await logSet(card, 3);
+    expect(card.getByText('Set 4 · 100 kg × 5')).toBeVisible();
+  });
+
+  it("says how many of the Target's Sets were done once a planned row is removed and the rest logged", async () => {
+    const card = await squatToday(3);
+    await removeRow(card, 3);
+    await logSet(card, 1);
+    await logSet(card, 2);
+
+    expect(rowsToDo(card)).toBe(0);
+    expect(card.getByText('2 of 3 done')).toBeVisible();
+  });
+
+  it("counts only numbered Sets: logging a warm-up or a drop Set doesn't change it", async () => {
+    const card = await squatToday(3);
+    await chooseSetType(card, 1, 'Warm-up');
+    await logSet(card, 1);
+    expect(card.getByText('Set 1 of 3 · 100 kg × 5')).toBeVisible();
+
+    await logSet(card, 2);
+    await chooseSetType(card, 3, 'Drop');
+    await logSet(card, 3);
+
+    expect(card.getByText('Set 2 of 3 · 100 kg × 5')).toBeVisible();
+  });
+
+  it('says just "Set N" with no Target', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
+    await resumeWorkout(account.id);
+    const card = await exerciseCard('Back Squat');
+    expect(card.getByText('Set 1')).toBeVisible();
+
+    await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '60');
+    await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '10');
+    await logSet(card, 1);
+
+    expect(card.getByText('Set 2')).toBeVisible();
+  });
+
+  it('shows what was planned under the name after a Swap, counting the Sets before it, with no weight', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const bench = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Bench Press');
+    bench.target = { sets: 3, reps: 5, weight: 100, weightUnit: 'kg', restSeconds: null, note: '' };
+    bench.plannedExerciseId = bench.exerciseId;
+    bench.substituteIds = [fakeApi.exerciseNamed('Dumbbell Bench Press').id];
+    await resumeWorkout(account.id);
+    await logSet(await exerciseCard('Bench Press'), 1);
+
+    const card = await swap('Bench Press', 'Dumbbell Bench Press');
+
+    expect(card.getByText('Instead of Bench Press')).toBeVisible();
+    expect(card.getByText('Set 2 of 3 · 5 reps')).toBeVisible();
+  });
+});
+
+describe("a tile's bar", () => {
+  it('fills once every Set the Target plans is logged, and never without a Target', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    const squat = fakeApi.addSessionExercise(session, 'Back Squat');
+    squat.target = { sets: 2, reps: 5, weight: 100, weightUnit: 'kg', restSeconds: null, note: '' };
+    fakeApi.addSet(fakeApi.addSessionExercise(session, 'Deadlift'), 180, 'kg', 3);
+    await resumeWorkout(account.id);
+    expect(doneTiles()).toEqual([]);
+
+    const card = await exerciseCard('Back Squat');
+    await logSet(card, 1);
+    expect(doneTiles()).toEqual([]);
+    await logSet(card, 2);
+
+    expect(doneTiles()).toEqual(['Back Squat']);
   });
 });
