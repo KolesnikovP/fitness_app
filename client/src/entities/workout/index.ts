@@ -8,6 +8,7 @@ export {
   formatLastTimeSet,
   lastTimeAtPlaces,
   formatDuration,
+  formatElapsed,
   formatSessionDate,
   formatShortDate,
   formatRest,

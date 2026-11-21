@@ -10,6 +10,8 @@ type ScreenProps = TitleProps & {
   children: ReactNode;
   /** Center the content vertically, for short placeholder screens. */
   centered?: boolean;
+  /** Pinned above the scrolling content, such as a workout's controls. */
+  header?: ReactNode;
   /** Pinned below the scrolling content, such as a message with an Undo button. */
   footer?: ReactNode;
 };
@@ -21,7 +23,7 @@ type ScreenProps = TitleProps & {
  */
 type TitleProps = { title?: string; headerTitle?: never } | { headerTitle: string; title?: never };
 
-export function Screen({ title, headerTitle, children, centered, footer }: ScreenProps) {
+export function Screen({ title, headerTitle, children, centered, header, footer }: ScreenProps) {
   const styles = useStyles();
   // Stack.Screen re-applies its options whenever it gets a new object, so keep one per title.
   const headerOptions = useMemo(() => ({ title: headerTitle }), [headerTitle]);
@@ -32,6 +34,7 @@ export function Screen({ title, headerTitle, children, centered, footer }: Scree
     <SafeAreaView style={styles.safeArea} edges={headerTitle !== undefined ? ['left', 'right', 'bottom'] : undefined}>
       {headerTitle !== undefined ? <Stack.Screen options={headerOptions} /> : null}
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {header ? <View style={styles.header}>{header}</View> : null}
         <ScrollView
           contentContainerStyle={[styles.content, centered && styles.centered]}
           keyboardShouldPersistTaps="handled"
@@ -54,6 +57,7 @@ const useStyles = makeStyles((colors) => ({
   flex: { flex: 1 },
   content: { flexGrow: 1, padding: spacing.lg, gap: spacing.md },
   centered: { justifyContent: 'center' },
+  header: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
   footer: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
   title: { fontSize: 32, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
 }));

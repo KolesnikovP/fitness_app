@@ -3,9 +3,10 @@ import { Dimensions, Linking } from 'react-native';
 import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library';
 
 import { findHeaderTitle } from './support/native-header';
+import { finishWorkout } from './support/session-header';
 import { fakeApi } from './support/fake-api';
 import { openFinishedWorkout } from './support/finished-workout';
-import { readouts } from './support/set-table';
+import { logSet, readouts } from './support/set-table';
 import { imagePicker } from './support/image-picker';
 import { secureStore } from './support/secure-store';
 import { sharing } from './support/sharing';
@@ -37,9 +38,8 @@ async function finishABenchWorkout() {
   const card = within(await screen.findByLabelText('Bench Press card'));
   await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '105');
   await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '5');
-  await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Finish workout' })).toBeEnabled());
-  await fireEvent.press(screen.getByRole('button', { name: 'Finish workout' }));
+  await logSet(card, 1);
+  await finishWorkout();
   await findHeaderTitle('Workout finished');
 }
 

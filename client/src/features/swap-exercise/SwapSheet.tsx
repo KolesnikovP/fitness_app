@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import { equipmentLabel, getExercise } from '@/entities/exercise';
 import { swapChoices, swapSessionExercise, type Session, type SessionExercise } from '@/entities/workout';
 import { errorMessage } from '@/shared/api';
 import type { ExerciseRef } from '@/shared/model';
-import { makeStyles, spacing } from '@/shared/ui';
+import { makeStyles, Sheet, spacing } from '@/shared/ui';
 
 type SwapSheetProps = {
   sessionId: string;
@@ -71,61 +71,60 @@ export function SwapSheet({ sessionId, sessionExercise, onSwapped, onReplace, op
   }
 
   return (
-    <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
-      <Pressable accessibilityLabel="Close" style={styles.backdrop} onPress={close} />
-      <View accessibilityLabel={`Substitutes for ${planned.name}`} style={styles.sheet}>
-        <Text accessibilityRole="header" style={styles.title}>
-          Can't do {planned.name} right now?
-        </Text>
-        <Text style={styles.muted}>
-          Bench or bar taken? Do one of these instead. They work the same muscles, so you stay on plan. Only this
-          workout changes, not your routine.
-        </Text>
-        <View style={styles.list}>
-          {choices.map((choice) => {
-            const doing = choice.exerciseId === sessionExercise.exerciseId;
-            return (
-              <Pressable
-                key={choice.exerciseId}
-                accessibilityRole="button"
-                accessibilityLabel={doing ? `${choice.name}, doing now` : `Swap to ${choice.name}`}
-                accessibilityState={{ disabled: doing || swapping }}
-                disabled={doing || swapping}
-                onPress={() => swap(choice.exerciseId)}
-                style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-              >
-                <View style={styles.rowText}>
-                  <Text style={[styles.name, doing && styles.doing]}>{choice.name}</Text>
-                  <Text style={styles.muted}>{detail(choice, doing)}</Text>
-                </View>
-                <Text style={styles.action}>{doing ? '✓' : 'Swap'}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Any other exercise…"
-          disabled={swapping}
-          onPress={() => {
-            close();
-            onReplace();
-          }}
-          style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-        >
-          <Text style={[styles.name, styles.rowText]}>Any other exercise…</Text>
-          <Text style={styles.action}>Pick</Text>
-        </Pressable>
-        {error ? (
-          <Text accessibilityRole="alert" style={styles.error}>
-            {error}
-          </Text>
-        ) : null}
-        <Pressable accessibilityRole="button" accessibilityLabel="Cancel" onPress={close} style={styles.cancel}>
-          <Text style={styles.action}>Cancel</Text>
-        </Pressable>
+    <Sheet
+      open={open}
+      onClose={close}
+      accessibilityLabel={`Substitutes for ${planned.name}`}
+      title={`Can't do ${planned.name} right now?`}
+    >
+      <Text style={styles.muted}>
+        Bench or bar taken? Do one of these instead. They work the same muscles, so you stay on plan. Only this workout
+        changes, not your routine.
+      </Text>
+      <View style={styles.list}>
+        {choices.map((choice) => {
+          const doing = choice.exerciseId === sessionExercise.exerciseId;
+          return (
+            <Pressable
+              key={choice.exerciseId}
+              accessibilityRole="button"
+              accessibilityLabel={doing ? `${choice.name}, doing now` : `Swap to ${choice.name}`}
+              accessibilityState={{ disabled: doing || swapping }}
+              disabled={doing || swapping}
+              onPress={() => swap(choice.exerciseId)}
+              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+            >
+              <View style={styles.rowText}>
+                <Text style={[styles.name, doing && styles.doing]}>{choice.name}</Text>
+                <Text style={styles.muted}>{detail(choice, doing)}</Text>
+              </View>
+              <Text style={styles.action}>{doing ? '✓' : 'Swap'}</Text>
+            </Pressable>
+          );
+        })}
       </View>
-    </Modal>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Any other exercise…"
+        disabled={swapping}
+        onPress={() => {
+          close();
+          onReplace();
+        }}
+        style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+      >
+        <Text style={[styles.name, styles.rowText]}>Any other exercise…</Text>
+        <Text style={styles.action}>Pick</Text>
+      </Pressable>
+      {error ? (
+        <Text accessibilityRole="alert" style={styles.error}>
+          {error}
+        </Text>
+      ) : null}
+      <Pressable accessibilityRole="button" accessibilityLabel="Cancel" onPress={close} style={styles.cancel}>
+        <Text style={styles.action}>Cancel</Text>
+      </Pressable>
+    </Sheet>
   );
 }
 
@@ -157,16 +156,6 @@ function useEquipment(choices: ExerciseRef[]): Record<string, string> {
 
 const useStyles = makeStyles((colors) => ({
   pressed: { opacity: 0.5 },
-  backdrop: { flex: 1, backgroundColor: colors.backdrop },
-  sheet: {
-    gap: spacing.sm,
-    padding: spacing.lg,
-    paddingBottom: spacing.xl,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    backgroundColor: colors.background,
-  },
-  title: { fontSize: 20, fontWeight: '700', color: colors.text },
   muted: { fontSize: 15, color: colors.muted },
   list: { marginTop: spacing.sm },
   row: {

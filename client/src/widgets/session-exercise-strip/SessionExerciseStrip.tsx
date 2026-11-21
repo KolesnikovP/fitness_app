@@ -90,6 +90,9 @@ export function SessionExerciseStrip({ token, blocks, shownId, onShow, onAdd }: 
       showsHorizontalScrollIndicator={false}
       accessibilityRole="tablist"
       accessibilityLabel="Exercises in this workout"
+      // A ScrollView grows to fill its column by default, which would push the tiles
+      // (aligned to its bottom) down a page with room to spare.
+      style={styles.scroll}
       contentContainerStyle={styles.strip}
       onLayout={(e) => {
         width.current = e.nativeEvent.layout.width;
@@ -170,6 +173,7 @@ const BAR_SHOWN_HEIGHT = 6;
 const PEEK = 24;
 
 const useStyles = makeStyles((colors) => ({
+  scroll: { flexGrow: 0 },
   strip: { gap: spacing.sm, paddingVertical: spacing.xs, alignItems: 'flex-end' },
   single: { flexDirection: 'row' },
   superset: {

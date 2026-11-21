@@ -1,10 +1,11 @@
 import { router } from 'expo-router';
 import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library';
 
+import { finishWorkout } from './support/session-header';
 import { fakeApi } from './support/fake-api';
 import { imagePicker } from './support/image-picker';
 import { secureStore } from './support/secure-store';
-import { readouts } from './support/set-table';
+import { logSet, readouts } from './support/set-table';
 
 const DAY = 86_400_000;
 
@@ -61,9 +62,8 @@ describe('profile', () => {
     const card = within(await screen.findByLabelText('Dumbbell Bench Press card'));
     await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '32,5');
     await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '10');
-    await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Finish workout' })).toBeEnabled());
-    await fireEvent.press(screen.getByRole('button', { name: 'Finish workout' }));
+    await logSet(card, 1);
+    await finishWorkout();
     await fireEvent.press(await screen.findByRole('button', { name: 'Done' }));
     await screen.findByRole('header', { name: 'Workout' });
 

@@ -1,12 +1,11 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
-import { Alert, Text } from 'react-native';
+import { Text } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import {
   discardSession,
   finishSession,
-  formatClockTime,
   blockExercises,
   getCurrentSession,
   hasRowsToDo,
@@ -24,17 +23,19 @@ import {
 } from '@/entities/workout';
 import { usePendingSetDeletion } from '@/features/delete-set';
 import { usePendingExerciseRemoval } from '@/features/remove-exercise';
-import { RestTimer } from '@/features/rest-timer';
 import { CreateSupersetForm } from '@/features/superset';
 import { errorMessage } from '@/shared/api';
 import { Button, makeStyles, Screen, Spinner, UndoBar } from '@/shared/ui';
 import { SessionExerciseCard, SupersetBlock, useRowsToDo } from '@/widgets/session-exercise-card';
 import { SessionExerciseStrip } from '@/widgets/session-exercise-strip';
 
+import { SessionHeader } from './SessionHeader';
+
 /**
- * The workout in progress, one Session exercise at a time: a strip of tiles
- * to switch between them and add another, the one shown with its Sets (and
- * its Superset, if in one), a rest timer, and finishing or discarding it.
+ * The workout in progress, one Session exercise at a time: a header of
+ * session-wide controls (see SessionHeader), a strip of tiles to switch
+ * between them and add another, and the one shown with its Sets (and its
+ * Superset, if in one).
  */
 export function CurrentSessionScreen() {
   const styles = useStyles();
@@ -152,23 +153,19 @@ export function CurrentSessionScreen() {
     }
   }
 
-  function confirmDiscard() {
-    Alert.alert('Discard workout?', 'Everything logged in this workout will be deleted.', [
-      { text: 'Keep logging', style: 'cancel' },
-      {
-        text: 'Discard',
-        style: 'destructive',
-        onPress: async () => {
-          if (!token || !session) return;
-          try {
-            await discardSession(token, session.id);
-            router.back();
-          } catch (e) {
-            setError(errorMessage(e));
-          }
-        },
-      },
-    ]);
+  // Discarding deletes everything, so once it has, a Set deletion or exercise
+  // removal waiting out its Undo window is dropped rather than sent (as leaving
+  // the screen would) to a Session that's gone.
+  async function discard() {
+    if (!token || !session) return;
+    try {
+      await discardSession(token, session.id);
+      deletion.undo();
+      removal.undo();
+      router.back();
+    } catch (e) {
+      setError(errorMessage(e));
+    }
   }
 
   // One thing can be undone at a time: deleting a Set sends an exercise's
@@ -225,6 +222,16 @@ export function CurrentSessionScreen() {
   return (
     <Screen
       headerTitle="Current workout"
+      header={
+        <SessionHeader
+          startedAt={session.startedAt}
+          plannedRests={plannedRests}
+          canFinish={canFinish}
+          finishing={finishing}
+          onFinish={finish}
+          onDiscard={discard}
+        />
+      }
       footer={
         justSet.length > 0 || deletion.pendingSetId || removal.pendingExerciseId ? (
           <>
@@ -235,7 +242,6 @@ export function CurrentSessionScreen() {
         ) : null
       }
     >
-      <Text style={styles.muted}>Started at {formatClockTime(session.startedAt)}</Text>
       <SessionExerciseStrip
         token={token}
         blocks={blocks}
@@ -270,15 +276,11 @@ export function CurrentSessionScreen() {
       ) : ungrouped.length >= 2 ? (
         <Button label="Create superset" variant="secondary" onPress={groupSuperset} />
       ) : null}
-      <RestTimer plannedSeconds={plannedRests} />
       {error ? (
         <Text accessibilityRole="alert" style={styles.error}>
           {error}
         </Text>
       ) : null}
-      <Button label="Finish workout" onPress={finish} loading={finishing} disabled={!canFinish} />
-      {canFinish ? null : <Text style={styles.muted}>Log a set to finish the workout.</Text>}
-      <Button label="Discard workout" variant="secondary" tone="danger" onPress={confirmDiscard} />
     </Screen>
   );
 }
@@ -307,5 +309,4 @@ function ShownExercise({ superset, ...card }: ShownExerciseProps) {
 
 const useStyles = makeStyles((colors) => ({
   error: { color: colors.danger, fontSize: 15 },
-  muted: { fontSize: 15, color: colors.muted },
 }));
