@@ -6,6 +6,7 @@ import { openSwapSheet } from './support/exercise-menu';
 import { fakeApi } from './support/fake-api';
 import { findHeaderTitle, queryHeaderTitle } from './support/native-header';
 import { secureStore } from './support/secure-store';
+import { openRestTimer } from './support/session-header';
 import { chooseSetType, loggedSets, rowsToDo } from './support/set-table';
 import { exerciseCard, showExercise } from './support/session-exercises';
 
@@ -95,8 +96,11 @@ describe('routines', () => {
       expect(benchCard.getByLabelText(`Set ${set} reps`)).toHaveDisplayValue('5');
     }
     expect(benchCard.queryByLabelText('Set 4 reps')).toBeNull();
-    // The planned rest is offered on the rest timer.
-    expect(screen.getByRole('button', { name: 'Rest 3:00' })).toBeVisible();
+    // The planned rest is offered first on the rest timer.
+    const restSheet = await openRestTimer();
+    expect(restSheet.getAllByRole('button', { name: /^Rest \d/ })[0]).toHaveAccessibleName('Rest 3:00');
+    await fireEvent.press(screen.getByLabelText('Close'));
+    expect(screen.queryByLabelText('Rest timer sheet')).toBeNull();
 
     await fireEvent.press(benchCard.getByRole('button', { name: 'Log set 1' }));
     await waitFor(() => expect(loggedSets(benchCard)).toEqual(['100 kg × 5']));

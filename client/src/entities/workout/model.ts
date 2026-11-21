@@ -860,6 +860,12 @@ export function supersetProgress(exercises: SessionExercise[]): SupersetProgress
   return roundDone ? { kind: 'roundDone', round: fewest } : { kind: 'next', exercise: behind };
 }
 
+/** "1:01:05": a clock of the time gone by, in hours, minutes and seconds. */
+export function formatElapsed(seconds: number): string {
+  const two = (n: number) => String(n).padStart(2, '0');
+  return `${Math.floor(seconds / 3600)}:${two(Math.floor(seconds / 60) % 60)}:${two(seconds % 60)}`;
+}
+
 /** "< 1 min", "45 min", "1 h 5 min" */
 export function formatDuration(seconds: number): string {
   const minutes = Math.floor(seconds / 60);

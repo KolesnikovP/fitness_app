@@ -7,6 +7,7 @@ import { openExerciseMenuItem, openSwapSheet, removeExercise, swap } from './sup
 import { fakeApi, server } from './support/fake-api';
 import { openFinishedWorkout } from './support/finished-workout';
 import { findHeaderTitle } from './support/native-header';
+import { chooseDiscardWorkout, openRestTimer, sessionHeader, startRest } from './support/session-header';
 import { secureStore } from './support/secure-store';
 import {
   exerciseCard,
@@ -610,25 +611,30 @@ describe('freeform workout', () => {
     expect(screen.getByRole('button', { name: 'Finish workout' })).toBeDisabled();
   });
 
-  it('counts down a rest timer between sets', async () => {
+  it('counts down a rest timer between sets, started from the header', async () => {
     jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
     try {
       await openWorkoutTab();
       await fireEvent.press(screen.getByRole('button', { name: 'Start Workout' }));
       await findHeaderTitle('Current workout');
+      const restTimer = () => sessionHeader().getByRole('button', { name: 'Rest timer' });
 
-      await fireEvent.press(screen.getByRole('button', { name: 'Rest 1:30' }));
-      expect(screen.getByLabelText('Rest time left')).toHaveTextContent('1:30');
+      await startRest('Rest 1:30');
+      expect(restTimer()).toHaveTextContent(/1:30/);
 
       await act(async () => jest.advanceTimersByTime(30_000));
-      expect(screen.getByLabelText('Rest time left')).toHaveTextContent('1:00');
+      expect(restTimer()).toHaveTextContent(/1:00/);
 
       await act(async () => jest.advanceTimersByTime(60_000));
-      expect(screen.getByText('Rest over.')).toBeVisible();
+      expect(restTimer()).toHaveTextContent(/Rest over\./);
 
-      await fireEvent.press(screen.getByRole('button', { name: 'Rest 2:00' }));
-      await fireEvent.press(screen.getByRole('button', { name: 'Skip rest' }));
-      expect(screen.queryByLabelText('Rest time left')).toBeNull();
+      await startRest('Rest 2:00');
+      const sheet = await openRestTimer();
+      expect(sheet.getByLabelText('Rest time left')).toHaveTextContent('2:00');
+      await fireEvent.press(sheet.getByRole('button', { name: '+15s' }));
+      expect(sheet.getByLabelText('Rest time left')).toHaveTextContent('2:15');
+      await fireEvent.press(sheet.getByRole('button', { name: 'Skip rest' }));
+      expect(restTimer()).toHaveTextContent(/^⏱Rest$/);
     } finally {
       jest.useRealTimers();
     }
@@ -643,7 +649,7 @@ describe('freeform workout', () => {
       buttons?.find((b) => b.style === 'destructive')?.onPress?.();
     });
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Discard workout' }));
+    await chooseDiscardWorkout();
 
     await screen.findByRole('header', { name: 'Workout' });
     expect(await screen.findByRole('button', { name: 'Start Workout' })).toBeVisible();
@@ -1922,5 +1928,45 @@ describe('one exercise at a time', () => {
     await waitFor(() =>
       expect(tileImage('Dumbbell Bench Press')?.props.source.uri).toMatch(/\/media\/dumbbell-bench-press\.png$/),
     );
+  });
+});
+
+describe('the session header', () => {
+  it('shows the time since the workout started, ticking, in place of "Started at"', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
+    try {
+      await openWorkoutTab();
+      await fireEvent.press(screen.getByRole('button', { name: 'Start Workout' }));
+      await findHeaderTitle('Current workout');
+      expect(screen.getByLabelText('Time since the workout started')).toHaveTextContent('0:00:00');
+      expect(screen.queryByText(/^Started at/)).toBeNull();
+
+      await act(async () => jest.advanceTimersByTime(65_000));
+      expect(screen.getByLabelText('Time since the workout started')).toHaveTextContent('0:01:05');
+
+      await act(async () => jest.advanceTimersByTime(3_600_000));
+      expect(screen.getByLabelText('Time since the workout started')).toHaveTextContent('1:01:05');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('holds Finish, disabled until a Set is logged, and leaves nothing session-wide below the exercise', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const squat = fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
+    squat.target = { sets: 3, reps: 5, weight: 100, weightUnit: 'kg', restSeconds: null, note: '' };
+    await resumeWorkout(account.id);
+    const header = sessionHeader();
+    expect(header.getByRole('button', { name: 'Finish workout' })).toBeDisabled();
+
+    await logSet(await exerciseCard('Back Squat'), 1);
+
+    expect(header.getByRole('button', { name: 'Finish workout' })).toBeEnabled();
+    // Finish, Discard and the Rest timer are each on screen once, in the header.
+    expect(screen.getAllByRole('button', { name: 'Finish workout' })).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: 'Discard workout' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Rest \d/ })).toBeNull();
+    expect(header.getByRole('button', { name: 'Rest timer' })).toBeVisible();
+    expect(header.getByRole('button', { name: 'Workout menu' })).toBeVisible();
   });
 });

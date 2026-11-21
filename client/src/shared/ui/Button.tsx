@@ -10,6 +10,8 @@ type ButtonProps = {
   variant?: 'primary' | 'secondary' | 'link';
   /** danger: for actions that delete or discard; colours the label. */
   tone?: 'danger';
+  /** small: a compact button for a row of controls, such as a header. */
+  size?: 'small';
   loading?: boolean;
   disabled?: boolean;
   /** What a screen reader says, when the label alone doesn't say what it acts on. Defaults to label. */
@@ -21,6 +23,7 @@ export function Button({
   onPress,
   variant = 'primary',
   tone,
+  size,
   loading,
   disabled,
   accessibilityLabel,
@@ -47,6 +50,7 @@ export function Button({
       onPress={onPress}
       style={({ pressed }) => [
         isLink ? styles.link : styles.base,
+        size === 'small' && styles.small,
         isPrimary ? styles.primary : isLink ? null : styles.secondary,
         (pressed || inactive) && styles.dimmed,
       ]}
@@ -54,7 +58,9 @@ export function Button({
       {loading ? (
         <ActivityIndicator color={labelColor} />
       ) : (
-        <Text style={[styles.label, isLink && styles.linkLabel, { color: labelColor }]}>{label}</Text>
+        <Text style={[styles.label, (isLink || size === 'small') && styles.linkLabel, { color: labelColor }]}>
+          {label}
+        </Text>
       )}
     </Pressable>
   );
@@ -68,6 +74,7 @@ const useStyles = makeStyles((colors) => ({
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
   },
+  small: { minHeight: 36, borderRadius: 10, paddingHorizontal: spacing.sm },
   primary: { backgroundColor: colors.primary },
   secondary: { borderWidth: 1, borderColor: colors.fieldBorder },
   link: { minHeight: 32, alignSelf: 'flex-start', justifyContent: 'center' },
