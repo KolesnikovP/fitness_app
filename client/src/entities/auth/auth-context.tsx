@@ -105,3 +105,9 @@ export function useAuth(): AuthContextValue {
   if (!value) throw new Error('useAuth must be used inside <AuthProvider>');
   return value;
 }
+
+/** The signed-in User's Unit preference, kg until they've picked one or while signed out. */
+export function useUnitPreference(): UnitPreference {
+  const { state } = useAuth();
+  return state.status === 'signedIn' ? (state.me.unitPreference ?? 'kg') : 'kg';
+}

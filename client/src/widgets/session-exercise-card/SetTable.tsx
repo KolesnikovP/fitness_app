@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { useAuth } from '@/entities/auth';
+import { useUnitPreference } from '@/entities/auth';
 import {
   formatSetWithTier,
   LastTimeCell,
@@ -54,8 +54,7 @@ type SetTableProps = {
  */
 export function SetTable({ sessionId, sessionExercise, onChange, onDeleteSet, rows, onRowsChange }: SetTableProps) {
   const styles = useStyles();
-  const { state } = useAuth();
-  const unit = state.status === 'signedIn' ? (state.me.unitPreference ?? 'kg') : 'kg';
+  const unit = useUnitPreference();
   const [editingSetId, setEditingSetId] = useState<string | null>(null);
 
   const logged = sessionExercise.sets;
