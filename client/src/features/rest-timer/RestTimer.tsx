@@ -6,6 +6,8 @@ import { Button, makeStyles, Sheet, spacing } from '@/shared/ui';
 
 const MINUTES = Array.from({ length: 11 }, (_, i) => i);
 const SECONDS = [0, 15, 30, 45];
+/** The longest rest the wheels reach: 10 minutes 45. */
+const MAX_REST_S = 10 * 60 + 45;
 /** The rest the wheels start at with none planned. */
 const DEFAULT_REST_S = 90;
 const COUNTDOWN_TICK_MS = 250;
@@ -91,20 +93,20 @@ export function RestTimer({ plannedSeconds = [] }: { plannedSeconds?: number[] }
 /** Two wheels, minutes and seconds, starting at initialSeconds (to the nearest 15), and Start rest. */
 function RestPicker({ initialSeconds, onStart }: { initialSeconds: number; onStart: (seconds: number) => void }) {
   const styles = useStyles();
-  const rounded = Math.min(Math.round(initialSeconds / 15) * 15, MINUTES.at(-1)! * 60 + SECONDS.at(-1)!);
+  const rounded = Math.min(Math.round(initialSeconds / 15) * 15, MAX_REST_S);
   const [minutes, setMinutes] = useState(Math.floor(rounded / 60));
   const [seconds, setSeconds] = useState(rounded % 60);
   const total = minutes * 60 + seconds;
   return (
     <>
       <View style={styles.wheels}>
-        <Wheel values={MINUTES} value={minutes} onChange={setMinutes} text={(m) => `${m} min`} label="minutes" />
+        <Wheel values={MINUTES} value={minutes} onChange={setMinutes} format={(m) => `${m} min`} unit="minutes" />
         <Wheel
           values={SECONDS}
           value={seconds}
           onChange={setSeconds}
-          text={(s) => `${String(s).padStart(2, '0')} s`}
-          label="seconds"
+          format={(s) => `${String(s).padStart(2, '0')} s`}
+          unit="seconds"
         />
       </View>
       <Button
@@ -122,24 +124,25 @@ const ITEM_HEIGHT = 44;
 /**
  * A wheel of values, three in view with the one picked in the middle: it
  * snaps to a value as it's scrolled, or scrolls to one tapped. Each value
- * reads out as "2 minutes", "15 seconds" (label).
+ * shows as format gives it ("2 min") and reads out with its unit ("2 minutes").
  */
 function Wheel({
   values,
   value,
   onChange,
-  text,
-  label,
+  format,
+  unit,
 }: {
   values: number[];
   value: number;
   onChange: (value: number) => void;
-  text: (value: number) => string;
-  label: string;
+  format: (value: number) => string;
+  unit: string;
 }) {
   const styles = useStyles();
   const scroll = useRef<ScrollView>(null);
   const [startIndex] = useState(() => Math.max(0, values.indexOf(value)));
+  const pickAt = (y: number) => onChange(values[Math.min(Math.max(Math.round(y / ITEM_HEIGHT), 0), values.length - 1)]);
   return (
     <View style={styles.wheel}>
       <View pointerEvents="none" style={styles.wheelPicked} />
@@ -150,16 +153,15 @@ function Wheel({
         decelerationRate="fast"
         contentOffset={{ x: 0, y: startIndex * ITEM_HEIGHT }}
         contentContainerStyle={styles.wheelContent}
-        onMomentumScrollEnd={(e) => {
-          const i = Math.round(e.nativeEvent.contentOffset.y / ITEM_HEIGHT);
-          onChange(values[Math.min(Math.max(i, 0), values.length - 1)]);
-        }}
+        // A flick ends in momentum; a slow drag can end without any, so both pick.
+        onMomentumScrollEnd={(e) => pickAt(e.nativeEvent.contentOffset.y)}
+        onScrollEndDrag={(e) => pickAt(e.nativeEvent.contentOffset.y)}
       >
         {values.map((v, i) => (
           <Pressable
             key={v}
             accessibilityRole="button"
-            accessibilityLabel={`${v} ${label}`}
+            accessibilityLabel={`${v} ${unit}`}
             accessibilityState={{ selected: v === value }}
             onPress={() => {
               scroll.current?.scrollTo({ y: i * ITEM_HEIGHT, animated: true });
@@ -167,7 +169,7 @@ function Wheel({
             }}
             style={styles.wheelItem}
           >
-            <Text style={[styles.wheelText, v === value && styles.wheelTextPicked]}>{text(v)}</Text>
+            <Text style={[styles.wheelText, v === value && styles.wheelTextPicked]}>{format(v)}</Text>
           </Pressable>
         ))}
       </ScrollView>

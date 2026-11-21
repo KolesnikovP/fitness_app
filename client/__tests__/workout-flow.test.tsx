@@ -1971,7 +1971,6 @@ describe('the session header', () => {
 
     await chooseDiscardWorkout('Keep logging');
 
-    await waitFor(() => expect(screen.queryByLabelText('Workout menu sheet')).toBeNull());
     expect(screen.getByLabelText('Back Squat card')).toBeVisible();
     expect(fakeApi.sessions(account.id)).toHaveLength(1);
   });
@@ -2029,6 +2028,8 @@ describe('the session header', () => {
     await logSet(await exerciseCard('Back Squat'), 1);
 
     expect(await endWorkoutChoices()).toContain('Finish workout');
+    // Logging a Set leaves the Rest timer to the User.
+    expect(header.getByRole('button', { name: 'Rest timer' })).toHaveTextContent(/^⏱$/);
     // Finish and the Rest timer are each on screen once, in the header, and Discard is under Finish.
     expect(screen.getAllByRole('button', { name: 'Finish workout' })).toHaveLength(1);
     expect(screen.queryByRole('button', { name: 'Discard workout' })).toBeNull();

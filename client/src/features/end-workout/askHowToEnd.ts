@@ -19,8 +19,13 @@ export function askHowToEnd({ onFinish, onDiscard }: { onFinish?: () => void; on
 }
 
 function confirmDiscard(onDiscard: () => void) {
-  Alert.alert('Discard workout?', 'Everything logged in this workout will be deleted.', [
-    { text: 'Keep logging', style: 'cancel' },
-    { text: 'Discard', style: 'destructive', onPress: onDiscard },
-  ]);
+  Alert.alert(
+    'Discard workout?',
+    'Everything logged in this workout will be deleted.',
+    [
+      { text: 'Keep logging', style: 'cancel' },
+      { text: 'Discard', style: 'destructive', onPress: onDiscard },
+    ],
+    { cancelable: true },
+  );
 }

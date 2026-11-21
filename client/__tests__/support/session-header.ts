@@ -26,7 +26,8 @@ export async function endWorkoutChoices(): Promise<string[]> {
  */
 export async function finishWorkout() {
   answerAlertWith('Finish workout');
-  await fireEvent.press(await screen.findByRole('button', { name: 'Finish workout' }));
+  await screen.findByLabelText('Workout controls');
+  await fireEvent.press(sessionHeader().getByRole('button', { name: 'Finish workout' }));
 }
 
 /**
