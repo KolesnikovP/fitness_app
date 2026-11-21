@@ -6,7 +6,7 @@ import { openSwapSheet } from './support/exercise-menu';
 import { fakeApi } from './support/fake-api';
 import { findHeaderTitle, queryHeaderTitle } from './support/native-header';
 import { secureStore } from './support/secure-store';
-import { openRestTimer } from './support/session-header';
+import { finishWorkout, openRestTimer } from './support/session-header';
 import { chooseSetType, loggedSets, rowsToDo } from './support/set-table';
 import { exerciseCard, showExercise } from './support/session-exercises';
 
@@ -96,9 +96,10 @@ describe('routines', () => {
       expect(benchCard.getByLabelText(`Set ${set} reps`)).toHaveDisplayValue('5');
     }
     expect(benchCard.queryByLabelText('Set 4 reps')).toBeNull();
-    // The planned rest is offered first on the rest timer.
+    // The rest timer's wheels start at the planned rest.
     const restSheet = await openRestTimer();
-    expect(restSheet.getAllByRole('button', { name: /^Rest \d/ })[0]).toHaveAccessibleName('Rest 3:00');
+    expect(restSheet.getByRole('button', { name: '3 minutes' })).toBeSelected();
+    expect(restSheet.getByRole('button', { name: '0 seconds' })).toBeSelected();
     await fireEvent.press(screen.getByLabelText('Close'));
     expect(screen.queryByLabelText('Rest timer sheet')).toBeNull();
 
@@ -121,7 +122,7 @@ describe('routines', () => {
     await fireEvent.press(pressCard.getByRole('button', { name: '+ Add set' }));
     expect(pressCard.getByLabelText('Set 4 reps')).toHaveDisplayValue('8');
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Finish workout' }));
+    await finishWorkout();
 
     // A workout from a routine is already one: no offer to save it as one.
     await screen.findByRole('header', { name: 'Workout' });
@@ -301,7 +302,7 @@ describe('routines', () => {
     await waitFor(() => expect(loggedSets(card)).toEqual(['100 kg × 5', '35 kg × 10']));
     expect(runLabels()).toEqual(['Bench Press', 'Dumbbell Bench Press']);
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Finish workout' }));
+    await finishWorkout();
     await screen.findByRole('header', { name: 'Workout' });
     await act(async () => router.navigate('/profile'));
     expect(
@@ -493,7 +494,7 @@ describe('routines', () => {
     await fireEvent.press(await screen.findByRole('button', { name: 'Resume workout' }));
     await findHeaderTitle('Current workout');
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Finish workout' }));
+    await finishWorkout();
 
     await findHeaderTitle('Workout finished');
     expect(screen.getByRole('button', { name: 'Save as routine' })).toBeDisabled();
@@ -514,7 +515,7 @@ describe('routines', () => {
     fakeApi.addSet(fakeApi.addSessionExercise(fakeApi.addSession(accountId), 'Deadlift'), 140, 'kg', 5);
     await openWorkoutTab(accountId);
     await fireEvent.press(await screen.findByRole('button', { name: 'Resume workout' }));
-    await fireEvent.press(await screen.findByRole('button', { name: 'Finish workout' }));
+    await finishWorkout();
     await findHeaderTitle('Workout finished');
 
     await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
@@ -534,7 +535,7 @@ describe('routines', () => {
     fakeApi.addSet(fakeApi.addSessionExercise(today, 'Deadlift'), 140, 'kg', 6);
     await openWorkoutTab(accountId);
     await fireEvent.press(await screen.findByRole('button', { name: 'Resume workout' }));
-    await fireEvent.press(await screen.findByRole('button', { name: 'Finish workout' }));
+    await finishWorkout();
 
     await findHeaderTitle('Workout finished');
     const records = within(await screen.findByLabelText('Personal records'));
