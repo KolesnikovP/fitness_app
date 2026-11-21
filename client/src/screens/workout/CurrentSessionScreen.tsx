@@ -153,10 +153,15 @@ export function CurrentSessionScreen() {
     }
   }
 
+  // Discarding deletes everything, so once it has, a Set deletion or exercise
+  // removal waiting out its Undo window is dropped rather than sent (as leaving
+  // the screen would) to a Session that's gone.
   async function discard() {
     if (!token || !session) return;
     try {
       await discardSession(token, session.id);
+      deletion.undo();
+      removal.undo();
       router.back();
     } catch (e) {
       setError(errorMessage(e));

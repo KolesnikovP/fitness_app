@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Pressable, Text } from 'react-native';
 
 import type { Session, SessionExercise } from '@/entities/workout';
 import { confirmExerciseRemoval } from '@/features/remove-exercise';
 import { canSwap, SwapSheet } from '@/features/swap-exercise';
-import { makeStyles, spacing } from '@/shared/ui';
+import { makeStyles, Sheet, spacing } from '@/shared/ui';
 
 type ExerciseMenuProps = {
   sessionId: string;
@@ -51,40 +51,34 @@ export function ExerciseMenu({ sessionId, sessionExercise, onSwapped, onRemove, 
       >
         <Text style={styles.dotsText}>⋯</Text>
       </Pressable>
-      <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
-        <Pressable accessibilityLabel="Close" style={styles.backdrop} onPress={() => setOpen(false)} />
-        <View accessibilityLabel={`${name} options sheet`} style={styles.sheet}>
-          <Text accessibilityRole="header" style={styles.title}>
-            {name}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Replace exercise"
-            onPress={replace}
-            style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}
-          >
-            <Text style={styles.optionIcon}>⇄</Text>
-            <Text style={styles.optionLabel}>Replace exercise</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Remove exercise"
-            onPress={remove}
-            style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}
-          >
-            <Text style={[styles.optionIcon, styles.danger]}>✕</Text>
-            <Text style={[styles.optionLabel, styles.danger]}>Remove exercise</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Cancel"
-            onPress={() => setOpen(false)}
-            style={styles.cancel}
-          >
-            <Text style={styles.cancelText}>Cancel</Text>
-          </Pressable>
-        </View>
-      </Modal>
+      <Sheet open={open} onClose={() => setOpen(false)} accessibilityLabel={`${name} options sheet`} title={name}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Replace exercise"
+          onPress={replace}
+          style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}
+        >
+          <Text style={styles.optionIcon}>⇄</Text>
+          <Text style={styles.optionLabel}>Replace exercise</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Remove exercise"
+          onPress={remove}
+          style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}
+        >
+          <Text style={[styles.optionIcon, styles.danger]}>✕</Text>
+          <Text style={[styles.optionLabel, styles.danger]}>Remove exercise</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Cancel"
+          onPress={() => setOpen(false)}
+          style={styles.cancel}
+        >
+          <Text style={styles.cancelText}>Cancel</Text>
+        </Pressable>
+      </Sheet>
       <SwapSheet
         sessionId={sessionId}
         sessionExercise={sessionExercise}
@@ -101,16 +95,6 @@ const useStyles = makeStyles((colors) => ({
   dots: { width: 36, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   pressed: { backgroundColor: colors.background },
   dotsText: { fontSize: 24, lineHeight: 26, fontWeight: '700', color: colors.muted },
-  backdrop: { flex: 1, backgroundColor: colors.backdrop },
-  sheet: {
-    gap: spacing.xs,
-    padding: spacing.md,
-    paddingBottom: spacing.xl,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    backgroundColor: colors.background,
-  },
-  title: { fontSize: 20, fontWeight: '600', color: colors.text, marginBottom: spacing.xs },
   option: {
     flexDirection: 'row',
     alignItems: 'center',

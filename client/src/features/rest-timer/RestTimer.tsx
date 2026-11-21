@@ -5,7 +5,7 @@ import { formatRest } from '@/entities/workout';
 import { Button, makeStyles, Sheet, spacing } from '@/shared/ui';
 
 const DURATIONS_S = [60, 90, 120, 180];
-const TICK_MS = 250;
+const COUNTDOWN_TICK_MS = 250;
 
 /**
  * An optional countdown between Sets, started by the User: a compact button
@@ -28,7 +28,7 @@ export function RestTimer({ plannedSeconds = [] }: { plannedSeconds?: number[] }
 
   useEffect(() => {
     if (endsAt === null) return;
-    const timer = setInterval(() => setNow(Date.now()), TICK_MS);
+    const timer = setInterval(() => setNow(Date.now()), COUNTDOWN_TICK_MS);
     return () => clearInterval(timer);
   }, [endsAt]);
 

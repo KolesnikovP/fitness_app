@@ -58,7 +58,14 @@ export function Button({
       {loading ? (
         <ActivityIndicator color={labelColor} />
       ) : (
-        <Text style={[styles.label, (isLink || size === 'small') && styles.linkLabel, { color: labelColor }]}>
+        <Text
+          style={[
+            styles.label,
+            isLink && styles.linkLabel,
+            size === 'small' && styles.smallLabel,
+            { color: labelColor },
+          ]}
+        >
           {label}
         </Text>
       )}
@@ -81,4 +88,5 @@ const useStyles = makeStyles((colors) => ({
   dimmed: { opacity: 0.6 },
   label: { fontSize: 17, fontWeight: '600' },
   linkLabel: { fontSize: 15, fontWeight: '600' },
+  smallLabel: { fontSize: 15 },
 }));

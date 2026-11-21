@@ -104,7 +104,7 @@ function Elapsed({ startedAt }: { startedAt: string }) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), TICK_MS);
+    const timer = setInterval(() => setNow(Date.now()), ELAPSED_TICK_MS);
     return () => clearInterval(timer);
   }, []);
 
@@ -115,7 +115,7 @@ function Elapsed({ startedAt }: { startedAt: string }) {
   );
 }
 
-const TICK_MS = 1000;
+const ELAPSED_TICK_MS = 1000;
 
 const useStyles = makeStyles((colors) => ({
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },

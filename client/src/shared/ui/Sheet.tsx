@@ -36,7 +36,7 @@ const useStyles = makeStyles((colors) => ({
   backdrop: { flex: 1, backgroundColor: colors.backdrop },
   sheet: {
     gap: spacing.sm,
-    padding: spacing.md,
+    padding: spacing.lg,
     paddingBottom: spacing.xl,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,

@@ -1932,6 +1932,43 @@ describe('one exercise at a time', () => {
 });
 
 describe('the session header', () => {
+  it('keeps the workout when Discard is answered with Keep logging', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat');
+    await resumeWorkout(account.id);
+
+    answerAlertWith('Keep logging');
+    await chooseDiscardWorkout();
+
+    await waitFor(() => expect(screen.queryByLabelText('Workout menu sheet')).toBeNull());
+    expect(screen.getByLabelText('Back Squat card')).toBeVisible();
+    expect(fakeApi.sessions(account.id)).toHaveLength(1);
+  });
+
+  it('drops a Set deletion waiting out its Undo window when discarding, rather than sending it', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    fakeApi.addSet(fakeApi.addSessionExercise(fakeApi.addSession(account.id), 'Back Squat'), 140, 'kg', 5);
+    await resumeWorkout(account.id);
+    const card = await exerciseCard('Back Squat');
+    await swipeLeft(card.getByRole('button', { name: 'Edit set 1' }));
+    await fireEvent.press(card.getByRole('button', { name: 'Delete set 1' }));
+    const sent: string[] = [];
+    const listener = ({ request }: { request: Request }) => {
+      sent.push(`${request.method} ${new URL(request.url).pathname}`);
+    };
+    server.events.on('request:start', listener);
+    try {
+      answerAlertWith('Discard');
+      await chooseDiscardWorkout();
+      await screen.findByRole('button', { name: 'Start Workout' });
+    } finally {
+      server.events.removeListener('request:start', listener);
+    }
+
+    expect(sent.filter((r) => r.includes('/sets/'))).toEqual([]);
+    expect(fakeApi.sessions(account.id)).toEqual([]);
+  });
+
   it('shows the time since the workout started, ticking, in place of "Started at"', async () => {
     jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
     try {
