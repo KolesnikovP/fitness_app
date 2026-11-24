@@ -14,8 +14,8 @@ type SessionExerciseCardProps = {
   /** The Session's other exercises not in a Superset, which it can be grouped with. */
   freeToGroup: SessionExercise[];
   onChange: (session: Session) => void;
-  /** Called as the Superset picker opens, before anything is grouped. */
-  onGroupStart: () => void;
+  /** Sends what's waiting out an Undo window before a Superset changes; false if that failed. */
+  onBeforeSupersetChange: () => Promise<boolean>;
   onDeleteSet: (setId: string) => void;
   onRemove: (sessionExerciseId: string) => void;
   /** Opens the exercise picker to Replace it with any Exercise. */
@@ -37,7 +37,7 @@ export function SessionExerciseCard({
   sessionExercise,
   freeToGroup,
   onChange,
-  onGroupStart,
+  onBeforeSupersetChange,
   onDeleteSet,
   onRemove,
   onReplace,
@@ -66,7 +66,7 @@ export function SessionExerciseCard({
         sessionExercise={sessionExercise}
         freeToGroup={freeToGroup}
         onChange={onChange}
-        onGroupStart={onGroupStart}
+        onBeforeSupersetChange={onBeforeSupersetChange}
         onRemove={() => onRemove(sessionExercise.id)}
         onReplace={() => onReplace(sessionExercise)}
       />

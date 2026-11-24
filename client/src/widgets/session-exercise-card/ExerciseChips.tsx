@@ -15,8 +15,12 @@ type ExerciseChipsProps = {
   /** The Session's other exercises not in a Superset, which it can be grouped with. */
   freeToGroup: SessionExercise[];
   onChange: (session: Session) => void;
-  /** Called as the Superset picker opens, before anything is grouped. */
-  onGroupStart: () => void;
+  /**
+   * Sends what's waiting out an Undo window before a Superset changes, as the
+   * server still has a removed exercise in its Superset until then; false if
+   * that failed.
+   */
+  onBeforeSupersetChange: () => Promise<boolean>;
   onRemove: () => void;
   /** Opens the exercise picker to Replace it with any Exercise. */
   onReplace: () => void;
@@ -33,7 +37,7 @@ export function ExerciseChips({
   sessionExercise,
   freeToGroup,
   onChange,
-  onGroupStart,
+  onBeforeSupersetChange,
   onRemove,
   onReplace,
 }: ExerciseChipsProps) {
@@ -58,16 +62,17 @@ export function ExerciseChips({
           <Chip
             label="Ungroup"
             disabled={ungrouping}
-            onPress={() => {
+            onPress={async () => {
               setError(null);
-              void ungroup(supersetId);
+              if (await onBeforeSupersetChange()) await ungroup(supersetId);
             }}
           />
         ) : freeToGroup.length > 0 ? (
           <Chip
             label="Superset"
             onPress={() => {
-              onGroupStart();
+              // Sent while the User picks; grouping fails as it would anyway if it can't be.
+              void onBeforeSupersetChange();
               setOpen('superset');
             }}
           />

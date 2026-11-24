@@ -5,7 +5,9 @@ import { Alert } from 'react-native';
 
 import {
   chipNames,
+  groupAsSuperset,
   openExerciseMenuItem,
+  openNoteSheet,
   openSwapSheet,
   pressChip,
   removeExercise,
@@ -111,8 +113,7 @@ describe('freeform workout', () => {
     await fireEvent.press(editing.getByRole('button', { name: 'Save' }));
     expect(await card.findByText('Slow negatives')).toBeVisible();
 
-    await pressChip('Dumbbell Bench Press', 'Note');
-    const noteSheet = within(await screen.findByLabelText('Dumbbell Bench Press note'));
+    const noteSheet = await openNoteSheet('Dumbbell Bench Press');
     await fireEvent.changeText(noteSheet.getByLabelText('Exercise note'), 'Bench 3 was free');
     await fireEvent.press(noteSheet.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.queryByLabelText('Dumbbell Bench Press note')).toBeNull());
@@ -152,8 +153,7 @@ describe('freeform workout', () => {
     await findHeaderTitle('Current workout');
     expect(loggedSets(await exerciseCard('Deadlift'))).toEqual(['140 kg × 3']);
     // A note already written is there to read in its sheet.
-    await pressChip('Deadlift', 'Note');
-    const noteSheet = within(await screen.findByLabelText('Deadlift note'));
+    const noteSheet = await openNoteSheet('Deadlift');
     expect(noteSheet.getByLabelText('Exercise note')).toHaveDisplayValue('Mixed grip');
     await fireEvent.press(noteSheet.getByRole('button', { name: 'Close' }));
     expect(await endWorkoutChoices()).toContain('Finish workout');
@@ -875,10 +875,7 @@ describe('removing an exercise', () => {
     await resumeWorkout(account.id);
 
     await removeExercise('Bench Press');
-    await pressChip('Lat Pulldown', 'Superset');
-    const picker = within(await screen.findByLabelText('Superset with Lat Pulldown'));
-    await fireEvent.press(picker.getByRole('checkbox', { name: 'Plank' }));
-    await fireEvent.press(picker.getByRole('button', { name: 'Group as superset' }));
+    await groupAsSuperset('Lat Pulldown', ['Plank']);
 
     expect(await screen.findByLabelText('Tiles of superset of Lat Pulldown and Plank')).toBeVisible();
     expect(screen.queryByRole('alert')).toBeNull();
@@ -896,6 +893,24 @@ describe('removing an exercise', () => {
     await removeExercise('Deadlift');
 
     expect(screen.getByLabelText('Superset of Bench Press and Lat Pulldown')).toBeVisible();
+  });
+
+  it('sends an exercise removal waiting out its Undo window before ungrouping its superset', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    const members = ['Bench Press', 'Deadlift', 'Lat Pulldown'].map((name) =>
+      fakeApi.addSessionExercise(session, name),
+    );
+    members.forEach((e) => (e.supersetId = 'superset-1'));
+    await resumeWorkout(account.id);
+    await removeExercise('Deadlift');
+
+    await pressChip('Bench Press', 'Ungroup');
+
+    await waitFor(() => expect(screen.queryByLabelText(/^Superset of/)).toBeNull());
+    expect(session.exercises.map((e) => e.exerciseId)).toEqual(
+      ['Bench Press', 'Lat Pulldown'].map((name) => fakeApi.exerciseNamed(name).id),
+    );
   });
 });
 
@@ -2208,8 +2223,7 @@ describe('the Note chip', () => {
     // Alone in the workout, it has nothing to be a Superset with.
     expect(chipNames('Bench Press')).toEqual(['Note', 'More']);
 
-    await pressChip('Bench Press', 'Note');
-    let sheet = within(await screen.findByLabelText('Bench Press note'));
+    let sheet = await openNoteSheet('Bench Press');
     expect(sheet.getByRole('header', { name: 'Note' })).toBeVisible();
     expect(sheet.getByText('0 / 500')).toBeVisible();
     await fireEvent.changeText(sheet.getByLabelText('Exercise note'), 'Bench 3 was free');
@@ -2218,8 +2232,7 @@ describe('the Note chip', () => {
     await waitFor(() => expect(screen.queryByLabelText('Bench Press note')).toBeNull());
     expect(bench.note).toBe('Bench 3 was free');
 
-    await pressChip('Bench Press', 'Note');
-    sheet = within(await screen.findByLabelText('Bench Press note'));
+    sheet = await openNoteSheet('Bench Press');
     expect(sheet.getByLabelText('Exercise note')).toHaveDisplayValue('Bench 3 was free');
     await fireEvent.changeText(sheet.getByLabelText('Exercise note'), 'Never mind');
     await fireEvent.press(sheet.getByRole('button', { name: 'Close' }));
@@ -2227,8 +2240,7 @@ describe('the Note chip', () => {
     expect(bench.note).toBe('Bench 3 was free');
 
     // What was typed and not saved is gone the next time.
-    await pressChip('Bench Press', 'Note');
-    sheet = within(await screen.findByLabelText('Bench Press note'));
+    sheet = await openNoteSheet('Bench Press');
     expect(sheet.getByLabelText('Exercise note')).toHaveDisplayValue('Bench 3 was free');
   });
 });

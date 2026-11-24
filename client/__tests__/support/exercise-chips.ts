@@ -50,3 +50,17 @@ export async function swap(from: string, to: string) {
 export async function removeExercise(name: string) {
   await openExerciseMenuItem(name, 'Remove exercise');
 }
+
+/** Opens a Session exercise's Note sheet from its Note chip, and returns the sheet. */
+export async function openNoteSheet(name: string) {
+  await pressChip(name, 'Note');
+  return within(await screen.findByLabelText(`${name} note`));
+}
+
+/** Groups a Session exercise into a Superset with others, picked in the sheet of its Superset chip. */
+export async function groupAsSuperset(name: string, others: string[]) {
+  await pressChip(name, 'Superset');
+  const picker = within(await screen.findByLabelText(`Superset with ${name}`));
+  for (const other of others) await fireEvent.press(picker.getByRole('checkbox', { name: other }));
+  await fireEvent.press(picker.getByRole('button', { name: 'Group as superset' }));
+}

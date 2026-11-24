@@ -181,10 +181,10 @@ export function CurrentSessionScreen() {
     }
     removal.remove(sessionExerciseId);
   }
-  // Grouping sends a pending removal first: the server still has the exercise
-  // left alone in a Superset of two in it until then.
-  function startGrouping() {
-    void removal.flush();
+  // Grouping or ungrouping sends a pending removal first: the server still has
+  // the exercise in its Superset until then.
+  function beforeSupersetChange() {
+    return removal.flush();
   }
   // Replacing sends what's pending first, as the request starts from what
   // the server has; if that fails, its error shows here and the picker doesn't open.
@@ -254,7 +254,7 @@ export function CurrentSessionScreen() {
           freeToGroup={ungrouped.filter((e) => e.id !== shownExercise.id)}
           superset={shownBlock?.kind === 'superset' ? shownBlock : null}
           onChange={changed}
-          onGroupStart={startGrouping}
+          onBeforeSupersetChange={beforeSupersetChange}
           onDeleteSet={deleteSet}
           onRemove={removeExercise}
           onReplace={replaceExercise}

@@ -26,7 +26,7 @@ export function SupersetSheet({ sessionId, sessionExercise, others, onGrouped, o
     <Sheet open={open} onClose={onClose} accessibilityLabel={`Superset with ${name}`} title="Superset" closeButton>
       {/* Mounted only while open, so nothing is picked each time it opens. */}
       {open ? (
-        <Picker
+        <OthersPicker
           sessionId={sessionId}
           sessionExercise={sessionExercise}
           others={others}
@@ -40,7 +40,8 @@ export function SupersetSheet({ sessionId, sessionExercise, others, onGrouped, o
   );
 }
 
-function Picker({ sessionId, sessionExercise, others, onGrouped }: Omit<SupersetSheetProps, 'open' | 'onClose'>) {
+/** Picks the others to group with, and groups them. */
+function OthersPicker({ sessionId, sessionExercise, others, onGrouped }: Omit<SupersetSheetProps, 'open' | 'onClose'>) {
   const styles = useStyles();
   const { state } = useAuth();
   const [selected, setSelected] = useState<string[]>([]);
