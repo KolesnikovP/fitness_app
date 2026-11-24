@@ -1,26 +1,21 @@
 import type { ReactNode } from 'react';
 import { Text, View } from 'react-native';
 
-import { supersetProgress, type Session, type SessionExercise } from '@/entities/workout';
-import { UngroupSupersetButton } from '@/features/superset';
+import { supersetProgress, type SessionExercise } from '@/entities/workout';
 import { makeStyles, spacing } from '@/shared/ui';
 import { listNames } from '@/shared/utils';
 
 type SupersetBlockProps = {
-  sessionId: string;
-  supersetId: string;
   exercises: SessionExercise[];
-  onChange: (session: Session) => void;
   /** The card of the member shown. */
   children: ReactNode;
 };
 
 /**
  * A Superset in the workout in progress, around the card of the member
- * shown: what's next, with rest only once every exercise has had its Set,
- * and ungrouping it.
+ * shown: what's next, with rest only once every exercise has had its Set.
  */
-export function SupersetBlock({ sessionId, supersetId, exercises, onChange, children }: SupersetBlockProps) {
+export function SupersetBlock({ exercises, children }: SupersetBlockProps) {
   const styles = useStyles();
   const progress = supersetProgress(exercises);
   const started = exercises.some((e) => e.sets.length > 0);
@@ -34,7 +29,6 @@ export function SupersetBlock({ sessionId, supersetId, exercises, onChange, chil
       <Text style={styles.label}>Superset</Text>
       <Text style={[styles.hint, progress.kind === 'roundDone' && styles.rest]}>{hint}</Text>
       {children}
-      <UngroupSupersetButton sessionId={sessionId} supersetId={supersetId} onUngrouped={onChange} />
     </View>
   );
 }

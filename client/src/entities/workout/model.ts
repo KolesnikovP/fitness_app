@@ -405,6 +405,9 @@ export type ExerciseBest = { exerciseId: string; name: string; best: BestSet };
 /** The most characters a Session name may have. */
 export const MAX_SESSION_NAME_CHARS = 60;
 
+/** The most characters a Session exercise's note may have, counted by code point as the API counts. */
+export const MAX_EXERCISE_NOTE_CHARS = 500;
+
 /** "1 workout", "3 sets": count with a noun, plural unless it's 1. */
 export function countOf(n: number, noun: string): string {
   return `${n} ${noun}${n === 1 ? '' : 's'}`;

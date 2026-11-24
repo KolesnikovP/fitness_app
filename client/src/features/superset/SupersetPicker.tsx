@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { Button, makeStyles, spacing } from '@/shared/ui';
+
+import { ExerciseCheckList, toggled } from './ExerciseCheckList';
 
 type SupersetPickerProps = {
   /** The exercises not yet in a Superset, in order. */
@@ -18,32 +20,15 @@ export function SupersetPicker({ exercises, onGroup, onCancel, saving, error }: 
   const styles = useStyles();
   const [selected, setSelected] = useState<string[]>([]);
 
-  function toggle(id: string) {
-    setSelected((current) => (current.includes(id) ? current.filter((s) => s !== id) : [...current, id]));
-  }
-
   return (
     <View accessibilityLabel="New superset" style={styles.container}>
       <Text style={styles.title}>New superset</Text>
       <Text style={styles.muted}>Pick two or more exercises to do back to back, resting after the last.</Text>
-      {exercises.map((exercise) => {
-        const checked = selected.includes(exercise.id);
-        return (
-          <Pressable
-            key={exercise.id}
-            accessibilityRole="checkbox"
-            accessibilityLabel={exercise.name}
-            accessibilityState={{ checked }}
-            onPress={() => toggle(exercise.id)}
-            style={styles.option}
-          >
-            <View style={[styles.box, checked && styles.boxChecked]}>
-              {checked ? <Text style={styles.check}>✓</Text> : null}
-            </View>
-            <Text style={styles.optionText}>{exercise.name}</Text>
-          </Pressable>
-        );
-      })}
+      <ExerciseCheckList
+        exercises={exercises}
+        selected={selected}
+        onToggle={(id) => setSelected((current) => toggled(current, id))}
+      />
       {error ? (
         <Text accessibilityRole="alert" style={styles.error}>
           {error}
@@ -71,18 +56,5 @@ const useStyles = makeStyles((colors) => ({
   },
   title: { fontSize: 20, fontWeight: '600', color: colors.text },
   muted: { fontSize: 15, color: colors.muted },
-  option: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 44 },
-  box: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  boxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
-  check: { color: colors.primaryText, fontWeight: '700' },
-  optionText: { fontSize: 17, color: colors.text },
   error: { color: colors.danger, fontSize: 15 },
 }));

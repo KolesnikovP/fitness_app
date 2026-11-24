@@ -2,17 +2,20 @@ import { Text, View } from 'react-native';
 
 import { useUnitPreference } from '@/entities/auth';
 import { formatSetProgress, swappedFrom, type RowsToDo, type Session, type SessionExercise } from '@/entities/workout';
-import { ExerciseNoteField } from '@/features/exercise-note';
 import { makeStyles, spacing } from '@/shared/ui';
 
-import { ExerciseMenu } from './ExerciseMenu';
+import { ExerciseChips } from './ExerciseChips';
 import { SetTable } from './SetTable';
 import type { RowsChange } from './useRowsToDo';
 
 type SessionExerciseCardProps = {
   sessionId: string;
   sessionExercise: SessionExercise;
+  /** The Session's other exercises not in a Superset, which it can be grouped with. */
+  freeToGroup: SessionExercise[];
   onChange: (session: Session) => void;
+  /** Called as the Superset picker opens, before anything is grouped. */
+  onGroupStart: () => void;
   onDeleteSet: (setId: string) => void;
   onRemove: (sessionExerciseId: string) => void;
   /** Opens the exercise picker to Replace it with any Exercise. */
@@ -25,14 +28,16 @@ type SessionExerciseCardProps = {
 /**
  * One exercise in the workout in progress. Its heading: its name, what it
  * was Swapped from, how far through its Sets it is with its Target (see
- * formatSetProgress), and its Exercise slot's note. Then a ⋯ menu of what
- * can be done with it; its Sets as a table, logged and still to do; and a
- * note.
+ * formatSetProgress), and its Exercise slot's note. Then a row of chips
+ * for what can be done with it (see ExerciseChips); and its Sets as a
+ * table, logged and still to do.
  */
 export function SessionExerciseCard({
   sessionId,
   sessionExercise,
+  freeToGroup,
   onChange,
+  onGroupStart,
   onDeleteSet,
   onRemove,
   onReplace,
@@ -55,14 +60,16 @@ export function SessionExerciseCard({
         </View>
         {/* Where the exercise's picture will go. */}
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.picture} />
-        <ExerciseMenu
-          sessionId={sessionId}
-          sessionExercise={sessionExercise}
-          onSwapped={onChange}
-          onRemove={() => onRemove(sessionExercise.id)}
-          onReplace={() => onReplace(sessionExercise)}
-        />
       </View>
+      <ExerciseChips
+        sessionId={sessionId}
+        sessionExercise={sessionExercise}
+        freeToGroup={freeToGroup}
+        onChange={onChange}
+        onGroupStart={onGroupStart}
+        onRemove={() => onRemove(sessionExercise.id)}
+        onReplace={() => onReplace(sessionExercise)}
+      />
       <SetTable
         // Starts over on a swap, from the Target for the Exercise swapped to.
         key={sessionExercise.exerciseId}
@@ -73,7 +80,6 @@ export function SessionExerciseCard({
         rows={rows}
         onRowsChange={onRowsChange}
       />
-      <ExerciseNoteField sessionId={sessionId} sessionExercise={sessionExercise} onSaved={onChange} />
     </View>
   );
 }

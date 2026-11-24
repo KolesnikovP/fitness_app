@@ -23,6 +23,7 @@ export {
   allPlannedSetsLogged,
   inBlockOrder,
   hasSets,
+  MAX_EXERCISE_NOTE_CHARS,
   MAX_SESSION_NAME_CHARS,
   newRecords,
   pendingSetDrafts,

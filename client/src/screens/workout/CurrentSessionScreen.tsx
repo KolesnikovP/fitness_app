@@ -23,9 +23,8 @@ import {
 } from '@/entities/workout';
 import { usePendingSetDeletion } from '@/features/delete-set';
 import { usePendingExerciseRemoval } from '@/features/remove-exercise';
-import { CreateSupersetForm } from '@/features/superset';
 import { errorMessage } from '@/shared/api';
-import { Button, makeStyles, Screen, Spinner, UndoBar } from '@/shared/ui';
+import { makeStyles, Screen, Spinner, UndoBar } from '@/shared/ui';
 import { SessionExerciseCard, SupersetBlock, useRowsToDo } from '@/widgets/session-exercise-card';
 import { SessionExerciseStrip } from '@/widgets/session-exercise-strip';
 
@@ -44,7 +43,6 @@ export function CurrentSessionScreen() {
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
-  const [groupingSuperset, setGroupingSuperset] = useState(false);
   // Which Session exercise is shown; see takeLoaded, removeExercise and undoRemoval.
   const [shownId, setShownId] = useState<string | null>(null);
   // The Session exercises as last loaded, to tell one just added; null until the first load.
@@ -185,9 +183,8 @@ export function CurrentSessionScreen() {
   }
   // Grouping sends a pending removal first: the server still has the exercise
   // left alone in a Superset of two in it until then.
-  function groupSuperset() {
+  function startGrouping() {
     void removal.flush();
-    setGroupingSuperset(true);
   }
   // Replacing sends what's pending first, as the request starts from what
   // the server has; if that fails, its error shows here and the picker doesn't open.
@@ -254,27 +251,16 @@ export function CurrentSessionScreen() {
           key={shownExercise.id}
           sessionId={session.id}
           sessionExercise={shownExercise}
+          freeToGroup={ungrouped.filter((e) => e.id !== shownExercise.id)}
           superset={shownBlock?.kind === 'superset' ? shownBlock : null}
           onChange={changed}
+          onGroupStart={startGrouping}
           onDeleteSet={deleteSet}
           onRemove={removeExercise}
           onReplace={replaceExercise}
           rows={rowsToDo.rowsOf(shownExercise)}
           onRowsChange={(change) => rowsToDo.change(shownExercise, change)}
         />
-      ) : null}
-      {groupingSuperset ? (
-        <CreateSupersetForm
-          sessionId={session.id}
-          exercises={ungrouped}
-          onCreated={(updated) => {
-            setSession(updated);
-            setGroupingSuperset(false);
-          }}
-          onCancel={() => setGroupingSuperset(false)}
-        />
-      ) : ungrouped.length >= 2 ? (
-        <Button label="Create superset" variant="secondary" onPress={groupSuperset} />
       ) : null}
       {error ? (
         <Text accessibilityRole="alert" style={styles.error}>
@@ -296,12 +282,7 @@ type ShownExerciseProps = ComponentProps<typeof SessionExerciseCard> & {
 function ShownExercise({ superset, ...card }: ShownExerciseProps) {
   if (!superset) return <SessionExerciseCard {...card} />;
   return (
-    <SupersetBlock
-      sessionId={card.sessionId}
-      supersetId={superset.supersetId}
-      exercises={superset.exercises}
-      onChange={card.onChange}
-    >
+    <SupersetBlock exercises={superset.exercises}>
       <SessionExerciseCard {...card} />
     </SupersetBlock>
   );
