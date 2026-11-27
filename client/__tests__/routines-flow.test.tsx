@@ -8,7 +8,7 @@ import { findHeaderTitle, queryHeaderTitle } from './support/native-header';
 import { secureStore } from './support/secure-store';
 import { finishWorkout, openRestTimer } from './support/session-header';
 import { chooseSetType, loggedSets, rowsToDo } from './support/set-table';
-import { exerciseCard, showExercise } from './support/session-exercises';
+import { exerciseCard } from './support/session-exercises';
 
 /** Launches the app signed in as an onboarded kg user (made unless given), on the Workout tab. */
 async function openWorkoutTab(accountId?: string) {
@@ -425,9 +425,6 @@ describe('routines', () => {
 
     await findHeaderTitle('Current workout');
     expect(screen.getByLabelText('Tiles of superset of Lat Pulldown and Overhead Press')).toBeVisible();
-    await showExercise('Lat Pulldown');
-    const superset = within(screen.getByLabelText('Superset of Lat Pulldown and Overhead Press'));
-    expect(superset.getByText('Next: Lat Pulldown')).toBeVisible();
   });
 
   it('edits a routine', async () => {

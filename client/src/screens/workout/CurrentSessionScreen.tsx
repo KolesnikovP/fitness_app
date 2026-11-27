@@ -1,12 +1,11 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Text } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import {
   discardSession,
   finishSession,
-  blockExercises,
   getCurrentSession,
   hasRowsToDo,
   hasSets,
@@ -18,14 +17,13 @@ import {
   withoutSet,
   type PersonalRecord,
   type Session,
-  type SessionBlock,
   type SessionExercise,
 } from '@/entities/workout';
 import { usePendingSetDeletion } from '@/features/delete-set';
 import { usePendingExerciseRemoval } from '@/features/remove-exercise';
 import { errorMessage } from '@/shared/api';
 import { makeStyles, Screen, Spinner, UndoBar } from '@/shared/ui';
-import { SessionExerciseCard, SupersetBlock, useRowsToDo } from '@/widgets/session-exercise-card';
+import { SessionExerciseCard, useRowsToDo } from '@/widgets/session-exercise-card';
 import { SessionExerciseStrip } from '@/widgets/session-exercise-strip';
 
 import { SessionHeader } from './SessionHeader';
@@ -33,8 +31,8 @@ import { SessionHeader } from './SessionHeader';
 /**
  * The workout in progress, one Session exercise at a time: a header of
  * session-wide controls (see SessionHeader), a strip of tiles to switch
- * between them and add another, and the one shown with its Sets (and its
- * Superset, if in one).
+ * between them and add another (its tiles mark each Superset), and the one
+ * shown with its chips and Sets.
  */
 export function CurrentSessionScreen() {
   const styles = useStyles();
@@ -213,7 +211,6 @@ export function CurrentSessionScreen() {
   const blocks = sessionBlocks(shown.exercises);
   const ordered = inBlockOrder(shown.exercises);
   const shownExercise = ordered.find((e) => e.id === shownId) ?? ordered[0] ?? null;
-  const shownBlock = blocks.find((block) => blockExercises(block).some((e) => e.id === shownExercise?.id));
   const plannedRests = shown.exercises.flatMap((e) => (e.target?.restSeconds ? [e.target.restSeconds] : []));
 
   return (
@@ -247,12 +244,11 @@ export function CurrentSessionScreen() {
         onAdd={() => router.push({ pathname: '/workout/add-exercise', params: { sessionId: session.id } })}
       />
       {shownExercise ? (
-        <ShownExercise
+        <SessionExerciseCard
           key={shownExercise.id}
           sessionId={session.id}
           sessionExercise={shownExercise}
           freeToGroup={ungrouped.filter((e) => e.id !== shownExercise.id)}
-          superset={shownBlock?.kind === 'superset' ? shownBlock : null}
           onChange={changed}
           onBeforeSupersetChange={beforeSupersetChange}
           onDeleteSet={deleteSet}
@@ -272,21 +268,6 @@ export function CurrentSessionScreen() {
 }
 
 const RECORD_BANNER_MS = 6000;
-
-type ShownExerciseProps = ComponentProps<typeof SessionExerciseCard> & {
-  /** The Superset it's in, if any. */
-  superset: Extract<SessionBlock, { kind: 'superset' }> | null;
-};
-
-/** The Session exercise shown: its card, inside its Superset if it's in one. */
-function ShownExercise({ superset, ...card }: ShownExerciseProps) {
-  if (!superset) return <SessionExerciseCard {...card} />;
-  return (
-    <SupersetBlock exercises={superset.exercises}>
-      <SessionExerciseCard {...card} />
-    </SupersetBlock>
-  );
-}
 
 const useStyles = makeStyles((colors) => ({
   error: { color: colors.danger, fontSize: 15 },

@@ -383,7 +383,7 @@ describe('freeform workout', () => {
     expect(within(card.getByRole('button', { name: 'Set 1 RPE' })).getByText('–')).toBeVisible();
   });
 
-  it('groups exercises into a superset, logged back to back with rest after the round', async () => {
+  it('groups exercises into a superset from the Superset chip, logs their Sets in it, and ungroups it', async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     const session = fakeApi.addSession(account.id);
     fakeApi.addSessionExercise(session, 'Bench Press');
@@ -405,23 +405,20 @@ describe('freeform workout', () => {
     expect(tileNames()).toEqual(['Bench Press', 'Lat Pulldown', 'Plank']);
     const tiles = within(screen.getByLabelText('Tiles of superset of Bench Press and Lat Pulldown'));
     expect(tileNames(tiles)).toEqual(['Bench Press', 'Lat Pulldown']);
-    const superset = within(screen.getByLabelText('Superset of Bench Press and Lat Pulldown'));
-    expect(superset.getByText('Next: Bench Press')).toBeVisible();
+    // The tiles mark the superset; the exercise shown has no block around it.
+    expect(screen.queryByLabelText(/^Superset of/)).toBeNull();
 
     const bench = await exerciseCard('Bench Press');
     await fireEvent.changeText(bench.getByLabelText('Set 1 weight (kg)'), '80');
     await fireEvent.changeText(bench.getByLabelText('Set 1 reps'), '8');
     await fireEvent.press(bench.getByRole('button', { name: 'Log set 1' }));
-    // No rest between the exercises of a superset...
-    expect(await superset.findByText('Next: Lat Pulldown, no rest')).toBeVisible();
+    await waitFor(() => expect(loggedSets(bench)).toEqual(['80 kg × 8']));
 
     const pulldown = await exerciseCard('Lat Pulldown');
-    const pulldownSuperset = within(screen.getByLabelText('Superset of Bench Press and Lat Pulldown'));
     await fireEvent.changeText(pulldown.getByLabelText('Set 1 weight (kg)'), '60');
     await fireEvent.changeText(pulldown.getByLabelText('Set 1 reps'), '10');
     await fireEvent.press(pulldown.getByRole('button', { name: 'Log set 1' }));
-    // ...only after the whole round.
-    expect(await pulldownSuperset.findByText('Round 1 done. Rest now.')).toBeVisible();
+    await waitFor(() => expect(loggedSets(pulldown)).toEqual(['60 kg × 10']));
 
     const [saved] = fakeApi.sessions(account.id);
     const [benchPress, plank, latPulldown] = saved.exercises;
@@ -433,8 +430,7 @@ describe('freeform workout', () => {
 
     expect(chipNames('Lat Pulldown')).toEqual(['Note', 'Ungroup', 'More']);
     await pressChip('Lat Pulldown', 'Ungroup');
-    await waitFor(() => expect(screen.queryByLabelText(/^Superset of/)).toBeNull());
-    expect(screen.queryByLabelText(/^Tiles of superset/)).toBeNull();
+    await waitFor(() => expect(screen.queryByLabelText(/^Tiles of superset/)).toBeNull());
     expect(fakeApi.sessions(account.id)[0].exercises.every((e) => e.supersetId === null)).toBe(true);
     expect(chipNames('Lat Pulldown')).toEqual(['Note', 'Superset', 'More']);
   });
@@ -456,8 +452,8 @@ describe('freeform workout', () => {
         name: 'Swap to Dumbbell Bench Press',
       }),
     );
-    const superset = within(screen.getByLabelText('Superset of Dumbbell Bench Press and Lat Pulldown'));
-    const swapped = within(await superset.findByLabelText('Dumbbell Bench Press card'));
+    const swapped = within(await screen.findByLabelText('Dumbbell Bench Press card'));
+    expect(screen.getByLabelText('Tiles of superset of Dumbbell Bench Press and Lat Pulldown')).toBeVisible();
     // Its tile is the Exercise swapped to.
     expect(tileNames()).toEqual(['Dumbbell Bench Press', 'Lat Pulldown']);
     expect(swapped.getByText('Instead of Bench Press')).toBeVisible();
@@ -848,12 +844,10 @@ describe('removing an exercise', () => {
     await removeExercise('Bench Press');
 
     expect(await exerciseCard('Lat Pulldown')).toBeTruthy();
-    expect(screen.queryByLabelText(/^Superset of/)).toBeNull();
     expect(screen.queryByLabelText(/^Tiles of superset/)).toBeNull();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
-    expect(await screen.findByLabelText('Superset of Bench Press and Lat Pulldown')).toBeVisible();
-    expect(screen.getByLabelText('Tiles of superset of Bench Press and Lat Pulldown')).toBeVisible();
+    expect(await screen.findByLabelText('Tiles of superset of Bench Press and Lat Pulldown')).toBeVisible();
 
     await removeExercise('Bench Press');
     await finishWorkout();
@@ -892,7 +886,7 @@ describe('removing an exercise', () => {
 
     await removeExercise('Deadlift');
 
-    expect(screen.getByLabelText('Superset of Bench Press and Lat Pulldown')).toBeVisible();
+    expect(screen.getByLabelText('Tiles of superset of Bench Press and Lat Pulldown')).toBeVisible();
   });
 
   it('sends an exercise removal waiting out its Undo window before ungrouping its superset', async () => {
@@ -907,7 +901,7 @@ describe('removing an exercise', () => {
 
     await pressChip('Bench Press', 'Ungroup');
 
-    await waitFor(() => expect(screen.queryByLabelText(/^Superset of/)).toBeNull());
+    await waitFor(() => expect(screen.queryByLabelText(/^Tiles of superset/)).toBeNull());
     expect(session.exercises.map((e) => e.exerciseId)).toEqual(
       ['Bench Press', 'Lat Pulldown'].map((name) => fakeApi.exerciseNamed(name).id),
     );

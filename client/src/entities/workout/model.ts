@@ -886,19 +886,6 @@ export function sessionBlocks(exercises: SessionExercise[]): SessionBlock[] {
   return blocks;
 }
 
-/**
- * Where the User is in a Superset: the next exercise to do, with no rest
- * before it, or a finished round, after which they rest.
- */
-export type SupersetProgress = { kind: 'next'; exercise: SessionExercise } | { kind: 'roundDone'; round: number };
-
-export function supersetProgress(exercises: SessionExercise[]): SupersetProgress {
-  const fewest = Math.min(...exercises.map((e) => e.sets.length));
-  const behind = exercises.find((e) => e.sets.length === fewest)!;
-  const roundDone = fewest > 0 && exercises.every((e) => e.sets.length === fewest);
-  return roundDone ? { kind: 'roundDone', round: fewest } : { kind: 'next', exercise: behind };
-}
-
 /** "1:01:05": a clock of the time gone by, in hours, minutes and seconds. */
 export function formatElapsed(seconds: number): string {
   const two = (n: number) => String(n).padStart(2, '0');
