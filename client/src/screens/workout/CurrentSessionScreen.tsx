@@ -1,12 +1,11 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Text } from 'react-native';
 
 import { useAuth } from '@/entities/auth';
 import {
   discardSession,
   finishSession,
-  blockExercises,
   getCurrentSession,
   hasRowsToDo,
   hasSets,
@@ -18,15 +17,13 @@ import {
   withoutSet,
   type PersonalRecord,
   type Session,
-  type SessionBlock,
   type SessionExercise,
 } from '@/entities/workout';
 import { usePendingSetDeletion } from '@/features/delete-set';
 import { usePendingExerciseRemoval } from '@/features/remove-exercise';
-import { CreateSupersetForm } from '@/features/superset';
 import { errorMessage } from '@/shared/api';
-import { Button, makeStyles, Screen, Spinner, UndoBar } from '@/shared/ui';
-import { SessionExerciseCard, SupersetBlock, useRowsToDo } from '@/widgets/session-exercise-card';
+import { makeStyles, Screen, Spinner, UndoBar } from '@/shared/ui';
+import { SessionExerciseCard, useRowsToDo } from '@/widgets/session-exercise-card';
 import { SessionExerciseStrip } from '@/widgets/session-exercise-strip';
 
 import { SessionHeader } from './SessionHeader';
@@ -34,8 +31,8 @@ import { SessionHeader } from './SessionHeader';
 /**
  * The workout in progress, one Session exercise at a time: a header of
  * session-wide controls (see SessionHeader), a strip of tiles to switch
- * between them and add another, and the one shown with its Sets (and its
- * Superset, if in one).
+ * between them and add another (its tiles mark each Superset), and the one
+ * shown with its chips and Sets.
  */
 export function CurrentSessionScreen() {
   const styles = useStyles();
@@ -44,7 +41,6 @@ export function CurrentSessionScreen() {
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
-  const [groupingSuperset, setGroupingSuperset] = useState(false);
   // Which Session exercise is shown; see takeLoaded, removeExercise and undoRemoval.
   const [shownId, setShownId] = useState<string | null>(null);
   // The Session exercises as last loaded, to tell one just added; null until the first load.
@@ -183,11 +179,10 @@ export function CurrentSessionScreen() {
     }
     removal.remove(sessionExerciseId);
   }
-  // Grouping sends a pending removal first: the server still has the exercise
-  // left alone in a Superset of two in it until then.
-  function groupSuperset() {
-    void removal.flush();
-    setGroupingSuperset(true);
+  // Grouping or ungrouping sends a pending removal first: the server still has
+  // the exercise in its Superset until then.
+  function beforeSupersetChange() {
+    return removal.flush();
   }
   // Replacing sends what's pending first, as the request starts from what
   // the server has; if that fails, its error shows here and the picker doesn't open.
@@ -216,7 +211,6 @@ export function CurrentSessionScreen() {
   const blocks = sessionBlocks(shown.exercises);
   const ordered = inBlockOrder(shown.exercises);
   const shownExercise = ordered.find((e) => e.id === shownId) ?? ordered[0] ?? null;
-  const shownBlock = blocks.find((block) => blockExercises(block).some((e) => e.id === shownExercise?.id));
   const plannedRests = shown.exercises.flatMap((e) => (e.target?.restSeconds ? [e.target.restSeconds] : []));
 
   return (
@@ -250,31 +244,19 @@ export function CurrentSessionScreen() {
         onAdd={() => router.push({ pathname: '/workout/add-exercise', params: { sessionId: session.id } })}
       />
       {shownExercise ? (
-        <ShownExercise
+        <SessionExerciseCard
           key={shownExercise.id}
           sessionId={session.id}
           sessionExercise={shownExercise}
-          superset={shownBlock?.kind === 'superset' ? shownBlock : null}
+          freeToGroup={ungrouped.filter((e) => e.id !== shownExercise.id)}
           onChange={changed}
+          onBeforeSupersetChange={beforeSupersetChange}
           onDeleteSet={deleteSet}
           onRemove={removeExercise}
           onReplace={replaceExercise}
           rows={rowsToDo.rowsOf(shownExercise)}
           onRowsChange={(change) => rowsToDo.change(shownExercise, change)}
         />
-      ) : null}
-      {groupingSuperset ? (
-        <CreateSupersetForm
-          sessionId={session.id}
-          exercises={ungrouped}
-          onCreated={(updated) => {
-            setSession(updated);
-            setGroupingSuperset(false);
-          }}
-          onCancel={() => setGroupingSuperset(false)}
-        />
-      ) : ungrouped.length >= 2 ? (
-        <Button label="Create superset" variant="secondary" onPress={groupSuperset} />
       ) : null}
       {error ? (
         <Text accessibilityRole="alert" style={styles.error}>
@@ -286,26 +268,6 @@ export function CurrentSessionScreen() {
 }
 
 const RECORD_BANNER_MS = 6000;
-
-type ShownExerciseProps = ComponentProps<typeof SessionExerciseCard> & {
-  /** The Superset it's in, if any. */
-  superset: Extract<SessionBlock, { kind: 'superset' }> | null;
-};
-
-/** The Session exercise shown: its card, inside its Superset if it's in one. */
-function ShownExercise({ superset, ...card }: ShownExerciseProps) {
-  if (!superset) return <SessionExerciseCard {...card} />;
-  return (
-    <SupersetBlock
-      sessionId={card.sessionId}
-      supersetId={superset.supersetId}
-      exercises={superset.exercises}
-      onChange={card.onChange}
-    >
-      <SessionExerciseCard {...card} />
-    </SupersetBlock>
-  );
-}
 
 const useStyles = makeStyles((colors) => ({
   error: { color: colors.danger, fontSize: 15 },

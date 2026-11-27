@@ -3,7 +3,16 @@ import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-rout
 import { http, HttpResponse } from 'msw';
 import { Alert } from 'react-native';
 
-import { openExerciseMenuItem, openSwapSheet, removeExercise, swap } from './support/exercise-menu';
+import {
+  chipNames,
+  groupAsSuperset,
+  openExerciseMenuItem,
+  openNoteSheet,
+  openSwapSheet,
+  pressChip,
+  removeExercise,
+  swap,
+} from './support/exercise-chips';
 import { fakeApi, server } from './support/fake-api';
 import { openFinishedWorkout } from './support/finished-workout';
 import { findHeaderTitle } from './support/native-header';
@@ -84,7 +93,7 @@ describe('freeform workout', () => {
     await fireEvent.changeText(card.getByLabelText('Set 1 weight (kg)'), '32,5');
     await fireEvent.changeText(card.getByLabelText('Set 1 reps'), '10');
     // Notes stay out of the way until asked for.
-    expect(card.queryByLabelText('Exercise note')).toBeNull();
+    expect(screen.queryByLabelText('Exercise note')).toBeNull();
     await fireEvent.press(card.getByRole('button', { name: 'Log set 1' }));
 
     await waitFor(() => expect(loggedSets(card)).toEqual(['32.5 kg × 10']));
@@ -104,10 +113,10 @@ describe('freeform workout', () => {
     await fireEvent.press(editing.getByRole('button', { name: 'Save' }));
     expect(await card.findByText('Slow negatives')).toBeVisible();
 
-    await fireEvent.press(card.getByRole('button', { name: 'Add exercise note' }));
-    await fireEvent.changeText(card.getByLabelText('Exercise note'), 'Bench 3 was free');
-    await fireEvent.press(card.getByRole('button', { name: 'Save note' }));
-    expect(await card.findByText('Note saved.')).toBeVisible();
+    const noteSheet = await openNoteSheet('Dumbbell Bench Press');
+    await fireEvent.changeText(noteSheet.getByLabelText('Exercise note'), 'Bench 3 was free');
+    await fireEvent.press(noteSheet.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByLabelText('Dumbbell Bench Press note')).toBeNull());
 
     await finishWorkout();
 
@@ -143,8 +152,10 @@ describe('freeform workout', () => {
 
     await findHeaderTitle('Current workout');
     expect(loggedSets(await exerciseCard('Deadlift'))).toEqual(['140 kg × 3']);
-    // A note already written is shown open.
-    expect((await exerciseCard('Deadlift')).getByLabelText('Exercise note')).toHaveDisplayValue('Mixed grip');
+    // A note already written is there to read in its sheet.
+    const noteSheet = await openNoteSheet('Deadlift');
+    expect(noteSheet.getByLabelText('Exercise note')).toHaveDisplayValue('Mixed grip');
+    await fireEvent.press(noteSheet.getByRole('button', { name: 'Close' }));
     expect(await endWorkoutChoices()).toContain('Finish workout');
   });
 
@@ -372,7 +383,7 @@ describe('freeform workout', () => {
     expect(within(card.getByRole('button', { name: 'Set 1 RPE' })).getByText('–')).toBeVisible();
   });
 
-  it('groups exercises into a superset, logged back to back with rest after the round', async () => {
+  it('groups exercises into a superset from the Superset chip, logs their Sets in it, and ungroups it', async () => {
     const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
     const session = fakeApi.addSession(account.id);
     fakeApi.addSessionExercise(session, 'Bench Press');
@@ -380,36 +391,34 @@ describe('freeform workout', () => {
     fakeApi.addSessionExercise(session, 'Lat Pulldown');
     await resumeWorkout(account.id);
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Create superset' }));
-    const form = within(screen.getByLabelText('New superset'));
-    await fireEvent.press(form.getByRole('checkbox', { name: 'Bench Press' }));
-    // One exercise isn't a superset.
-    expect(form.getByRole('button', { name: 'Group as superset' })).toBeDisabled();
-    await fireEvent.press(form.getByRole('checkbox', { name: 'Lat Pulldown' }));
-    await fireEvent.press(form.getByRole('button', { name: 'Group as superset' }));
+    await pressChip('Bench Press', 'Superset');
+    const picker = within(await screen.findByLabelText('Superset with Bench Press'));
+    // Picked from the other exercises; one alone isn't a superset.
+    expect(picker.getAllByRole('checkbox').map((c) => c.props.accessibilityLabel)).toEqual(['Plank', 'Lat Pulldown']);
+    expect(picker.getByRole('button', { name: 'Group as superset' })).toBeDisabled();
+    await fireEvent.press(picker.getByRole('checkbox', { name: 'Lat Pulldown' }));
+    await fireEvent.press(picker.getByRole('button', { name: 'Group as superset' }));
 
     await screen.findByLabelText('Tiles of superset of Bench Press and Lat Pulldown');
+    expect(screen.queryByLabelText('Superset with Bench Press')).toBeNull();
     // Its exercises' tiles are together, ahead of the one added between them.
     expect(tileNames()).toEqual(['Bench Press', 'Lat Pulldown', 'Plank']);
     const tiles = within(screen.getByLabelText('Tiles of superset of Bench Press and Lat Pulldown'));
     expect(tileNames(tiles)).toEqual(['Bench Press', 'Lat Pulldown']);
-    const superset = within(screen.getByLabelText('Superset of Bench Press and Lat Pulldown'));
-    expect(superset.getByText('Next: Bench Press')).toBeVisible();
+    // The tiles mark the superset; the exercise shown has no block around it.
+    expect(screen.queryByLabelText(/^Superset of/)).toBeNull();
 
     const bench = await exerciseCard('Bench Press');
     await fireEvent.changeText(bench.getByLabelText('Set 1 weight (kg)'), '80');
     await fireEvent.changeText(bench.getByLabelText('Set 1 reps'), '8');
     await fireEvent.press(bench.getByRole('button', { name: 'Log set 1' }));
-    // No rest between the exercises of a superset...
-    expect(await superset.findByText('Next: Lat Pulldown, no rest')).toBeVisible();
+    await waitFor(() => expect(loggedSets(bench)).toEqual(['80 kg × 8']));
 
     const pulldown = await exerciseCard('Lat Pulldown');
-    const pulldownSuperset = within(screen.getByLabelText('Superset of Bench Press and Lat Pulldown'));
     await fireEvent.changeText(pulldown.getByLabelText('Set 1 weight (kg)'), '60');
     await fireEvent.changeText(pulldown.getByLabelText('Set 1 reps'), '10');
     await fireEvent.press(pulldown.getByRole('button', { name: 'Log set 1' }));
-    // ...only after the whole round.
-    expect(await pulldownSuperset.findByText('Round 1 done. Rest now.')).toBeVisible();
+    await waitFor(() => expect(loggedSets(pulldown)).toEqual(['60 kg × 10']));
 
     const [saved] = fakeApi.sessions(account.id);
     const [benchPress, plank, latPulldown] = saved.exercises;
@@ -419,10 +428,11 @@ describe('freeform workout', () => {
     expect(benchPress.sets).toMatchObject([{ weight: 80, reps: 8, supersetId: benchPress.supersetId }]);
     expect(latPulldown.sets).toMatchObject([{ weight: 60, reps: 10, supersetId: benchPress.supersetId }]);
 
-    await fireEvent.press(pulldownSuperset.getByRole('button', { name: 'Ungroup' }));
-    await waitFor(() => expect(screen.queryByLabelText(/^Superset of/)).toBeNull());
-    expect(screen.queryByLabelText(/^Tiles of superset/)).toBeNull();
+    expect(chipNames('Lat Pulldown')).toEqual(['Note', 'Ungroup', 'More']);
+    await pressChip('Lat Pulldown', 'Ungroup');
+    await waitFor(() => expect(screen.queryByLabelText(/^Tiles of superset/)).toBeNull());
     expect(fakeApi.sessions(account.id)[0].exercises.every((e) => e.supersetId === null)).toBe(true);
+    expect(chipNames('Lat Pulldown')).toEqual(['Note', 'Superset', 'More']);
   });
 
   it("swaps an exercise in a superset from its card's menu", async () => {
@@ -442,8 +452,8 @@ describe('freeform workout', () => {
         name: 'Swap to Dumbbell Bench Press',
       }),
     );
-    const superset = within(screen.getByLabelText('Superset of Dumbbell Bench Press and Lat Pulldown'));
-    const swapped = within(await superset.findByLabelText('Dumbbell Bench Press card'));
+    const swapped = within(await screen.findByLabelText('Dumbbell Bench Press card'));
+    expect(screen.getByLabelText('Tiles of superset of Dumbbell Bench Press and Lat Pulldown')).toBeVisible();
     // Its tile is the Exercise swapped to.
     expect(tileNames()).toEqual(['Dumbbell Bench Press', 'Lat Pulldown']);
     expect(swapped.getByText('Instead of Bench Press')).toBeVisible();
@@ -834,12 +844,10 @@ describe('removing an exercise', () => {
     await removeExercise('Bench Press');
 
     expect(await exerciseCard('Lat Pulldown')).toBeTruthy();
-    expect(screen.queryByLabelText(/^Superset of/)).toBeNull();
     expect(screen.queryByLabelText(/^Tiles of superset/)).toBeNull();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
-    expect(await screen.findByLabelText('Superset of Bench Press and Lat Pulldown')).toBeVisible();
-    expect(screen.getByLabelText('Tiles of superset of Bench Press and Lat Pulldown')).toBeVisible();
+    expect(await screen.findByLabelText('Tiles of superset of Bench Press and Lat Pulldown')).toBeVisible();
 
     await removeExercise('Bench Press');
     await finishWorkout();
@@ -861,11 +869,7 @@ describe('removing an exercise', () => {
     await resumeWorkout(account.id);
 
     await removeExercise('Bench Press');
-    await fireEvent.press(screen.getByRole('button', { name: 'Create superset' }));
-    const form = within(screen.getByLabelText('New superset'));
-    await fireEvent.press(form.getByRole('checkbox', { name: 'Lat Pulldown' }));
-    await fireEvent.press(form.getByRole('checkbox', { name: 'Plank' }));
-    await fireEvent.press(form.getByRole('button', { name: 'Group as superset' }));
+    await groupAsSuperset('Lat Pulldown', ['Plank']);
 
     expect(await screen.findByLabelText('Tiles of superset of Lat Pulldown and Plank')).toBeVisible();
     expect(screen.queryByRole('alert')).toBeNull();
@@ -882,7 +886,25 @@ describe('removing an exercise', () => {
 
     await removeExercise('Deadlift');
 
-    expect(screen.getByLabelText('Superset of Bench Press and Lat Pulldown')).toBeVisible();
+    expect(screen.getByLabelText('Tiles of superset of Bench Press and Lat Pulldown')).toBeVisible();
+  });
+
+  it('sends an exercise removal waiting out its Undo window before ungrouping its superset', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    const members = ['Bench Press', 'Deadlift', 'Lat Pulldown'].map((name) =>
+      fakeApi.addSessionExercise(session, name),
+    );
+    members.forEach((e) => (e.supersetId = 'superset-1'));
+    await resumeWorkout(account.id);
+    await removeExercise('Deadlift');
+
+    await pressChip('Bench Press', 'Ungroup');
+
+    await waitFor(() => expect(screen.queryByLabelText(/^Tiles of superset/)).toBeNull());
+    expect(session.exercises.map((e) => e.exerciseId)).toEqual(
+      ['Bench Press', 'Lat Pulldown'].map((name) => fakeApi.exerciseNamed(name).id),
+    );
   });
 });
 
@@ -2142,5 +2164,77 @@ describe("a tile's bar", () => {
     await logSet(card, 2);
 
     expect(doneTiles()).toEqual(['Back Squat']);
+  });
+});
+
+describe("a Session exercise's chips", () => {
+  it('shows Swap, Note, Superset and ⋯ in that order, in a row that scrolls sideways', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    const bench = fakeApi.addSessionExercise(session, 'Bench Press');
+    bench.plannedExerciseId = bench.exerciseId;
+    bench.substituteIds = [fakeApi.exerciseNamed('Dumbbell Bench Press').id];
+    fakeApi.addSessionExercise(session, 'Plank');
+    await resumeWorkout(account.id);
+
+    await showExercise('Bench Press');
+
+    expect(chipNames('Bench Press')).toEqual(['Swap', 'Note', 'Superset', 'More']);
+    expect(screen.getByLabelText('Bench Press actions')).toHaveProp('horizontal', true);
+    // They replace the card's old ⋯ menu, its inline note and the session-wide Create superset.
+    expect(screen.queryByRole('button', { name: 'Bench Press options' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add exercise note' })).toBeNull();
+    expect(screen.queryByLabelText('Exercise note')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Create superset' })).toBeNull();
+  });
+});
+
+describe('the Swap chip', () => {
+  it('shows only for an exercise whose Exercise slot has Substitutes', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    fakeApi.addSessionExercise(session, 'Plank');
+    const bench = fakeApi.addSessionExercise(session, 'Bench Press');
+    bench.plannedExerciseId = bench.exerciseId;
+    bench.substituteIds = [fakeApi.exerciseNamed('Dumbbell Bench Press').id];
+    await resumeWorkout(account.id);
+
+    await showExercise('Plank');
+    expect(chipNames('Plank')).not.toContain('Swap');
+
+    const card = await swap('Bench Press', 'Dumbbell Bench Press');
+    expect(card.getByText('Instead of Bench Press')).toBeVisible();
+    expect(chipNames('Dumbbell Bench Press')[0]).toBe('Swap');
+  });
+});
+
+describe('the Note chip', () => {
+  it('opens a sheet where Save stores the note and ✕ closes without saving', async () => {
+    const account = fakeApi.addAccount('lifter@example.com', 'correct-horse-battery', 'kg');
+    const session = fakeApi.addSession(account.id);
+    const bench = fakeApi.addSessionExercise(session, 'Bench Press');
+    await resumeWorkout(account.id);
+    // Alone in the workout, it has nothing to be a Superset with.
+    expect(chipNames('Bench Press')).toEqual(['Note', 'More']);
+
+    let sheet = await openNoteSheet('Bench Press');
+    expect(sheet.getByRole('header', { name: 'Note' })).toBeVisible();
+    expect(sheet.getByText('0 / 500')).toBeVisible();
+    await fireEvent.changeText(sheet.getByLabelText('Exercise note'), 'Bench 3 was free');
+    expect(sheet.getByText('16 / 500')).toBeVisible();
+    await fireEvent.press(sheet.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByLabelText('Bench Press note')).toBeNull());
+    expect(bench.note).toBe('Bench 3 was free');
+
+    sheet = await openNoteSheet('Bench Press');
+    expect(sheet.getByLabelText('Exercise note')).toHaveDisplayValue('Bench 3 was free');
+    await fireEvent.changeText(sheet.getByLabelText('Exercise note'), 'Never mind');
+    await fireEvent.press(sheet.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByLabelText('Bench Press note')).toBeNull();
+    expect(bench.note).toBe('Bench 3 was free');
+
+    // What was typed and not saved is gone the next time.
+    sheet = await openNoteSheet('Bench Press');
+    expect(sheet.getByLabelText('Exercise note')).toHaveDisplayValue('Bench 3 was free');
   });
 });

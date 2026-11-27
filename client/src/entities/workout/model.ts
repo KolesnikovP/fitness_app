@@ -405,6 +405,9 @@ export type ExerciseBest = { exerciseId: string; name: string; best: BestSet };
 /** The most characters a Session name may have. */
 export const MAX_SESSION_NAME_CHARS = 60;
 
+/** The most characters a Session exercise's note may have, counted by code point as the API counts. */
+export const MAX_EXERCISE_NOTE_CHARS = 500;
+
 /** "1 workout", "3 sets": count with a noun, plural unless it's 1. */
 export function countOf(n: number, noun: string): string {
   return `${n} ${noun}${n === 1 ? '' : 's'}`;
@@ -881,19 +884,6 @@ export function sessionBlocks(exercises: SessionExercise[]): SessionBlock[] {
     }
   }
   return blocks;
-}
-
-/**
- * Where the User is in a Superset: the next exercise to do, with no rest
- * before it, or a finished round, after which they rest.
- */
-export type SupersetProgress = { kind: 'next'; exercise: SessionExercise } | { kind: 'roundDone'; round: number };
-
-export function supersetProgress(exercises: SessionExercise[]): SupersetProgress {
-  const fewest = Math.min(...exercises.map((e) => e.sets.length));
-  const behind = exercises.find((e) => e.sets.length === fewest)!;
-  const roundDone = fewest > 0 && exercises.every((e) => e.sets.length === fewest);
-  return roundDone ? { kind: 'roundDone', round: fewest } : { kind: 'next', exercise: behind };
 }
 
 /** "1:01:05": a clock of the time gone by, in hours, minutes and seconds. */

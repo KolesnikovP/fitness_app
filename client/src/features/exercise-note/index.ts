@@ -1,1 +1,1 @@
-export { ExerciseNoteField } from './ExerciseNoteField';
+export { ExerciseNoteSheet } from './ExerciseNoteSheet';
